@@ -69,6 +69,7 @@ export function VoucherForm({
           />
         </div>
       </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="recipientName">Recipient name</Label>
@@ -76,33 +77,34 @@ export function VoucherForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="recipientEmail">Recipient email</Label>
-          <Input
-            id="recipientEmail"
-            name="recipientEmail"
-            type="email"
-            required
-          />
+          <Input id="recipientEmail" name="recipientEmail" type="email" required />
         </div>
       </div>
+
       <div className="space-y-1.5">
         <Label htmlFor="message">Message (optional)</Label>
         <Textarea id="message" name="message" placeholder="Happy birthday!" />
       </div>
+
       <p className="text-xs text-muted-foreground">
-        Online payment is not yet enabled — your voucher will be emailed and
-        marked active immediately, with payment to be confirmed in clinic
-        within 7 days.
+        Online payment is not yet enabled. We&apos;ll email a confirmation
+        to the recipient and the voucher will be activated once payment is
+        settled in clinic — please pop in within 7 days. Vouchers are
+        single-use and applied in full at booking.
       </p>
+
       {result?.error && (
         <p className="text-sm text-destructive">{result.error}</p>
       )}
-      {result?.ok && result.code && (
+      {result?.ok && (
         <p className="text-sm text-emerald-600">
-          Voucher created — code <span className="font-mono">{result.code}</span> emailed to recipient.
+          Voucher reserved — confirmation emailed to the recipient. We&apos;ll
+          activate it once payment is confirmed in clinic.
         </p>
       )}
+
       <Button type="submit" disabled={pending}>
-        {pending ? "Creating…" : "Purchase voucher"}
+        {pending ? "Reserving…" : "Reserve voucher"}
       </Button>
     </form>
   );
