@@ -1,34 +1,3 @@
-﻿import Link from "next/link";
-import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { StaffShell } from "@/components/staff-shell";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
-import { ClientsSearch } from "./clients-search";
-
-export const metadata = { title: "Clients" };
-
-export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ q?: string; sort?: string }>; }) {
-  const session = (await auth())!;
-  const sp = await searchParams;
-  const q = sp.q?.trim();
-  const sort = sp.sort ?? "name";
-
-  const tokens = (q ?? "").split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
-
-  const where = {
-    role: "CLIENT" as const,
-    ...(tokens.length > 0 ? {
-      AND: tokens.map((t) => {
-        const digits = t.replace(/[^\d+]/g, "");
-        return {
-          OR: [
-            { name: { contains: t } },
-            { email: { contains: t } },
-            { phone: { contains: digits || t } },
-            { extern
-@'
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
