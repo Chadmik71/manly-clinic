@@ -63,19 +63,52 @@ export function StaffShell({ user, topbar, children }: { user: { name: string; e
   );
 }
 
+const SYDNEY_TZ = "Australia/Sydney";
+
+// Get YYYY-MM-DD string in Sydney timezone for any Date instant
+function sydneyDateStr(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: SYDNEY_TZ }).format(d);
+}
+
+// Shift a YYYY-MM-DD string by N days (string-based, timezone-safe)
+function shiftDateStr(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const utc = new Date(Date.UTC(y, m - 1, d));
+  utc.setUTCDate(utc.getUTCDate() + days);
+  return utc.toISOString().slice(0, 10);
+}
+
 export function DateNav({ date, basePath, extraQuery }: { date: Date; basePath: string; extraQuery?: string; }) {
-  const day = new Date(date);
-  const yest = new Date(day); yest.setDate(day.getDate() - 1);
-  const tom = new Date(day); tom.setDate(day.getDate() + 1);
-  const fmt = (d: Date) => d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const todayStr = sydneyDateStr(date);
+  const yestStr = shiftDateStr(todayStr, -1);
+  const tomStr = shiftDateStr(todayStr, 1);
+  const todaySydney = sydneyDateStr(new Date());
+
+  // Display the date — render it as Sydney-local
+  const fmtParts = new Intl.DateTimeFormat("en-AU", {
+    timeZone: SYDNEY_TZ,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+
   const q = extraQuery ? `&${extraQuery}` : "";
   return (
     <div className="flex items-center gap-2">
-      <Link href={`${basePath}?date=${iso(yest)}${q}`} className="grid h-7 w-7 place-items-center rounded-md hover:bg-accent text-muted-foreground" aria-label="Previous day"><ChevronLeft className="h-4 w-4" /></Link>
-      <span className="font-medium tabular-nums flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-muted-foreground" />{fmt(day)}</span>
-      <Link href={`${basePath}?date=${iso(tom)}${q}`} className="grid h-7 w-7 place-items-center rounded-md hover:bg-accent text-muted-foreground" aria-label="Next day"><ChevronRight className="h-4 w-4" /></Link>
-      <Link href={`${basePath}?date=${iso(new Date())}${q}`} className="ml-2 px-2 py-0.5 rounded-md border text-xs hover:bg-accent">Today</Link>
+      <Link href={`${basePath}?date=${yestStr}${q}`} className="grid h-7 w-7 place-items-center rounded-md hover:bg-accent text-muted-foreground" aria-label="Previous day">
+        <ChevronLeft className="h-4 w-4" />
+      </Link>
+      <span className="font-medium tabular-nums flex items-center gap-1.5">
+        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+        {fmtParts}
+      </span>
+      <Link href={`${basePath}?date=${tomStr}${q}`} className="grid h-7 w-7 place-items-center rounded-md hover:bg-accent text-muted-foreground" aria-label="Next day">
+        <ChevronRight className="h-4 w-4" />
+      </Link>
+      <Link href={`${basePath}?date=${todaySydney}${q}`} className="ml-2 px-2 py-0.5 rounded-md border text-xs hover:bg-accent">
+        Today
+      </Link>
     </div>
   );
 }
