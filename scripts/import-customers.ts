@@ -1,178 +1,120 @@
-// Import existing customer database from CSV.
-// Idempotent — uses externalId to upsert.
-//
-// Usage:
-//   npx tsx scripts/import-customers.ts "<path/to/customers.csv>"
-//
-// Phone rule: if phone matches /^4\d{8}$/ (9 digits starting with 4),
-// prepend "0" to make Australian-standard 04xxxxxxxx. Otherwise leave as-is
-// (some clients are international).
-import fs from "node:fs";
-import path from "node:path";
-import { parse } from "csv-parse/sync";
+/**
+ * Customer import script
+ * Run with:
+ *   set DATABASE_URL=postgresql://neondb_owner:npg_Zrs5BFnJ4Wpc@ep-misty-math-a79qizet-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require
+ *   npx tsx scripts/import-customers.ts
+ */
+
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { parse } from "csv-parse/sync";
+import * as fs from "fs";
+import * as path from "path";
 
 const db = new PrismaClient();
 
-type Row = {
-  ID: string;
-  "First Name": string;
-  "Last Name": string;
-  Email: string;
-  Phone: string;
-  Company: string;
-  Birthday: string;
-  Gender: string;
-  Notes: string;
-  "Number of Declined Bookings": string;
-  "Total Bookings": string;
-};
-
-function normalisePhone(raw: string): string | null {
-  if (!raw) return null;
-  const cleaned = raw.replace(/[\s()-]/g, "").trim();
-  if (!cleaned) return null;
-  // +61 → strip the country code and prepend 0 (avoid double-zero on
-  // malformed inputs like "+61 0412...").
-  if (cleaned.startsWith("+61")) {
-    const rest = cleaned.slice(3);
-    return rest.startsWith("0") ? rest : "0" + rest;
-  }
-  // 9 digits starting with 4 → prepend 0
-  if (/^4\d{8}$/.test(cleaned)) return "0" + cleaned;
-  return cleaned;
+function normalisePhone(raw: string): string {
+    if (!raw) return raw;
+    const cleaned = raw.replace(/[\s\-]/g, "");
+    if (/^\+614\d{8}$/.test(cleaned)) return "0" + cleaned.slice(3);
+    if (/^614\d{8}$/.test(cleaned)) return "0" + cleaned.slice(2);
+    return cleaned;
 }
 
 function buildName(first: string, last: string): string {
-  const f = (first ?? "").trim();
-  const l = (last ?? "").trim();
-  return [f, l].filter(Boolean).join(" ") || "(No name)";
+    const f = (first || "").trim();
+    const l = (last || "").trim();
+    if (f && l) return `${f} ${l}`;
+    return f || l || "Unknown";
 }
 
-function intOrZero(s: string): number {
-  const n = parseInt((s ?? "").trim(), 10);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
+function normaliseGender(g: string): string | null {
+    if (!g) return null;
+    const lower = g.toLowerCase();
+    if (lower === "male" || lower === "m") return "MALE";
+    if (lower === "female" || lower === "f") return "FEMALE";
+    return "OTHER";
 }
 
 async function main() {
-  const csvPath = process.argv[2];
-  if (!csvPath) {
-    console.error("Usage: npx tsx scripts/import-customers.ts <csv-path>");
-    process.exit(1);
-  }
-  const abs = path.resolve(csvPath);
-  if (!fs.existsSync(abs)) {
-    console.error(`File not found: ${abs}`);
-    process.exit(1);
+    const csvPath = path.join(process.cwd(), "prisma", "customers_export_2026_04_24_1047.csv");
+
+  if (!fs.existsSync(csvPath)) {
+        console.error(`CSV not found at ${csvPath}`);
+        process.exit(1);
   }
 
-  const buf = fs.readFileSync(abs);
-  const rows = parse(buf, {
-    columns: true,
-    skip_empty_lines: true,
-    trim: true,
-  }) as Row[];
+  const raw = fs.readFileSync(csvPath, "utf-8");
+    const rows = parse(raw, { columns: true, skip_empty_lines: true, trim: true }) as Record<string, string>[];
 
-  console.log(`Read ${rows.length} rows from ${path.basename(abs)}`);
+  console.log(`Found ${rows.length} customers to import...`);
 
-  const placeholderHash = await bcrypt.hash(
-    `imported-${Date.now()}-${Math.random()}`,
-    10,
-  );
+  let created = 0, updated = 0, skipped = 0, errors = 0;
 
-  let created = 0;
-  let updated = 0;
-  let skipped = 0;
-  let phoneFixed = 0;
-  let noEmail = 0;
+  for (const row of rows) {
+        try {
+                const externalId = row["ID"]?.trim();
+                if (!externalId) { skipped++; continue; }
 
-  for (const r of rows) {
-    const externalId = (r.ID ?? "").trim();
-    if (!externalId) {
-      skipped++;
-      continue;
-    }
-    const name = buildName(r["First Name"], r["Last Name"]);
-    const rawPhone = (r.Phone ?? "").trim();
-    const phone = normalisePhone(rawPhone);
-    const phoneWasFixed =
-      rawPhone && phone && phone !== rawPhone.replace(/\s+/g, "");
-    if (phoneWasFixed) phoneFixed++;
-    const visitCount = intOrZero(r["Total Bookings"]);
-    const noShowCount = intOrZero(r["Number of Declined Bookings"]);
-    const notes = (r.Notes ?? "").trim() || null;
+          const name = buildName(row["First Name"], row["Last Name"]);
+                const email = row["Email"]?.trim() || null;
+                const rawPhone = row["Phone"]?.trim() || null;
+                const phone = rawPhone ? normalisePhone(rawPhone) : null;
+                const birthday = row["Birthday"]?.trim() || null;
+                const dob = birthday ? new Date(birthday) : null;
+                const gender = normaliseGender(row["Gender"] || "");
+                const notes = row["Notes"]?.trim() || null;
+                const noShowCount = parseInt(row["Number of Declined Bookings"] || "0", 10);
+                const visitCount = parseInt(row["Total Bookings"] || "0", 10);
 
-    let email = (r.Email ?? "").trim().toLowerCase();
-    if (!email) {
-      // Synthetic placeholder so the row still imports. Client can later
-      // sign up with their real email; staff can merge if needed.
-      email = `imported-${externalId}@clinic.local`;
-      noEmail++;
-    }
+          const resolvedEmail = email && email.includes("@")
+                  ? email.toLowerCase()
+                    : `imported-${externalId}@manlyremedialthai.com.au`;
 
-    // Upsert by externalId (allows re-imports). If a User already exists with
-    // this email but different externalId, we still upsert by externalId
-    // (it's the source-of-truth identifier from the old system).
-    const existing = await db.user.findUnique({ where: { externalId } });
-    if (existing) {
-      // Only update email if the new email is real AND no other user holds it.
-      let newEmail: string | undefined;
-      if (!email.endsWith("@clinic.local") && email !== existing.email) {
-        const conflict = await db.user.findUnique({ where: { email } });
-        if (!conflict) newEmail = email;
-      }
-      await db.user.update({
-        where: { id: existing.id },
-        data: {
-          name,
-          phone,
-          visitCount,
-          noShowCount,
-          notes,
-          ...(newEmail ? { email: newEmail } : {}),
-        },
-      });
-      updated++;
-    } else {
-      // Avoid email collision with existing users (e.g. seeded admin)
-      const conflict = await db.user.findUnique({ where: { email } });
-      const finalEmail = conflict
-        ? `imported-${externalId}@clinic.local`
-        : email;
-      try {
-        await db.user.create({
-          data: {
-            externalId,
-            email: finalEmail,
-            passwordHash: placeholderHash,
-            name,
-            phone,
-            role: "CLIENT",
-            visitCount,
-            noShowCount,
-            notes,
-          },
-        });
-        created++;
-      } catch (e) {
-        console.error(`Skipped row ${externalId}:`, (e as Error).message);
-        skipped++;
-      }
-    }
+          const existing = await db.user.findUnique({ where: { externalId } });
+
+          if (existing) {
+                    await db.user.update({
+                                where: { externalId },
+                                data: { name, phone, visitCount, noShowCount, notes, dob: dob && !isNaN(dob.getTime()) ? dob : null, gender },
+                    });
+                    updated++;
+          } else {
+                    const emailExists = await db.user.findUnique({ where: { email: resolvedEmail } });
+                    if (emailExists) {
+                                await db.user.update({
+                                              where: { email: resolvedEmail },
+                                              data: { externalId, visitCount, noShowCount, notes, dob: dob && !isNaN(dob.getTime()) ? dob : null, gender, phone: phone ?? undefined },
+                                });
+                                updated++;
+                    } else {
+                                await db.user.create({
+                                              data: {
+                                                              email: resolvedEmail, name, phone, role: "CLIENT", externalId,
+                                                              visitCount, noShowCount, notes,
+                                                              dob: dob && !isNaN(dob.getTime()) ? dob : null,
+                                                              gender,
+                                                              passwordHash: "$2b$10$IMPORTED_PLACEHOLDER_CANNOT_LOGIN_DIRECTLY_XXXXXXXXXXX",
+                                              },
+                                });
+                                created++;
+                    }
+          }
+
+          if ((created + updated) % 100 === 0 && (created + updated) > 0)
+                    console.log(`  Progress: ${created} created, ${updated} updated, ${errors} errors`);
+
+        } catch (err: unknown) {
+                errors++;
+                console.error(`  Error on row ID ${row["ID"]}: ${err instanceof Error ? err.message : String(err)}`);
+        }
   }
 
-  console.log(
-    `Done. Created: ${created}, updated: ${updated}, skipped: ${skipped}.`,
-  );
-  console.log(
-    `Phone fixed (4xxxxxxxx → 04xxxxxxxx): ${phoneFixed}. No email on file (synthetic): ${noEmail}.`,
-  );
+  console.log("\n✅ Import complete!");
+    console.log(`   Created : ${created}`);
+    console.log(`   Updated : ${updated}`);
+    console.log(`   Skipped : ${skipped}`);
+    console.log(`   Errors  : ${errors}`);
+    console.log(`   Total   : ${rows.length}`);
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => db.$disconnect());
+main().catch((e) => { console.error(e); process.exit(1); }).finally(() => db.$disconnect());
