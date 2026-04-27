@@ -29,11 +29,12 @@ export default function VouchersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Purchase a voucher</CardTitle>
+          <CardTitle>Reserve a voucher</CardTitle>
           <CardDescription>
-            Choose an amount, enter the recipient&apos;s details, and we&apos;ll
-            email them a redemption code. Vouchers are valid for 12 months from
-            issue.
+            Choose an amount and the recipient&apos;s details. We&apos;ll
+            email them a confirmation; the voucher activates once payment
+            is confirmed in clinic. Vouchers are valid for 12 months from
+            activation.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -42,8 +43,8 @@ export default function VouchersPage() {
       </Card>
 
       <p className="text-sm text-muted-foreground mt-6">
-        Vouchers are redeemed at booking confirmation by entering the code.
-        Partial-balance vouchers can be reused until exhausted.
+        Vouchers are single-use and applied in full at booking confirmation.
+        Choose a treatment of equal or greater value to redeem.
       </p>
     </div>
   );
