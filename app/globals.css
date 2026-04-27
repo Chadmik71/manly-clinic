@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --primary: 178 78% 36%;        /* Receptioner-style teal */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 178 78% 92%;
+    --accent-foreground: 178 78% 25%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 20% 88%;
+    --input: 215 20% 88%;
+    --ring: 178 78% 40%;
+
+    /* Sidebar / app chrome */
+    --rail: 220 20% 96%;
+    --rail-foreground: 215 16% 35%;
+    --rail-active: 178 78% 36%;
+
+    /* Calendar gridlines */
+    --grid: 215 20% 92%;
+
+    /* Booking card pastels (light mode: bg / border / text) */
+    --bk-1-bg: 178 60% 92%; --bk-1-border: 178 60% 50%; --bk-1-text: 178 60% 22%;
+    --bk-2-bg: 210 60% 92%; --bk-2-border: 210 70% 55%; --bk-2-text: 210 70% 25%;
+    --bk-3-bg: 25  85% 92%; --bk-3-border: 25  80% 55%; --bk-3-text: 25  70% 25%;
+    --bk-4-bg: 280 50% 93%; --bk-4-border: 280 50% 60%; --bk-4-text: 280 50% 30%;
+    --bk-5-bg: 0   0%  93%; --bk-5-border: 215 16% 60%; --bk-5-text: 215 16% 30%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 96%;
+
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 96%;
+
+    --primary: 178 70% 48%;
+    --primary-foreground: 222 47% 8%;
+
+    --secondary: 217 33% 13%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 217 33% 13%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 16%;
+    --accent-foreground: 178 70% 75%;
+
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 178 70% 48%;
+
+    --rail: 222 47% 8%;
+    --rail-foreground: 215 20% 65%;
+    --rail-active: 178 70% 48%;
+
+    --grid: 217 33% 14%;
+
+    --bk-1-bg: 178 50% 18%; --bk-1-border: 178 60% 45%; --bk-1-text: 178 80% 80%;
+    --bk-2-bg: 210 40% 18%; --bk-2-border: 210 60% 55%; --bk-2-text: 210 80% 82%;
+    --bk-3-bg: 25  40% 18%; --bk-3-border: 25  70% 55%; --bk-3-text: 25  80% 80%;
+    --bk-4-bg: 280 30% 20%; --bk-4-border: 280 50% 60%; --bk-4-text: 280 70% 82%;
+    --bk-5-bg: 215 15% 18%; --bk-5-border: 215 16% 55%; --bk-5-text: 215 20% 80%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

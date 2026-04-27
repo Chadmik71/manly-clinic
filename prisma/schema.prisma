@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Auth ---
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  role          String    @default("CLIENT") // CLIENT | STAFF | ADMIN
+  emailVerified DateTime?
+  // Imported clients: counts taken at import time, plus an external id from
+  // the source system so re-imports don't duplicate.
+  externalId    String?   @unique
+  visitCount    Int       @default(0)
+  noShowCount   Int       @default(0)
+  notes         String?
+  // Patient demographics (clinical record)
+  dob           DateTime?
+  gender        String?   // MALE | FEMALE | OTHER | PREFER_NOT_TO_SAY
+  addressLine1  String?
+  suburb        String?
+  stateRegion   String?   // NSW | VIC | QLD | SA | WA | TAS | ACT | NT | other
+  postcode      String?
+  // GP / referring doctor
+  gpName        String?
+  gpClinic      String?
+  gpPhone       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  bookings        Booking[]        @relation("ClientBookings")
+  intakeForms     IntakeForm[]
+  consentRecords  ConsentRecord[]
+  auditLogs       AuditLog[]
+  therapist       Therapist?
+}
+
+// --- Clinic ---
+
+model Service {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  category    String // RELAXATION | THERAPEUTIC | SPECIALTY | ADD_ON
+  description String?
+  active      Boolean    @default(true)
+  healthFundEligible Boolean @default(false)
+  createdAt   DateTime   @default(now())
+  variants    ServiceVariant[]
+  bookings    Booking[]
+}
+
+model ServiceVariant {
+  id          String   @id @default(cuid())
+  serviceId   String
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  durationMin Int
+  priceCents  Int
+  bookings    Booking[]
+
+  @@unique([serviceId, durationMin])
+}
+
+model Therapist {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio           String?
+  qualifications String? // free text, e.g. "Cert IV Massage Therapy, AAMT member"
+  // Required on tax invoices for health-fund rebates
+  providerNumber String?
+  associationName String? // AAMT | MTAA | ATMS | MMA | other
+  active        Boolean  @default(true)
+  availability  Availability[]
+  bookings      Booking[]
+  timeOff       TimeOff[]
+}
+
+model Availability {
+  id          String     @id @default(cuid())
+  therapistId String
+  therapist   Therapist  @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int        // 0 = Sunday ... 6 = Saturday
+  startMin    Int        // minutes from midnight
+  endMin      Int
+
+  @@index([therapistId, dayOfWeek])
+}
+
+model TimeOff {
+  id          String     @id @default(cuid())
+  therapistId String
+  therapist   Therapist  @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  startsAt    DateTime
+  endsAt      DateTime
+  reason      String?
+}
+
+// --- Booking ---
+
+model Booking {
+  id              String    @id @default(cuid())
+  reference       String    @unique // human-friendly e.g. MNL-A4F2K
+  clientId        String
+  client          User      @relation("ClientBookings", fields: [clientId], references: [id])
+  serviceId       String
+  service         Service   @relation(fields: [serviceId], references: [id])
+  variantId       String
+  variant         ServiceVariant @relation(fields: [variantId], references: [id])
+  therapistId     String?
+  therapist       Therapist? @relation(fields: [therapistId], references: [id])
+  startsAt        DateTime
+  endsAt          DateTime
+  status          String    @default("CONFIRMED") // PENDING | CONFIRMED | CANCELLED | COMPLETED | NO_SHOW
+  priceCentsAtBooking Int
+  claimWithHealthFund Boolean @default(false)
+  notes           String?
+  isWalkIn        Boolean   @default(false)
+  cancelledAt     DateTime?
+  cancelReason    String?
+  cancellationFeeCents Int  @default(0)
+  paidCents       Int       @default(0)
+  paymentIntentId String?
+  voucherCode     String?
+  voucherAppliedCents Int   @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([startsAt])
+  @@index([clientId])
+  @@index([therapistId])
+}
+
+// --- Health intake (Privacy Act compliant) ---
+
+model IntakeForm {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Health information collected with explicit consent (APP 3)
+  // Free-text fields kept for flexibility / extra detail.
+  medicalConditions String?
+  medications       String?
+  allergies         String?
+  injuries          String?
+  // Structured medical-history checklist (JSON array of condition codes)
+  medicalHistory    String?
+  // Presenting complaint
+  painLocation      String?  // e.g. "lower back, right side"
+  painScale         Int?     // 0-10
+  painOnset         String?  // when it started, brief
+  painHistory       String?  // aggravating/relieving factors, prior treatment
+  treatmentGoals    String?
+  // Pregnancy
+  pregnancy         Boolean? @default(false)
+  pregnancyWeeks    Int?
+  // Emergency contact
+  emergencyContactName         String?
+  emergencyContactRelationship String?
+  emergencyContactPhone        String?
+  // Health-fund claim details (required when Booking.claimWithHealthFund = true)
+  healthFundName        String?
+  healthFundMemberNumber String?
+  reasonForTreatment    String?
+  // Consent tracking (APP 5 notification, APP 6 use)
+  consentToTreat    Boolean  @default(false)
+  consentToStore    Boolean  @default(false)
+  signedAt          DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model ConsentRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // PRIVACY_POLICY | MARKETING | HEALTH_INFO_STORAGE | TREATMENT
+  version     String
+  granted     Boolean
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+}
+
+// --- Audit (Privacy Act, Notifiable Data Breaches) ---
+
+model Voucher {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  amountCents     Int
+  balanceCents    Int
+  purchaserId     String?
+  recipientName   String
+  recipientEmail  String
+  message         String?
+  status          String   @default("ACTIVE") // ACTIVE | REDEEMED | EXPIRED | CANCELLED
+  expiresAt       DateTime?
+  paidCents       Int      @default(0)
+  paymentIntentId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([code])
+  @@index([recipientEmail])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      String   // LOGIN | VIEW_HEALTH_INFO | CREATE_BOOKING | etc.
+  resource    String?  // e.g. "Booking:abc123"
+  ipAddress   String?
+  userAgent   String?
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
