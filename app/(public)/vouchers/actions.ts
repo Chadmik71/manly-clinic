@@ -1,4 +1,5 @@
 "use server";
+
 import { z } from "zod";
 import { addMonths } from "date-fns";
 import { auth } from "@/lib/auth";
@@ -16,7 +17,7 @@ const schema = z.object({
 
 export async function purchaseVoucher(
   fd: FormData,
-): Promise<{ ok?: boolean; error?: string; code?: string }> {
+): Promise<{ ok?: boolean; error?: string }> {
   const session = await auth();
   const raw: Record<string, string> = {};
   fd.forEach((v, k) => {
@@ -27,9 +28,12 @@ export async function purchaseVoucher(
   const cents = parseInt(parsed.data.amountCents, 10);
   if (!Number.isFinite(cents) || cents < 2000)
     return { error: "Minimum voucher amount is $20." };
-  if (cents > 100000) return { error: "Maximum voucher amount is $1,000." };
+  if (cents > 100000)
+    return { error: "Maximum voucher amount is $1,000." };
 
-  // Generate unique code (retry on collision)
+  // Generate unique code (retry on collision). The code is held in the
+  // database but is NOT revealed to the recipient until staff activate
+  // the voucher after payment is confirmed in clinic.
   let code = generateVoucherCode();
   for (let i = 0; i < 5; i++) {
     const existing = await db.voucher.findUnique({ where: { code } });
@@ -47,7 +51,9 @@ export async function purchaseVoucher(
       recipientEmail: parsed.data.recipientEmail.toLowerCase(),
       message: parsed.data.message || null,
       expiresAt: addMonths(new Date(), 12),
-      status: "ACTIVE",
+      // Voucher is reserved but inert until staff confirm in-clinic
+      // payment and switch the status to ACTIVE.
+      status: "PENDING_PAYMENT",
     },
   });
 
@@ -55,17 +61,23 @@ export async function purchaseVoucher(
     userId: session?.user?.id ?? null,
     action: "PURCHASE_VOUCHER",
     resource: `Voucher:${v.id}`,
-    metadata: { amountCents: cents, recipient: parsed.data.recipientEmail },
+    metadata: {
+      amountCents: cents,
+      recipient: parsed.data.recipientEmail,
+      status: "PENDING_PAYMENT",
+    },
   });
 
-  // Email the recipient (best-effort)
+  // Email a "reservation received" notice. We deliberately do NOT include
+  // the redemption code at this stage — staff issue the code via a
+  // separate activation email once payment is confirmed.
   const apiKey = process.env.RESEND_API_KEY;
-  const subject = `You've received a $${(cents / 100).toFixed(0)} gift voucher`;
+  const subject = `Your $${(cents / 100).toFixed(0)} voucher is reserved`;
   const html = `<p>Hi ${parsed.data.recipientName},</p>
-<p>You&apos;ve received a <strong>$${(cents / 100).toFixed(2)}</strong> gift voucher to ${CLINIC.name}.</p>
-<p>Your code: <strong style="font-family:monospace;font-size:18px">${code}</strong></p>
-${parsed.data.message ? `<p>From the sender: <em>${parsed.data.message}</em></p>` : ""}
-<p>Redeem at <a href="${CLINIC.domain}/book">${CLINIC.domain}/book</a> by entering the code at booking confirmation. Valid for 12 months.</p>`;
+    <p>A <strong>$${(cents / 100).toFixed(2)}</strong> gift voucher to ${CLINIC.name} has been reserved for you.</p>
+    ${parsed.data.message ? `<p>From the sender: <em>${parsed.data.message}</em></p>` : ""}
+    <p>The voucher will be activated and your redemption code emailed once payment is confirmed in clinic. Please pop in within <strong>7 days</strong> of purchase to settle payment, otherwise the reservation will lapse.</p>
+    <p>Once activated the voucher is valid for 12 months and can be redeemed at <a href="${CLINIC.domain}/book">${CLINIC.domain}/book</a>.</p>`;
   if (apiKey) {
     try {
       await fetch("https://api.resend.com/emails", {
@@ -75,7 +87,9 @@ ${parsed.data.message ? `<p>From the sender: <em>${parsed.data.message}</em></p>
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          from: process.env.EMAIL_FROM ?? `bookings@${CLINIC.domain.replace(/^https?:\/\//, "")}`,
+          from:
+            process.env.EMAIL_FROM ??
+            `bookings@${CLINIC.domain.replace(/^https?:\/\//, "")}`,
           to: parsed.data.recipientEmail,
           subject,
           html,
@@ -85,8 +99,11 @@ ${parsed.data.message ? `<p>From the sender: <em>${parsed.data.message}</em></p>
       console.error("[voucher email]", e);
     }
   } else {
-    console.log("[voucher email:stub]", { to: parsed.data.recipientEmail, code });
+    console.log("[voucher email:stub]", {
+      to: parsed.data.recipientEmail,
+      status: "PENDING_PAYMENT",
+    });
   }
 
-  return { ok: true, code };
+  return { ok: true };
 }
