@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { addMinutes, format } from "date-fns";
+import { addMinutes } from "date-fns";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
@@ -13,6 +13,21 @@ import {
 import { formatPrice, formatDuration } from "@/lib/utils";
 import { ConfirmForm } from "./confirm-form";
 import { createBooking } from "./actions";
+
+// Sydney-aware formatters (Vercel runtime is UTC, clinic is Australia/Sydney).
+const SYD_DATE = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+const SYD_TIME = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
 
 function parseHistoryJson(s: string | null): string[] {
   if (!s) return [];
@@ -50,7 +65,6 @@ export default async function ConfirmPage({
   }>;
 }) {
   const sp = await searchParams;
-
   if (!sp.service || !sp.variant || !sp.starts) redirect("/book");
 
   const service = await db.service.findUnique({
@@ -108,6 +122,7 @@ export default async function ConfirmPage({
         ← Change time
       </Link>
       <h1 className="text-3xl font-bold mt-2 mb-6">Confirm your booking</h1>
+
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>{service.name}</CardTitle>
@@ -119,14 +134,12 @@ export default async function ConfirmPage({
         <CardContent className="grid gap-2 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Date</span>
-            <span className="font-medium">
-              {format(starts, "EEEE d MMMM yyyy")}
-            </span>
+            <span className="font-medium">{SYD_DATE.format(starts)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Time</span>
             <span className="font-medium">
-              {format(starts, "h:mm a")} – {format(ends, "h:mm a")}
+              {SYD_TIME.format(starts)} – {SYD_TIME.format(ends)} (Sydney)
             </span>
           </div>
           {bookedUnderName ? (
