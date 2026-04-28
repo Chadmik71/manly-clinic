@@ -14,6 +14,7 @@ import { notifyBookingConfirmed } from "@/lib/notify";
 import { headers } from "next/headers";
 import { normalisePhone, isAuMobile } from "@/lib/phone";
 import { findOrCreateUserForGuest } from "@/lib/user-merge";
+import { applyHolidaySurcharge } from "@/lib/holidays";
 
 const schema = z.object({
   serviceId: z.string().min(1),
@@ -185,6 +186,7 @@ export async function createBooking(
   if (isNaN(startsAt.getTime()) || startsAt < new Date())
     return { error: "Selected time is no longer valid." };
   const endsAt = addMinutes(startsAt, variant.durationMin);
+  const pricing = applyHolidaySurcharge(variant.priceCents, startsAt);
 
   // Clinic-wide policy: bookings must finish by 8:00 pm and start no
   // earlier than 9:00 am, regardless of per-therapist availability.
@@ -344,7 +346,7 @@ export async function createBooking(
     if (v.balanceCents <= 0)
       return { error: "Voucher has no remaining balance." };
     voucherCode = v.code;
-    voucherAppliedCents = Math.min(v.balanceCents, variant.priceCents);
+    voucherAppliedCents = Math.min(v.balanceCents, pricing.finalPriceCents);
   }
 
   const reference = bookingReference();
@@ -358,7 +360,7 @@ export async function createBooking(
       startsAt,
       endsAt,
       status: "CONFIRMED",
-      priceCentsAtBooking: variant.priceCents,
+      priceCentsAtBooking: pricing.finalPriceCents,
       claimWithHealthFund,
       voucherCode,
       voucherAppliedCents,
@@ -398,6 +400,8 @@ export async function createBooking(
       reference,
       service: variant.service.name,
       guestCheckout: !session?.user,
+      holidayName: pricing.holidayName,
+      holidaySurchargeCents: pricing.surchargeCents,
     },
   });
 
