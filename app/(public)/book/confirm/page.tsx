@@ -28,6 +28,18 @@ function parseHistoryJson(s: string | null): string[] {
 
 export const metadata = { title: "Confirm booking" };
 
+const EMPTY_USER_DEFAULTS = {
+  dob: "",
+  gender: "",
+  addressLine1: "",
+  suburb: "",
+  stateRegion: "",
+  postcode: "",
+  gpName: "",
+  gpClinic: "",
+  gpPhone: "",
+};
+
 export default async function ConfirmPage({
   searchParams,
 }: {
@@ -38,11 +50,6 @@ export default async function ConfirmPage({
   }>;
 }) {
   const sp = await searchParams;
-  const session = await auth();
-  if (!session?.user) {
-    const ret = `/book/confirm?service=${sp.service}&variant=${sp.variant}&starts=${encodeURIComponent(sp.starts ?? "")}`;
-    redirect(`/login?from=${encodeURIComponent(ret)}`);
-  }
 
   if (!sp.service || !sp.variant || !sp.starts) redirect("/book");
 
@@ -54,29 +61,43 @@ export default async function ConfirmPage({
   if (!service || !variant) redirect("/book");
 
   const starts = new Date(sp.starts);
+  if (isNaN(starts.getTime())) redirect("/book");
   const ends = addMinutes(starts, variant.durationMin);
 
-  const intake = await db.intakeForm.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { updatedAt: "desc" },
-  });
-  const userRow = await db.user.findUnique({
-    where: { id: session.user.id },
-  });
-  const dobIso = userRow?.dob
-    ? userRow.dob.toISOString().slice(0, 10)
-    : "";
-  const userDefaults = {
-    dob: dobIso,
-    gender: userRow?.gender ?? "",
-    addressLine1: userRow?.addressLine1 ?? "",
-    suburb: userRow?.suburb ?? "",
-    stateRegion: userRow?.stateRegion ?? "",
-    postcode: userRow?.postcode ?? "",
-    gpName: userRow?.gpName ?? "",
-    gpClinic: userRow?.gpClinic ?? "",
-    gpPhone: userRow?.gpPhone ?? "",
-  };
+  // Optional session — we now allow guest checkout.
+  const session = await auth();
+
+  // Pull intake + user defaults only when the visitor is signed in. For
+  // guests we render empty defaults and the form prompts for their basics
+  // up front.
+  let userDefaults = EMPTY_USER_DEFAULTS;
+  let intake: Awaited<ReturnType<typeof db.intakeForm.findFirst>> = null;
+  let bookedUnderName: string | null = null;
+  let signedInEmail: string | null = null;
+
+  if (session?.user) {
+    const userRow = await db.user.findUnique({
+      where: { id: session.user.id },
+    });
+    intake = await db.intakeForm.findFirst({
+      where: { userId: session.user.id },
+      orderBy: { updatedAt: "desc" },
+    });
+    const dobIso = userRow?.dob ? userRow.dob.toISOString().slice(0, 10) : "";
+    userDefaults = {
+      dob: dobIso,
+      gender: userRow?.gender ?? "",
+      addressLine1: userRow?.addressLine1 ?? "",
+      suburb: userRow?.suburb ?? "",
+      stateRegion: userRow?.stateRegion ?? "",
+      postcode: userRow?.postcode ?? "",
+      gpName: userRow?.gpName ?? "",
+      gpClinic: userRow?.gpClinic ?? "",
+      gpPhone: userRow?.gpPhone ?? "",
+    };
+    bookedUnderName = session.user.name ?? null;
+    signedInEmail = session.user.email ?? null;
+  }
 
   return (
     <div className="container py-12 max-w-3xl">
@@ -87,18 +108,20 @@ export default async function ConfirmPage({
         ← Change time
       </Link>
       <h1 className="text-3xl font-bold mt-2 mb-6">Confirm your booking</h1>
-
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>{service.name}</CardTitle>
           <CardDescription>
-            {formatDuration(variant.durationMin)} · {formatPrice(variant.priceCents)}
+            {formatDuration(variant.durationMin)} ·{" "}
+            {formatPrice(variant.priceCents)}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Date</span>
-            <span className="font-medium">{format(starts, "EEEE d MMMM yyyy")}</span>
+            <span className="font-medium">
+              {format(starts, "EEEE d MMMM yyyy")}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Time</span>
@@ -106,12 +129,31 @@ export default async function ConfirmPage({
               {format(starts, "h:mm a")} – {format(ends, "h:mm a")}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Booked under</span>
-            <span className="font-medium">{session.user.name}</span>
-          </div>
+          {bookedUnderName ? (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Booked under</span>
+              <span className="font-medium">{bookedUnderName}</span>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
+
+      {!session?.user && (
+        <div className="mb-6 rounded-md border border-primary/30 bg-primary/5 p-4 text-sm">
+          Already booked with us before?{" "}
+          <Link
+            href={`/login?from=${encodeURIComponent(
+              `/book/confirm?service=${sp.service}&variant=${sp.variant}&starts=${encodeURIComponent(sp.starts)}`,
+            )}`}
+            className="text-primary font-medium hover:underline"
+          >
+            Sign in
+          </Link>{" "}
+          to skip filling in details. Otherwise just continue below — we&apos;ll
+          link this booking to your existing record automatically by email or
+          phone.
+        </div>
+      )}
 
       <ConfirmForm
         action={createBooking}
@@ -119,6 +161,8 @@ export default async function ConfirmPage({
         variantId={variant.id}
         startsIso={starts.toISOString()}
         serviceHealthFundEligible={service.healthFundEligible}
+        isGuest={!session?.user}
+        signedInEmail={signedInEmail}
         userDefaults={userDefaults}
         intakeDefaults={
           intake
