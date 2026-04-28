@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+himport { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const db = new PrismaClient();
@@ -142,7 +142,7 @@ const services: Array<{
     name: "Pregnancy Massage",
     category: "SPECIALTY",
     description:
-      "Side-lying pregnancy massage for second and third trimester. Cleared by your obstetrician recommended.",
+      "Side-lying pregnancy massage for second and third trimester. Obstetrician clearance recommended.",
     variants: [
       { duration: 30, price: 7000 },
       { duration: 45, price: 9500 },
