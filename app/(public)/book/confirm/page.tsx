@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatPrice, formatDuration } from "@/lib/utils";
+import { applyHolidaySurcharge } from "@/lib/holidays";
 import { ConfirmForm } from "./confirm-form";
 import { createBooking } from "./actions";
 
@@ -78,6 +79,10 @@ export default async function ConfirmPage({
   if (isNaN(starts.getTime())) redirect("/book");
   const ends = addMinutes(starts, variant.durationMin);
 
+  // Compute the public-holiday surcharge breakdown so the customer sees the
+  // final price (and any surcharge) on the confirm page, not after submission.
+  const pricing = applyHolidaySurcharge(variant.priceCents, starts);
+
   // Optional session — we now allow guest checkout.
   const session = await auth();
 
@@ -128,7 +133,7 @@ export default async function ConfirmPage({
           <CardTitle>{service.name}</CardTitle>
           <CardDescription>
             {formatDuration(variant.durationMin)} ·{" "}
-            {formatPrice(variant.priceCents)}
+            {formatPrice(pricing.finalPriceCents)}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2 text-sm">
@@ -148,6 +153,34 @@ export default async function ConfirmPage({
               <span className="font-medium">{bookedUnderName}</span>
             </div>
           ) : null}
+
+          {/* Pricing breakdown — always show treatment line; show surcharge
+              and total only when a public holiday applies. */}
+          <div className="border-t mt-2 pt-2 flex justify-between">
+            <span className="text-muted-foreground">Treatment</span>
+            <span className="font-medium">
+              {formatPrice(pricing.basePriceCents)}
+            </span>
+          </div>
+          {pricing.holidayName ? (
+            <>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Public holiday surcharge ({pricing.surchargePct}% ·{" "}
+                  {pricing.holidayName})
+                </span>
+                <span className="font-medium">
+                  +{formatPrice(pricing.surchargeCents)}
+                </span>
+              </div>
+              <div className="border-t pt-2 flex justify-between">
+                <span className="font-semibold">Total</span>
+                <span className="font-semibold">
+                  {formatPrice(pricing.finalPriceCents)}
+                </span>
+              </div>
+            </>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -162,9 +195,9 @@ export default async function ConfirmPage({
           >
             Sign in
           </Link>{" "}
-          to skip filling in details. Otherwise just continue below — we&apos;ll
-          link this booking to your existing record automatically by email or
-          phone.
+          to skip filling in details. Otherwise just continue below —
+          we&apos;ll link this booking to your existing record automatically
+          by email or phone.
         </div>
       )}
 
