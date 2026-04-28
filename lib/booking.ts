@@ -1,17 +1,28 @@
 import { db } from "@/lib/db";
-import { addMinutes, startOfDay, endOfDay } from "date-fns";
+import { addMinutes } from "date-fns";
 import {
   BOOKING_LATEST_END_MIN,
   BOOKING_EARLIEST_START_MIN,
 } from "@/lib/clinic";
+import {
+  sydneyDateOf,
+  sydneyDayBoundsUtc,
+  sydneyDow,
+} from "@/lib/time";
 
 export type Slot = { startsAt: Date; endsAt: Date; therapistId: string };
 
 /**
- * Compute available slots for a given service variant on a specific day,
- * across all active therapists. Returns 15-minute aligned slots that fit
- * within at least one therapist's availability and don't overlap existing
- * bookings or time-off. Sessions must end by BOOKING_LATEST_END_MIN.
+ * Compute available slots for a given service variant on a specific Sydney
+ * calendar day, across all active therapists. Returns 15-minute aligned
+ * slots that fit within at least one therapist's availability and don't
+ * overlap existing bookings or time-off. Sessions must end by
+ * BOOKING_LATEST_END_MIN.
+ *
+ * params.date is treated as "any instant on the desired Sydney day" — we
+ * derive the YYYY-MM-DD in Australia/Sydney from it. This is robust whether
+ * the caller passes `new Date()` (now) or `new Date('2026-04-29')` (UTC
+ * midnight = 10am Sydney = still 29 Apr in Sydney).
  */
 export async function getAvailableSlots(params: {
   date: Date;
@@ -20,9 +31,11 @@ export async function getAvailableSlots(params: {
   stepMin?: number;
 }): Promise<Slot[]> {
   const step = params.stepMin ?? 15;
-  const dayStart = startOfDay(params.date);
-  const dayEnd = endOfDay(params.date);
-  const dow = dayStart.getDay();
+
+  // Sydney calendar day is the source of truth.
+  const dateISO = sydneyDateOf(params.date);
+  const { start: dayStart, end: dayEnd } = sydneyDayBoundsUtc(dateISO);
+  const dow = sydneyDow(dateISO);
 
   const therapists = await db.therapist.findMany({
     where: {
@@ -45,6 +58,7 @@ export async function getAvailableSlots(params: {
 
   const slots: Slot[] = [];
   const now = new Date();
+
   for (const t of therapists) {
     for (const a of t.availability) {
       // Clamp to clinic-wide policy: earliest start, latest end.
@@ -55,6 +69,7 @@ export async function getAvailableSlots(params: {
 
       const startCandidate = addMinutes(dayStart, earliestStart);
       const lastValidStart = addMinutes(dayStart, lastStartMin);
+
       for (
         let cur = startCandidate;
         cur <= lastValidStart;
@@ -62,6 +77,7 @@ export async function getAvailableSlots(params: {
       ) {
         // Hide slots that have already started.
         if (cur <= now) continue;
+
         const candEnd = addMinutes(cur, params.durationMin);
         const conflict =
           t.bookings.some(
@@ -76,7 +92,10 @@ export async function getAvailableSlots(params: {
       }
     }
   }
-  // Sort by time, dedupe identical timestamps (multiple therapists -> keep first)
+
+  // Sort by time. Multiple therapists offering the same slot are kept; the
+  // distinct-times helper below dedupes if the caller doesn't care which
+  // therapist is assigned.
   slots.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
   return slots;
 }
