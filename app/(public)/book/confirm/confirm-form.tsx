@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,6 +132,8 @@ export function ConfirmForm({
   serviceHealthFundEligible,
   intakeDefaults,
   userDefaults,
+  isGuest,
+  signedInEmail,
 }: {
   action: (
     formData: FormData,
@@ -141,9 +144,14 @@ export function ConfirmForm({
   serviceHealthFundEligible: boolean;
   intakeDefaults: IntakeDefaults;
   userDefaults: UserDefaults;
+  isGuest: boolean;
+  signedInEmail: string | null;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [guestSuccess, setGuestSuccess] = useState<{
+    reference: string;
+  } | null>(null);
   const [pregnant, setPregnant] = useState<boolean>(
     intakeDefaults?.pregnancy ?? false,
   );
@@ -179,17 +187,111 @@ export function ConfirmForm({
       const res = await action(fd);
       if (res?.error) setError(res.error);
       else if (res?.reference) {
-        window.location.href = `/portal/bookings/confirmed?ref=${res.reference}`;
+        if (isGuest) {
+          setGuestSuccess({ reference: res.reference });
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          window.location.href = `/portal/bookings/confirmed?ref=${res.reference}`;
+        }
       }
     });
   }
 
+  // Step number offset: when guest, the 11 numbered sections become 1..11 too
+  // (the guest contact section is rendered as "Step 1" and the rest shift up
+  // by 1). When signed in, the original 1..10/11 numbering is preserved.
+  const offset = isGuest ? 1 : 0;
+  const stepNo = (n: number) => String(n + offset);
+  const lastClinicalStep = serviceHealthFundEligible ? 11 : 10;
+
   return (
     <form onSubmit={onSubmit} className="space-y-5">
+      {guestSuccess && (
+        <Card className="border-emerald-500/40 bg-emerald-500/5">
+          <CardHeader>
+            <CardTitle className="text-emerald-700 dark:text-emerald-400">
+              Booking confirmed 🎉
+            </CardTitle>
+            <CardDescription>
+              Reference{" "}
+              <code className="font-mono">{guestSuccess.reference}</code> — a
+              confirmation email is on its way. We&apos;ve also linked this
+              booking to your customer record.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm space-y-2">
+            <p>
+              Want to manage your bookings online next time? Set a password
+              for your account:
+            </p>
+            <p>
+              <a
+                href="/forgot-password"
+                className="text-primary font-medium hover:underline"
+              >
+                Set a password →
+              </a>
+            </p>
+          </CardContent>
+        </Card>
+      )}
+      {/* 0. Your contact details (guest only) */}
+      {isGuest && (
+        <Card>
+          <SectionHeader
+            step="1"
+            title="Your contact details"
+            desc="So we can find your record (or create one) and send you the booking confirmation."
+          />
+          <CardContent className="pb-5">
+            <FieldGrid>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="guestName">Full name</Label>
+                <Input
+                  id="guestName"
+                  name="guestName"
+                  required
+                  autoComplete="name"
+                  placeholder="Jane Doe"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="guestEmail">Email</Label>
+                <Input
+                  id="guestEmail"
+                  name="guestEmail"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="jane@example.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="guestPhone">Mobile</Label>
+                <Input
+                  id="guestPhone"
+                  name="guestPhone"
+                  type="tel"
+                  required
+                  autoComplete="tel"
+                  placeholder="0412 345 678"
+                />
+              </div>
+            </FieldGrid>
+            <p className="text-xs text-muted-foreground mt-3">
+              If we already have a record matching this email or mobile,
+              we&apos;ll attach this booking to it — no duplicates. You can set
+              a password later via the &ldquo;Forgot password&rdquo; link on
+              sign-in.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 1. Patient details */}
       <Card>
         <SectionHeader
-          step="1"
+          step={stepNo(1)}
           title="Patient details"
           desc="Required for your clinical record. Only changes are saved."
         />
@@ -271,7 +373,7 @@ export function ConfirmForm({
       {/* 2. GP / referring doctor */}
       <Card>
         <SectionHeader
-          step="2"
+          step={stepNo(2)}
           title="General Practitioner (optional)"
           desc="In case we need to communicate with your GP about treatment."
         />
@@ -310,7 +412,7 @@ export function ConfirmForm({
       {/* 3. Medical history checklist */}
       <Card>
         <SectionHeader
-          step="3"
+          step={stepNo(3)}
           title="Medical history"
           desc="Tick anything that applies — current or past. Helps us treat you safely."
         />
@@ -356,7 +458,7 @@ export function ConfirmForm({
 
       {/* 4. Medications + allergies */}
       <Card>
-        <SectionHeader step="4" title="Medications &amp; allergies" />
+        <SectionHeader step={stepNo(4)} title="Medications &amp; allergies" />
         <CardContent className="pb-5">
           <FieldGrid>
             <div className="space-y-1.5">
@@ -392,7 +494,7 @@ export function ConfirmForm({
       {/* 5. Presenting complaint */}
       <Card>
         <SectionHeader
-          step="5"
+          step={stepNo(5)}
           title="Why are you seeing us today?"
           desc="If this is a relaxation booking, you can leave most fields blank."
         />
@@ -440,8 +542,7 @@ export function ConfirmForm({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="injuries">Recent injuries / areas to avoid
-              {intakeRequired && <span className="text-destructive ml-1">*</span>}</Label>
+              <Label htmlFor="injuries">Recent injuries / areas to avoid {intakeRequired && <span className="text-destructive ml-1">*</span>}</Label>
               <Input
                 id="injuries"
                 name="injuries"
@@ -476,7 +577,7 @@ export function ConfirmForm({
 
       {/* 6. Pregnancy */}
       <Card>
-        <SectionHeader step="6" title="Pregnancy" />
+        <SectionHeader step={stepNo(6)} title="Pregnancy" />
         <CardContent className="pb-5 pt-4 space-y-3">
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -513,7 +614,7 @@ export function ConfirmForm({
 
       {/* 7. Emergency contact */}
       <Card>
-        <SectionHeader step="7" title="Emergency contact" />
+        <SectionHeader step={stepNo(7)} title="Emergency contact" />
         <CardContent className="pb-5">
           <FieldGrid>
             <div className="space-y-1.5">
@@ -557,10 +658,7 @@ export function ConfirmForm({
       {/* 8. Health fund (optional) */}
       {serviceHealthFundEligible && (
         <Card>
-          <SectionHeader
-            step="8"
-            title="Health fund / private insurance"
-          />
+          <SectionHeader step={stepNo(8)} title="Health fund / private insurance" />
           <CardContent className="pb-5 pt-4 space-y-3">
             <Badge variant="success" className="w-fit">
               This treatment is health-fund rebatable
@@ -640,10 +738,10 @@ export function ConfirmForm({
         </Card>
       )}
 
-      {/* 9. Voucher (optional) */}
+      {/* 9 (or 8). Voucher */}
       <Card>
         <SectionHeader
-          step={serviceHealthFundEligible ? "9" : "8"}
+          step={stepNo(serviceHealthFundEligible ? 9 : 8)}
           title="Gift voucher (optional)"
           desc="Got a code? We'll deduct the balance, up to the session price."
         />
@@ -656,10 +754,10 @@ export function ConfirmForm({
         </CardContent>
       </Card>
 
-      {/* 10. Notes for therapist */}
+      {/* 10 (or 9). Notes */}
       <Card>
         <SectionHeader
-          step={serviceHealthFundEligible ? "10" : "9"}
+          step={stepNo(serviceHealthFundEligible ? 10 : 9)}
           title="Notes for your therapist (optional)"
         />
         <CardContent className="pb-5 pt-4">
@@ -670,10 +768,10 @@ export function ConfirmForm({
         </CardContent>
       </Card>
 
-      {/* 11. Consent */}
+      {/* 11 (or 10). Consent */}
       <Card>
         <SectionHeader
-          step={serviceHealthFundEligible ? "11" : "10"}
+          step={stepNo(lastClinicalStep)}
           title="Consent"
           desc="Required by the Privacy Act 1988 (Cth) — Australian Privacy Principle 3."
         />
@@ -710,11 +808,15 @@ export function ConfirmForm({
           {error}
         </p>
       )}
+
       <div className="flex gap-3 justify-end">
         <Button type="submit" size="lg" disabled={pending}>
           {pending ? "Booking…" : "Confirm booking"}
         </Button>
       </div>
+
+      {/* Suppress unused-prop warning if signedInEmail not displayed elsewhere */}
+      <input type="hidden" name="_signedInEmail" value={signedInEmail ?? ""} />
     </form>
   );
 }
