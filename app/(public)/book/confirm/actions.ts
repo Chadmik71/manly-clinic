@@ -1,4 +1,5 @@
 "use server";
+
 import { z } from "zod";
 import { addMinutes } from "date-fns";
 import { auth } from "@/lib/auth";
@@ -11,12 +12,21 @@ import {
 } from "@/lib/clinic";
 import { notifyBookingConfirmed } from "@/lib/notify";
 import { headers } from "next/headers";
+import { normalisePhone, isAuMobile } from "@/lib/phone";
+import { findOrCreateUserForGuest } from "@/lib/user-merge";
 
 const schema = z.object({
   serviceId: z.string().min(1),
   variantId: z.string().min(1),
   startsIso: z.string().min(1),
   notes: z.string().max(2000).optional(),
+
+  // Guest contact details (when no session). Required at runtime; we
+  // validate them after we know whether a session exists.
+  guestName: z.string().max(120).optional(),
+  guestEmail: z.string().max(254).optional(),
+  guestPhone: z.string().max(40).optional(),
+
   // Patient demographics (saved on User)
   dob: z.string().optional(),
   gender: z.string().max(40).optional(),
@@ -27,6 +37,7 @@ const schema = z.object({
   gpName: z.string().max(120).optional(),
   gpClinic: z.string().max(200).optional(),
   gpPhone: z.string().max(40).optional(),
+
   // Intake
   medicalHistory: z.string().max(2000).optional(),
   medicalConditions: z.string().max(2000).optional(),
@@ -52,6 +63,12 @@ const schema = z.object({
   voucherCode: z.string().max(40).optional(),
 });
 
+const guestSchema = z.object({
+  guestName: z.string().min(1).max(120),
+  guestEmail: z.string().email().max(254),
+  guestPhone: z.string().min(1).max(40),
+});
+
 function nonEmpty(s: string | undefined): boolean {
   return !!s && s.trim().length > 0;
 }
@@ -60,7 +77,6 @@ export async function createBooking(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string; reference?: string }> {
   const session = await auth();
-  if (!session?.user) return { error: "Sign in required." };
 
   const raw: Record<string, string> = {};
   fd.forEach((v, k) => {
@@ -72,6 +88,60 @@ export async function createBooking(
 
   if (data.consentToTreat !== "on" || data.consentToStore !== "on") {
     return { error: "Treatment and storage consent are required." };
+  }
+
+  // -----------------------------------------------------------------------
+  // Resolve the client (signed-in user OR guest -> findOrCreateUserForGuest)
+  // -----------------------------------------------------------------------
+  let clientUserId: string;
+  let clientEmail: string;
+  let clientName: string;
+  let clientPhone: string | null;
+
+  if (session?.user) {
+    clientUserId = session.user.id;
+    clientEmail = session.user.email ?? "";
+    clientName = session.user.name ?? "";
+    // Pull current phone off the user row (the JWT doesn't carry it).
+    const u = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { phone: true },
+    });
+    clientPhone = u?.phone ?? null;
+  } else {
+    const g = guestSchema.safeParse({
+      guestName: data.guestName,
+      guestEmail: data.guestEmail,
+      guestPhone: data.guestPhone,
+    });
+    if (!g.success) {
+      return { error: "Please enter your name, email and mobile to continue." };
+    }
+    const phoneNorm = normalisePhone(g.data.guestPhone);
+    if (!isAuMobile(phoneNorm)) {
+      return {
+        error:
+          "Please enter a valid Australian mobile number (e.g. 0412 345 678).",
+      };
+    }
+    const merge = await findOrCreateUserForGuest({
+      name: g.data.guestName,
+      email: g.data.guestEmail,
+      phone: phoneNorm,
+    });
+    clientUserId = merge.userId;
+    clientEmail = g.data.guestEmail.toLowerCase().trim();
+    clientName = g.data.guestName.trim();
+    clientPhone = phoneNorm;
+    await audit({
+      userId: merge.userId,
+      action: merge.isNew ? "GUEST_CREATE_USER" : "GUEST_MATCH_EXISTING_USER",
+      resource: `User:${merge.userId}`,
+      metadata: {
+        matchedBy: merge.matchedBy,
+        upgradedEmail: merge.upgradedEmail,
+      },
+    });
   }
 
   const variant = await db.serviceVariant.findUnique({
@@ -160,7 +230,8 @@ export async function createBooking(
       t.bookings.length === 0 &&
       t.timeOff.length === 0,
   );
-  if (!candidate) return { error: "That time was just taken — please pick another." };
+  if (!candidate)
+    return { error: "That time was just taken — please pick another." };
 
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
@@ -175,9 +246,11 @@ export async function createBooking(
     isPregnant && Number.isFinite(weeksRaw) && weeksRaw >= 1 && weeksRaw <= 45
       ? weeksRaw
       : null;
+
   if (isPregnant && pregnancyWeeks === null) {
     return { error: "Please tell us how many weeks pregnant you are." };
   }
+
   // Save patient demographics on the User row (idempotent — only updates
   // fields the client provided in this submission).
   const dobDate =
@@ -194,7 +267,7 @@ export async function createBooking(
   if (data.gpPhone) userPatch.gpPhone = data.gpPhone;
   if (Object.keys(userPatch).length > 0) {
     await db.user.update({
-      where: { id: session.user.id },
+      where: { id: clientUserId },
       data: userPatch,
     });
   }
@@ -208,7 +281,7 @@ export async function createBooking(
 
   await db.intakeForm.create({
     data: {
-      userId: session.user.id,
+      userId: clientUserId,
       medicalConditions: data.medicalConditions ?? null,
       medications: data.medications ?? null,
       allergies: data.allergies ?? null,
@@ -222,16 +295,13 @@ export async function createBooking(
       pregnancy: isPregnant,
       pregnancyWeeks,
       emergencyContactName: data.emergencyContactName ?? null,
-      emergencyContactRelationship:
-        data.emergencyContactRelationship ?? null,
+      emergencyContactRelationship: data.emergencyContactRelationship ?? null,
       emergencyContactPhone: data.emergencyContactPhone ?? null,
       healthFundName: claimWithHealthFund ? data.healthFundName : null,
       healthFundMemberNumber: claimWithHealthFund
         ? data.healthFundMemberNumber
         : null,
-      reasonForTreatment: claimWithHealthFund
-        ? data.reasonForTreatment
-        : null,
+      reasonForTreatment: claimWithHealthFund ? data.reasonForTreatment : null,
       consentToTreat: true,
       consentToStore: true,
       signedAt: new Date(),
@@ -242,7 +312,7 @@ export async function createBooking(
   await db.consentRecord.createMany({
     data: [
       {
-        userId: session.user.id,
+        userId: clientUserId,
         type: "TREATMENT",
         version: "1.0",
         granted: true,
@@ -250,7 +320,7 @@ export async function createBooking(
         userAgent: ua,
       },
       {
-        userId: session.user.id,
+        userId: clientUserId,
         type: "HEALTH_INFO_STORAGE",
         version: "1.0",
         granted: true,
@@ -281,7 +351,7 @@ export async function createBooking(
   const booking = await db.booking.create({
     data: {
       reference,
-      clientId: session.user.id,
+      clientId: clientUserId,
       serviceId: variant.serviceId,
       variantId: variant.id,
       therapistId: candidate.id,
@@ -313,7 +383,7 @@ export async function createBooking(
       },
     });
     await audit({
-      userId: session.user.id,
+      userId: clientUserId,
       action: "REDEEM_VOUCHER",
       resource: `Voucher:${voucherCode}`,
       metadata: { booking: reference, applied: voucherAppliedCents },
@@ -321,17 +391,21 @@ export async function createBooking(
   }
 
   await audit({
-    userId: session.user.id,
+    userId: clientUserId,
     action: "CREATE_BOOKING",
     resource: `Booking:${booking.id}`,
-    metadata: { reference, service: variant.service.name },
+    metadata: {
+      reference,
+      service: variant.service.name,
+      guestCheckout: !session?.user,
+    },
   });
 
   // Best-effort notification (never throws)
   await notifyBookingConfirmed({
-    email: session.user.email,
-    phone: null,
-    name: session.user.name,
+    email: clientEmail,
+    phone: clientPhone,
+    name: clientName,
     reference,
     serviceName: variant.service.name,
     durationMin: variant.durationMin,
