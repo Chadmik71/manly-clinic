@@ -14,9 +14,20 @@ import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 import { ServiceVariantPicker } from "./variant-picker";
 import { SlotPicker } from "./slot-picker";
 import { getDistinctSlotTimes } from "@/lib/booking";
-import { startOfDay, addDays, format } from "date-fns";
+import { addDays, format, parseISO, isValid } from "date-fns";
+import { sydneyTodayISO } from "@/lib/time";
 
 export const metadata = { title: "Book an appointment" };
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Resolve the date param: validate, default to Sydney today, and clamp past->today. */
+function resolveDateISO(raw: string | undefined): string {
+  const today = sydneyTodayISO();
+  if (!raw || !ISO_DATE_RE.test(raw)) return today;
+  if (!isValid(parseISO(raw))) return today;
+  return raw < today ? today : raw;
+}
 
 export default async function BookPage({
   searchParams,
@@ -60,9 +71,7 @@ export default async function BookPage({
                 <Button asChild className="w-full">
                   <Link href={`/book?service=${s.slug}`}>
                     From{" "}
-                    {s.variants[0]
-                      ? formatPrice(s.variants[0].priceCents)
-                      : ""}{" "}
+                    {s.variants[0] ? formatPrice(s.variants[0].priceCents) : ""}{" "}
                     →
                   </Link>
                 </Button>
@@ -83,7 +92,12 @@ export default async function BookPage({
 
   const variant =
     service.variants.find((v) => v.id === sp.variant) ?? service.variants[0];
-  const date = sp.date ? new Date(sp.date) : new Date();
+
+  // Validate / default the date in Sydney terms. Past dates are clamped to
+  // today; malformed input falls back to today (instead of crashing).
+  const todayISO = sydneyTodayISO();
+  const dateISO = resolveDateISO(sp.date);
+  const date = parseISO(dateISO); // any instant on this Sydney calendar day
 
   let slots: Date[] = [];
   if (variant) {
@@ -94,9 +108,9 @@ export default async function BookPage({
     });
   }
 
-  // Build week of date options
-  const today = startOfDay(new Date());
-  const days = Array.from({ length: 14 }).map((_, i) => addDays(today, i));
+  // Build the 14-day picker starting from Sydney today (no past dates).
+  const todayDate = parseISO(todayISO);
+  const days = Array.from({ length: 14 }).map((_, i) => addDays(todayDate, i));
 
   return (
     <div className="container py-12 max-w-5xl">
@@ -111,7 +125,6 @@ export default async function BookPage({
         <h1 className="text-3xl font-bold mt-2">{service.name}</h1>
         <p className="text-muted-foreground">{service.description}</p>
       </div>
-
       <div className="grid gap-8 md:grid-cols-[1fr_2fr]">
         <Card>
           <CardHeader>
@@ -130,25 +143,25 @@ export default async function BookPage({
             />
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>Pick a date &amp; time</CardTitle>
             <CardDescription>
-              Available slots are shown in your local time. All sessions must
-              finish by 8:00 pm.
+              All times shown in Sydney (AEST/AEDT). Sessions must finish by
+              8:00 pm.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
               {days.map((d) => {
                 const iso = format(d, "yyyy-MM-dd");
-                const selected =
-                  format(date, "yyyy-MM-dd") === iso;
+                const selected = dateISO === iso;
                 return (
                   <Link
                     key={iso}
-                    href={`/book?service=${service.slug}&variant=${variant?.id ?? ""}&date=${iso}`}
+                    href={`/book?service=${service.slug}&variant=${
+                      variant?.id ?? ""
+                    }&date=${iso}`}
                     className={`shrink-0 rounded-md border px-3 py-2 text-center text-sm transition-colors ${
                       selected
                         ? "border-primary bg-primary text-primary-foreground"
@@ -163,13 +176,12 @@ export default async function BookPage({
                 );
               })}
             </div>
-
             {variant ? (
               <SlotPicker
                 slots={slots.map((s) => s.toISOString())}
                 serviceSlug={service.slug}
                 variantId={variant.id}
-                date={format(date, "yyyy-MM-dd")}
+                date={dateISO}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
