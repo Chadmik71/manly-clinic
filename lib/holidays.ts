@@ -7,13 +7,14 @@
 // continues operating.
 //
 // Notes on substitutes (NSW Public Holidays Act 2010):
-//  - When New Year's Day, Christmas Day or Boxing Day fall on a weekend, an
-//    additional public holiday is declared for the following Monday or
-//    Tuesday (both, when the pair both fall on a weekend).
-//  - When Australia Day falls on a weekend, the following Monday is the
-//    public holiday (no holiday on the Saturday/Sunday).
-//  - When Anzac Day falls on a weekend, NO substitute applies in NSW —
-//    only the Saturday/Sunday is the public holiday.
+// - When New Year's Day, Christmas Day or Boxing Day fall on a weekend, an
+//   additional public holiday is declared for the following Monday or
+//   Tuesday (both, when the pair both fall on a weekend).
+// - When Australia Day falls on a weekend, the following Monday is the
+//   public holiday (no holiday on the Saturday/Sunday).
+// - Anzac Day historically had no substitute when it fell on a weekend,
+//   but in Feb 2026 the NSW Premier declared additional Monday public
+//   holidays for both 2026 (Mon 27 Apr) and 2027 (Mon 26 Apr).
 
 import { CLINIC } from "@/lib/clinic";
 import { sydneyDateOf } from "@/lib/time";
@@ -27,6 +28,7 @@ const NSW_PUBLIC_HOLIDAYS: Record<string, string> = {
   "2026-04-05": "Easter Sunday",
   "2026-04-06": "Easter Monday",
   "2026-04-25": "Anzac Day",
+  "2026-04-27": "Additional public holiday (Anzac Day)",
   "2026-06-08": "King's Birthday",
   "2026-10-05": "Labour Day",
   "2026-12-25": "Christmas Day",
@@ -41,6 +43,7 @@ const NSW_PUBLIC_HOLIDAYS: Record<string, string> = {
   "2027-03-28": "Easter Sunday",
   "2027-03-29": "Easter Monday",
   "2027-04-25": "Anzac Day",
+  "2027-04-26": "Additional public holiday (Anzac Day)",
   "2027-06-14": "King's Birthday",
   "2027-10-04": "Labour Day",
   "2027-12-25": "Christmas Day",
@@ -50,13 +53,13 @@ const NSW_PUBLIC_HOLIDAYS: Record<string, string> = {
 };
 
 /** Returns the holiday name if `sydneyDateISO` (YYYY-MM-DD) is a NSW public
- *  holiday, otherwise null. */
+ * holiday, otherwise null. */
 export function getHolidayName(sydneyDateISO: string): string | null {
   return NSW_PUBLIC_HOLIDAYS[sydneyDateISO] ?? null;
 }
 
 /** Convenience: takes a Date, resolves the Sydney calendar date, and returns
- *  the holiday name (or null). */
+ * the holiday name (or null). */
 export function getHolidayNameForDate(date: Date): string | null {
   return getHolidayName(sydneyDateOf(date));
 }
