@@ -20,13 +20,23 @@ import { sydneyTodayISO } from "@/lib/time";
 export const metadata = { title: "Book an appointment" };
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_FORWARD_DAYS = 90;
 
-/** Resolve the date param: validate, default to Sydney today, and clamp past->today. */
+/**
+ * Resolve the date param into a Sydney calendar day:
+ *  - missing / malformed → today
+ *  - in the past → today
+ *  - more than MAX_FORWARD_DAYS away → today + MAX_FORWARD_DAYS
+ *  - otherwise → the value as-is
+ */
 function resolveDateISO(raw: string | undefined): string {
   const today = sydneyTodayISO();
   if (!raw || !ISO_DATE_RE.test(raw)) return today;
   if (!isValid(parseISO(raw))) return today;
-  return raw < today ? today : raw;
+  if (raw < today) return today;
+  const maxISO = format(addDays(parseISO(today), MAX_FORWARD_DAYS), "yyyy-MM-dd");
+  if (raw > maxISO) return maxISO;
+  return raw;
 }
 
 export default async function BookPage({
@@ -93,8 +103,9 @@ export default async function BookPage({
   const variant =
     service.variants.find((v) => v.id === sp.variant) ?? service.variants[0];
 
-  // Validate / default the date in Sydney terms. Past dates are clamped to
-  // today; malformed input falls back to today (instead of crashing).
+  // Validate / default the date in Sydney terms. Past dates clamp to today,
+  // dates more than 90 days out clamp to today+90, malformed input falls back
+  // to today (instead of crashing).
   const todayISO = sydneyTodayISO();
   const dateISO = resolveDateISO(sp.date);
   const date = parseISO(dateISO); // any instant on this Sydney calendar day
@@ -148,7 +159,7 @@ export default async function BookPage({
             <CardTitle>Pick a date &amp; time</CardTitle>
             <CardDescription>
               All times shown in Sydney (AEST/AEDT). Sessions must finish by
-              8:00 pm.
+              8:00 pm. Bookings open up to 90 days ahead.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
