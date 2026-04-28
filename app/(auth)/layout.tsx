@@ -1,29 +1,26 @@
-import Link from "next/link";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Stethoscope } from "lucide-react";
-import { CLINIC } from "@/lib/clinic";
+import { auth } from "@/lib/auth";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 
-export default function AuthLayout({
+export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b">
-        <div className="container h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <span className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground">
-              <Stethoscope className="h-4 w-4" />
-            </span>
-            {CLINIC.name}
-          </Link>
-          <ThemeToggle />
-        </div>
-      </header>
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader
+        user={
+          session?.user
+            ? { name: session.user.name, role: session.user.role }
+            : null
+        }
+      />
       <main className="flex-1 grid place-items-center px-4 py-12">
         <div className="w-full max-w-md">{children}</div>
       </main>
+      <SiteFooter />
     </div>
   );
 }
