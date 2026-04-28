@@ -1,6 +1,5 @@
 // Single source of truth for clinic-wide content.
 // Update these and all pages reflect the change.
-
 export const CLINIC = {
   name: "Manly Remedial Clinic",
   tagline: "Evidence-based remedial therapy on Sydney's Northern Beaches",
@@ -12,9 +11,10 @@ export const CLINIC = {
   },
   phone: "0412 822 226",
   phoneE164: "+61412822226",
-  email: "manlyremedialthai@gmail.com",
+  email: "info@manlyremedialthai.com.au",
   hours: "7 days, 9:00 am – 8:00 pm",
   publicHolidaySurchargePct: 10,
+
   // Australian Privacy Act / APP context
   abn: "82 669 994 183",
   legalName: "Manly Remedial Clinic Pty Ltd",
