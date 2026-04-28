@@ -52,6 +52,33 @@ export function sydneyDow(dateISO: string): number {
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd);
 }
 
+/**
+ * Long Sydney calendar date for human display.
+ * e.g. "Tuesday 28 April 2026"
+ */
+export function sydneyDateLong(at: Date): string {
+  return new Intl.DateTimeFormat("en-AU", {
+    timeZone: SYDNEY_TZ,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(at);
+}
+
+/**
+ * Short Sydney clock time for human display.
+ * e.g. "5:00 PM" (matches date-fns "h:mm a" but always Sydney-local).
+ */
+export function sydneyTimeShort(at: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: SYDNEY_TZ,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(at);
+}
+
 /** Convert Sydney wall-clock components into the equivalent UTC Date. DST-safe. */
 function sydneyWallToUtc(
   year: number,
