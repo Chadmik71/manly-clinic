@@ -50,13 +50,15 @@ function LocalBusinessJsonLd() {
 }
 
 export default async function HomePage() {
+  // Show all active services in the Treatments grid; previously capped at 6
+  // which hid 8 of the 14 catalog entries (incl. Remedial, Hot Stone, etc.).
+  // Quick-booking strip below still shows the first 4 via .slice(0, 4).
   const services = await db.service.findMany({
     where: { active: true },
     include: {
       variants: { orderBy: { durationMin: "asc" } },
     },
-    orderBy: { name: "asc" },
-    take: 6,
+    orderBy: [{ category: "asc" }, { name: "asc" }],
   });
 
   return (
@@ -88,9 +90,18 @@ export default async function HomePage() {
               </Button>
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-2 pt-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5"><Clock className="h-4 w-4" />{CLINIC.hours}</span>
-              <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4" />{CLINIC.address.suburb} {CLINIC.address.state}</span>
-              <span className="flex items-center gap-1.5"><Phone className="h-4 w-4" />{CLINIC.phone}</span>
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-4 w-4" />
+                {CLINIC.hours}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <MapPin className="h-4 w-4" />
+                {CLINIC.address.suburb} {CLINIC.address.state}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Phone className="h-4 w-4" />
+                {CLINIC.phone}
+              </span>
             </div>
           </div>
           <div className="relative">
@@ -163,7 +174,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Featured services */}
+      {/* All services */}
       <section className="container py-16 md:py-20">
         <div className="flex items-end justify-between mb-8">
           <div>
@@ -174,7 +185,7 @@ export default async function HomePage() {
             </p>
           </div>
           <Button asChild variant="outline" className="hidden sm:inline-flex">
-            <Link href="/services">All services</Link>
+            <Link href="/services">Pricing &amp; durations</Link>
           </Button>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
