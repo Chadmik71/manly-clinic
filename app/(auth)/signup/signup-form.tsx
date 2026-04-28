@@ -1,4 +1,5 @@
 "use client";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -17,34 +18,48 @@ export function SignupForm() {
     setError(null);
     setLoading(true);
     const fd = new FormData(e.currentTarget);
+    const password = String(fd.get("password") ?? "");
+    const confirmPassword = String(fd.get("confirmPassword") ?? "");
+
+    if (password !== confirmPassword) {
+      setLoading(false);
+      setError("Passwords don't match. Please re-type and try again.");
+      return;
+    }
+
     const payload = {
       name: String(fd.get("name") ?? "").trim(),
       email: String(fd.get("email") ?? "").trim().toLowerCase(),
       phone: String(fd.get("phone") ?? "").trim(),
-      password: String(fd.get("password") ?? ""),
+      password,
       consentPrivacy: fd.get("consentPrivacy") === "on",
     };
+
     if (!payload.consentPrivacy) {
       setLoading(false);
       setError("You must accept the privacy policy to create an account.");
       return;
     }
+
     const res = await fetch("/api/signup", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     });
+
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       setError(data?.error ?? "Could not create account.");
       setLoading(false);
       return;
     }
+
     await signIn("credentials", {
       email: payload.email,
       password: payload.password,
       redirect: false,
     });
+
     router.push("/portal");
     router.refresh();
   }
@@ -65,8 +80,26 @@ export function SignupForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" name="password" type="password" minLength={8} required autoComplete="new-password" />
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          minLength={8}
+          required
+          autoComplete="new-password"
+        />
         <p className="text-xs text-muted-foreground">Minimum 8 characters.</p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="confirmPassword">Confirm password</Label>
+        <Input
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          minLength={8}
+          required
+          autoComplete="new-password"
+        />
       </div>
       <label className="flex items-start gap-2 text-sm text-muted-foreground">
         <input type="checkbox" name="consentPrivacy" className="mt-1" required />
