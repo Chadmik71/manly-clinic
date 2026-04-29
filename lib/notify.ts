@@ -2,7 +2,6 @@
 // API keys are present in env, otherwise logs to console. Failures never
 // throw — notifications are best-effort and must not block bookings.
 
-import { format } from "date-fns";
 import { CLINIC } from "@/lib/clinic";
 
 type EmailArgs = { to: string; subject: string; html: string; text: string };
@@ -61,8 +60,51 @@ async function sendSms({ to, body }: SmsArgs): Promise<void> {
   }
 }
 
+// Renders Sydney calendar time, regardless of server runtime TZ (Vercel = UTC).
+// Long form for email subjects/bodies (e.g. "Thursday 30 April 2026 at 11:00 AM").
+const SYD_LONG = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+// Short form for SMS body (e.g. "Thu 30 Apr 11:00am").
+const SYD_SHORT = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
 function fmt(d: Date): string {
-  return format(d, "EEEE d MMMM yyyy 'at' h:mm a");
+  // Replace the default ", " separator before time with " at " for natural English.
+  // SYD_LONG produces "Thursday, 30 April 2026, 11:00 am" by default.
+  const parts = SYD_LONG.formatToParts(d);
+  const date = parts
+    .filter((p) => ["weekday", "day", "month", "year"].includes(p.type))
+    .map((p) => p.value)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const time = parts
+    .filter((p) => ["hour", "minute", "dayPeriod"].includes(p.type))
+    .map((p) => p.value)
+    .join("")
+    .replace(/\s+/g, "")
+    .trim();
+  return `${date} at ${time}`;
+}
+
+function fmtShort(d: Date): string {
+  // SMS-friendly compact: "Thu 30 Apr 11:00am"
+  return SYD_SHORT.format(d).replace(/,/g, "").replace(/\s+/g, " ").trim();
 }
 
 export async function notifyBookingConfirmed(args: {
@@ -93,7 +135,7 @@ ${CLINIC.phone}`;
   if (args.phone) {
     await sendSms({
       to: args.phone,
-      body: `${CLINIC.name}: ${args.serviceName} ${args.durationMin}min confirmed ${format(args.startsAt, "EEE d MMM h:mma")}. Ref ${args.reference}.`,
+      body: `${CLINIC.name}: ${args.serviceName} ${args.durationMin}min confirmed ${fmtShort(args.startsAt)}. Ref ${args.reference}.`,
     });
   }
 }
@@ -143,7 +185,7 @@ ${CLINIC.name}`;
   if (args.phone) {
     await sendSms({
       to: args.phone,
-      body: `${CLINIC.name}: booking ${args.reference} moved to ${format(args.newStart, "EEE d MMM h:mma")}.`,
+      body: `${CLINIC.name}: booking ${args.reference} moved to ${fmtShort(args.newStart)}.`,
     });
   }
 }
@@ -170,7 +212,7 @@ Need to change it? ${CLINIC.domain}/portal/bookings`;
   if (args.phone) {
     await sendSms({
       to: args.phone,
-      body: `${CLINIC.name}: reminder ${args.serviceName} ${format(args.startsAt, "EEE d MMM h:mma")}. Ref ${args.reference}.`,
+      body: `${CLINIC.name}: reminder ${args.serviceName} ${fmtShort(args.startsAt)}. Ref ${args.reference}.`,
     });
   }
 }
