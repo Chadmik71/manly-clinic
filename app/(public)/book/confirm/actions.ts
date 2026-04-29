@@ -10,6 +10,23 @@ import {
   BOOKING_LATEST_END_MIN,
   BOOKING_EARLIEST_START_MIN,
 } from "@/lib/clinic";
+import { sydneyDateOf } from "@/lib/time";
+
+// Sydney minute-of-day (0-1439). Robust against UTC server clock vs Sydney TZ.
+// Vercel serverless runs in UTC, but the clinic operates on Sydney calendar time.
+const SYDNEY_HM_FMT = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+function sydneyMinuteOfDay(d: Date): number {
+  const parts = SYDNEY_HM_FMT.formatToParts(d);
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return h * 60 + m;
+}
+
 import { notifyBookingConfirmed } from "@/lib/notify";
 import { headers } from "next/headers";
 import { normalisePhone, isAuMobile } from "@/lib/phone";
@@ -190,12 +207,10 @@ export async function createBooking(
 
   // Clinic-wide policy: bookings must finish by 8:00 pm and start no
   // earlier than 9:00 am, regardless of per-therapist availability.
-  const startMinutes = startsAt.getHours() * 60 + startsAt.getMinutes();
-  const endMinutes = endsAt.getHours() * 60 + endsAt.getMinutes();
+  const startMinutes = sydneyMinuteOfDay(startsAt);
+  const endMinutes = sydneyMinuteOfDay(endsAt);
   const sameDay =
-    endsAt.getFullYear() === startsAt.getFullYear() &&
-    endsAt.getMonth() === startsAt.getMonth() &&
-    endsAt.getDate() === startsAt.getDate();
+    sydneyDateOf(startsAt) === sydneyDateOf(endsAt);
   if (
     startMinutes < BOOKING_EARLIEST_START_MIN ||
     !sameDay ||
