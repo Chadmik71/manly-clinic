@@ -5,8 +5,19 @@ import { PortalShell } from "@/components/portal-shell";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { format } from "date-fns";
 import { formatPrice } from "@/lib/utils";
+
+// Renders Sydney calendar time, regardless of server runtime TZ (Vercel = UTC).
+const SYD_DATE_TIME = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
 
 export const metadata = { title: "Booking confirmed" };
 
@@ -40,7 +51,7 @@ export default async function ConfirmedPage({
                 {booking.service.name} · {booking.variant.durationMin} min
               </div>
               <div>
-                {format(booking.startsAt, "EEEE d MMMM yyyy, h:mm a")}
+                {SYD_DATE_TIME.format(booking.startsAt)}
                 {booking.therapist?.user.name
                   ? ` · with ${booking.therapist.user.name}`
                   : ""}
