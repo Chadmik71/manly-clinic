@@ -6,9 +6,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
-import { format } from "date-fns";
 import { CancelBookingButton } from "./cancel-button";
 import { cancelBooking } from "./actions";
+
+// Renders Sydney calendar time, regardless of server runtime TZ (Vercel = UTC).
+// See lib/time.ts for the same pattern; this is duplicated here to avoid an
+// extra import for a one-line formatter.
+const SYD_DATE_TIME = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
 
 export const metadata = { title: "My bookings" };
 
@@ -60,7 +73,7 @@ export default async function MyBookings() {
                   </div>
                   <div className="font-semibold mt-1">{b.service.name}</div>
                   <div className="text-sm text-muted-foreground">
-                    {format(b.startsAt, "EEE d MMM yyyy, h:mm a")} ·{" "}
+                    {SYD_DATE_TIME.format(b.startsAt)} ·{" "}
                     {b.variant.durationMin} min
                     {b.therapist?.user.name ? ` · with ${b.therapist.user.name}` : ""}
                   </div>
@@ -119,7 +132,7 @@ export default async function MyBookings() {
                   </div>
                   <div className="font-semibold mt-1">{b.service.name}</div>
                   <div className="text-sm text-muted-foreground">
-                    {format(b.startsAt, "EEE d MMM yyyy, h:mm a")} ·{" "}
+                    {SYD_DATE_TIME.format(b.startsAt)} ·{" "}
                     {b.variant.durationMin} min
                   </div>
                 </div>
