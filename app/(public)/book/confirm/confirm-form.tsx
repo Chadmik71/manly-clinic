@@ -130,6 +130,7 @@ export function ConfirmForm({
   variantId,
   startsIso,
   serviceHealthFundEligible,
+  serviceSlug,
   intakeDefaults,
   userDefaults,
   isGuest,
@@ -142,6 +143,7 @@ export function ConfirmForm({
   variantId: string;
   startsIso: string;
   serviceHealthFundEligible: boolean;
+  serviceSlug?: string;
   intakeDefaults: IntakeDefaults;
   userDefaults: UserDefaults;
   isGuest: boolean;
@@ -203,6 +205,17 @@ export function ConfirmForm({
   const offset = isGuest ? 1 : 0;
   const stepNo = (n: number) => String(n + offset);
   const lastClinicalStep = serviceHealthFundEligible ? 11 : 10;
+
+  // Three-tier intake based on service type:
+  //  - 'full'      → Remedial (the only health-fund-eligible service): full clinical intake
+  //  - 'pregnancy' → Pregnancy massage: pregnancy weeks + safety floor only
+  //  - 'safety'    → All other services: allergies + injuries (optional)
+  type IntakeMode = 'full' | 'pregnancy' | 'safety';
+  const intakeMode: IntakeMode = serviceHealthFundEligible
+    ? 'full'
+    : serviceSlug === 'pregnancy-massage'
+      ? 'pregnancy'
+      : 'safety';
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
@@ -409,7 +422,8 @@ export function ConfirmForm({
         </CardContent>
       </Card>
 
-      {/* 3. Medical history checklist */}
+      {/* 3. Medical history checklist (full intake only) */}
+      {intakeMode === 'full' && (
       <Card>
         <SectionHeader
           step={stepNo(3)}
@@ -455,8 +469,10 @@ export function ConfirmForm({
           </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* 4. Medications + allergies */}
+      {/* 4. Medications + allergies (full intake only) */}
+      {intakeMode === 'full' && (
       <Card>
         <SectionHeader step={stepNo(4)} title="Medications &amp; allergies" />
         <CardContent className="pb-5">
@@ -490,8 +506,10 @@ export function ConfirmForm({
           </FieldGrid>
         </CardContent>
       </Card>
+      )}
 
-      {/* 5. Presenting complaint */}
+      {/* 5. Presenting complaint (full intake only) */}
+      {intakeMode === 'full' && (
       <Card>
         <SectionHeader
           step={stepNo(5)}
@@ -574,8 +592,43 @@ export function ConfirmForm({
           </FieldGrid>
         </CardContent>
       </Card>
+      )}
 
-      {/* 6. Pregnancy */}
+      {/* SAFETY FLOOR — allergies + injuries (relaxation/pregnancy modes) */}
+      {intakeMode !== 'full' && (
+        <Card>
+          <SectionHeader
+            step="3"
+            title="Anything we should know?"
+            desc="Optional — but please let us know about anything that could affect your treatment."
+          />
+          <CardContent className="pb-5">
+            <FieldGrid>
+              <div className="space-y-1.5">
+                <Label htmlFor="allergies">Allergies</Label>
+                <Textarea
+                  id="allergies"
+                  name="allergies"
+                  defaultValue={intakeDefaults?.allergies ?? ""}
+                  placeholder="oils, latex, nuts… Leave blank if none."
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="injuries">Recent injuries / areas to avoid</Label>
+                <Textarea
+                  id="injuries"
+                  name="injuries"
+                  defaultValue={intakeDefaults?.injuries ?? ""}
+                  placeholder="recent surgery, sprains, scars to avoid. Leave blank if none."
+                />
+              </div>
+            </FieldGrid>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 6. Pregnancy (full intake AND pregnancy massage; hidden for relaxation services) */}
+      {intakeMode !== 'safety' && (
       <Card>
         <SectionHeader step={stepNo(6)} title="Pregnancy" />
         <CardContent className="pb-5 pt-4 space-y-3">
@@ -611,8 +664,10 @@ export function ConfirmForm({
           )}
         </CardContent>
       </Card>
+      )}
 
-      {/* 7. Emergency contact */}
+      {/* 7. Emergency contact (full intake only) */}
+      {intakeMode === 'full' && (
       <Card>
         <SectionHeader step={stepNo(7)} title="Emergency contact" />
         <CardContent className="pb-5">
@@ -654,6 +709,7 @@ export function ConfirmForm({
           </FieldGrid>
         </CardContent>
       </Card>
+      )}
 
       {/* 8. Health fund (optional) */}
       {serviceHealthFundEligible && (
