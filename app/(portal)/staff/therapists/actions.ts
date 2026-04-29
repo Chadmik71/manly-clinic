@@ -99,10 +99,10 @@ export async function addTherapist(formData: FormData) {
       availability: isCasual
         ? undefined
         : {
-            create: [1, 2, 3, 4, 5, 6].map((day) => ({
+            create: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
               dayOfWeek: day,
               startMin: 9 * 60,
-              endMin: 20 * 60 + 30,
+              endMin: 20 * 60,
             })),
           },
     },
