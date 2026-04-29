@@ -204,6 +204,7 @@ export default async function ConfirmPage({
       <ConfirmForm
         action={createBooking}
         serviceId={service.id}
+        serviceSlug={service.slug}
         variantId={variant.id}
         startsIso={starts.toISOString()}
         serviceHealthFundEligible={service.healthFundEligible}
