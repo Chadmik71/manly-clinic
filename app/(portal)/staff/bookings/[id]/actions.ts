@@ -63,3 +63,74 @@ export async function setBookingStatus(
   revalidatePath("/staff");
   return { ok: true };
 }
+
+
+export interface ClinicalNotesInput {
+  subjective: string;
+  objective: string;
+  assessment: string;
+  plan: string;
+  areasTreated: string;
+  techniques: string;
+  outcome: string;
+}
+
+/**
+ * Save per-visit clinical notes (SOAP + extras) for a booking.
+ * Staff/Admin only. Audit-logged. Stamps noteAuthorId + noteUpdatedAt
+ * automatically from the current session.
+ */
+export async function updateBookingNotes(
+  id: string,
+  notes: ClinicalNotesInput,
+): Promise<{ ok?: boolean; error?: string }> {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
+  )
+    return { error: "Forbidden." };
+
+  const booking = await db.booking.findUnique({ where: { id } });
+  if (!booking) return { error: "Not found." };
+
+  // Empty strings stored as NULL so the export view can distinguish
+  // "not yet written" from "actively cleared".
+  const orNull = (s: string) => (s.trim().length === 0 ? null : s.trim());
+
+  await db.booking.update({
+    where: { id },
+    data: {
+      noteSubjective: orNull(notes.subjective),
+      noteObjective: orNull(notes.objective),
+      noteAssessment: orNull(notes.assessment),
+      notePlan: orNull(notes.plan),
+      noteAreasTreated: orNull(notes.areasTreated),
+      noteTechniques: orNull(notes.techniques),
+      noteOutcome: orNull(notes.outcome),
+      noteAuthorId: session.user.id,
+      noteUpdatedAt: new Date(),
+    },
+  });
+
+  await audit({
+    userId: session.user.id,
+    action: "UPDATE_CLINICAL_NOTES",
+    resource: `Booking:${id}`,
+    metadata: {
+      // Don't log note bodies — only which fields were filled. Keeps the audit
+      // trail useful for "did someone write notes" questions without leaking
+      // clinical data into the audit table.
+      hasSubjective: !!orNull(notes.subjective),
+      hasObjective: !!orNull(notes.objective),
+      hasAssessment: !!orNull(notes.assessment),
+      hasPlan: !!orNull(notes.plan),
+      hasAreasTreated: !!orNull(notes.areasTreated),
+      hasTechniques: !!orNull(notes.techniques),
+      hasOutcome: !!orNull(notes.outcome),
+    },
+  });
+
+  revalidatePath(`/staff/bookings/${id}`);
+  return { ok: true };
+}
