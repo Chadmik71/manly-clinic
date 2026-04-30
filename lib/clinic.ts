@@ -20,6 +20,10 @@ export const CLINIC = {
   legalName: "Manly Remedial Clinic Pty Ltd",
   privacyOfficerEmail: "privacy@manlyremedialthai.com.au",
   domain: "https://www.manlyremedialthai.com.au",
+  // Bare host (no www, no protocol) used for outbound email FROM addresses.
+  // Resend verified the apex domain only, so FROM must be bookings@manlyremedialthai.com.au
+  // (sending from www.manlyremedialthai.com.au returns 403 unauthorized).
+  mailDomain: "manlyremedialthai.com.au",
 } as const;
 
 // Cancellation policy
