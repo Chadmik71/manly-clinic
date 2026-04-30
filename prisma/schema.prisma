@@ -38,6 +38,7 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   bookings        Booking[]        @relation("ClientBookings")
+  notesAuthored   Booking[]        @relation("ClinicalNoteAuthor")
   intakeForms     IntakeForm[]
   consentRecords  ConsentRecord[]
   auditLogs       AuditLog[]
@@ -132,6 +133,21 @@ model Booking {
   paymentIntentId String?
   voucherCode     String?
   voucherAppliedCents Int   @default(0)
+
+  // Per-visit clinical notes (SOAP + extras). Captured by the treating
+  // therapist after the session. All optional — older bookings, walk-ins,
+  // or sessions that skip notes will leave these null.
+  noteSubjective    String?
+  noteObjective     String?
+  noteAssessment    String?
+  notePlan          String?
+  noteAreasTreated  String?
+  noteTechniques    String?
+  noteOutcome       String?
+  noteAuthorId      String?
+  noteAuthor        User?     @relation("ClinicalNoteAuthor", fields: [noteAuthorId], references: [id])
+  noteUpdatedAt     DateTime?
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
