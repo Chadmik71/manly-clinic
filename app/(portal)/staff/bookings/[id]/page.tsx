@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { formatPrice } from "@/lib/utils";
 import { StatusActions } from "./status-actions";
-import { setBookingStatus, updateBookingNotes } from "./actions";
+import { setBookingStatus, updateBookingNotes, reassignTherapist } from "./actions";
 import { ClinicalNotesForm } from "./clinical-notes-form";
+import { ReassignTherapistForm } from "./reassign-therapist-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
 
 export default async function StaffBookingDetail({
@@ -36,6 +37,17 @@ export default async function StaffBookingDetail({
     where: { userId: b.clientId },
     orderBy: { updatedAt: "desc" },
   });
+
+  // For remedial-massage bookings only, fetch all active therapists so the
+  // staff can reassign. Empty list for other services skips the query.
+  const therapists =
+    b.service.slug === "remedial-massage"
+      ? await db.therapist.findMany({
+          where: { active: true },
+          include: { user: { select: { name: true } } },
+          orderBy: { user: { name: "asc" } },
+        })
+      : [];
 
   // Audit: staff viewed health information
   if (intake) {
@@ -249,6 +261,22 @@ export default async function StaffBookingDetail({
             />
           </CardContent>
         </Card>
+
+        {b.service.slug === "remedial-massage" && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Therapist (reassign)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ReassignTherapistForm
+                bookingId={b.id}
+                currentTherapistId={b.therapistId}
+                therapists={therapists.map((t) => ({ id: t.id, name: t.user.name }))}
+                action={reassignTherapist}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="md:col-span-2">
           <CardHeader>
