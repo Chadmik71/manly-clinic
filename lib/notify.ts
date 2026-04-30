@@ -84,26 +84,15 @@ const SYD_SHORT = new Intl.DateTimeFormat("en-AU", {
 });
 
 function fmt(d: Date): string {
-  // Replace the default ", " separator before time with " at " for natural English.
-  // SYD_LONG produces "Thursday, 30 April 2026, 11:00 am" by default.
-  const parts = SYD_LONG.formatToParts(d);
-  const date = parts
-    .filter((p) => ["weekday", "day", "month", "year"].includes(p.type))
-    .map((p) => p.value)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const time = parts
-    .filter((p) => ["hour", "minute", "dayPeriod"].includes(p.type))
-    .map((p) => p.value)
-    .join("")
-    .replace(/\s+/g, "")
-    .trim();
-  return `${date} at ${time}`;
+  // SYD_LONG.format() produces "Thursday, 30 April 2026, 7:00 pm" in en-AU.
+  // Replace the final ", " with " at " for more natural English in email subjects/bodies.
+  const s = SYD_LONG.format(d);
+  const lastCommaSpace = s.lastIndexOf(", ");
+  return lastCommaSpace === -1 ? s : s.slice(0, lastCommaSpace) + " at " + s.slice(lastCommaSpace + 2);
 }
 
 function fmtShort(d: Date): string {
-  // SMS-friendly compact: "Thu 30 Apr 11:00am"
+  // SMS-friendly compact: "Thu 30 Apr 7:00 pm". Strip commas only.
   return SYD_SHORT.format(d).replace(/,/g, "").replace(/\s+/g, " ").trim();
 }
 
