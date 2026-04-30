@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { formatPrice } from "@/lib/utils";
 import { StatusActions } from "./status-actions";
-import { setBookingStatus } from "./actions";
+import { setBookingStatus, updateBookingNotes } from "./actions";
+import { ClinicalNotesForm } from "./clinical-notes-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
 
 export default async function StaffBookingDetail({
@@ -26,6 +27,7 @@ export default async function StaffBookingDetail({
       variant: true,
       client: true,
       therapist: { include: { user: true } },
+      noteAuthor: { select: { name: true } },
     },
   });
   if (!b) notFound();
@@ -222,6 +224,29 @@ export default async function StaffBookingDetail({
             <p className="text-xs text-muted-foreground mt-4">
               Access to this record is audit-logged under your staff account.
             </p>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Treatment notes (clinical)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ClinicalNotesForm
+              bookingId={b.id}
+              initial={{
+                subjective: b.noteSubjective ?? "",
+                objective: b.noteObjective ?? "",
+                assessment: b.noteAssessment ?? "",
+                plan: b.notePlan ?? "",
+                areasTreated: b.noteAreasTreated ?? "",
+                techniques: b.noteTechniques ?? "",
+                outcome: b.noteOutcome ?? "",
+              }}
+              authorName={b.noteAuthor?.name ?? null}
+              updatedAt={b.noteUpdatedAt}
+              action={updateBookingNotes}
+            />
           </CardContent>
         </Card>
 
