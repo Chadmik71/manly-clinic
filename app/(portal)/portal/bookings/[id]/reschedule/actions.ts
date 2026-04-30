@@ -9,6 +9,24 @@ import {
 } from "@/lib/clinic";
 import { revalidatePath } from "next/cache";
 import { notifyBookingRescheduled } from "@/lib/notify";
+import { sydneyDateOf } from "@/lib/time";
+
+// Renders a Date in Sydney calendar time, returning minute-of-day (0..1439).
+// Vercel runs in UTC; raw getHours/getMinutes would give UTC values for our
+// startsAt/endsAt. This helper formats via Intl with timeZone Australia/Sydney
+// so booking-window checks compare apples to apples.
+const SYD_HM_FMT = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+function sydneyMinuteOfDay(d: Date): number {
+  const parts = SYD_HM_FMT.formatToParts(d);
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return h * 60 + m;
+}
 
 export async function rescheduleBooking(
   bookingId: string,
@@ -31,17 +49,15 @@ export async function rescheduleBooking(
   if (isNaN(startsAt.getTime()) || startsAt < new Date())
     return { error: "Invalid time." };
   const endsAt = addMinutes(startsAt, b.variant.durationMin);
-  const startMinutes = startsAt.getHours() * 60 + startsAt.getMinutes();
-  const endMinutes = endsAt.getHours() * 60 + endsAt.getMinutes();
-  const sameDay =
-    endsAt.getDate() === startsAt.getDate() &&
-    endsAt.getMonth() === startsAt.getMonth();
+  const startMinutes = sydneyMinuteOfDay(startsAt);
+  const endMinutes = sydneyMinuteOfDay(endsAt);
+  const sameDay = sydneyDateOf(startsAt) === sydneyDateOf(endsAt);
   if (
     startMinutes < BOOKING_EARLIEST_START_MIN ||
     !sameDay ||
     endMinutes > BOOKING_LATEST_END_MIN
   )
-    return { error: "Sessions must finish by 8:00 pm." };
+    return { error: startMinutes < BOOKING_EARLIEST_START_MIN ? "Sessions must start at or after 9:00 am." : "Sessions must finish by 8:00 pm. Please pick an earlier time." };
 
   // Find an available therapist (could be same as current, ignoring this booking)
   const dow = startsAt.getDay();
