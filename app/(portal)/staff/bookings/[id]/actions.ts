@@ -134,3 +134,77 @@ export async function updateBookingNotes(
   revalidatePath(`/staff/bookings/${id}`);
   return { ok: true };
 }
+
+
+/**
+ * Reassign the therapist for an existing booking.
+ * Currently gated to remedial-massage bookings only — for other services,
+ * the therapist is set at booking creation and shouldn't change after.
+ *
+ * Pass an empty string to set therapist to null (unassigned).
+ *
+ * Note: does NOT check for time conflicts with the new therapist's other
+ * bookings. Staff/admin are trusted to know what they're doing. The booking
+ * detail page can be enhanced later to show conflict warnings.
+ */
+export async function reassignTherapist(
+  bookingId: string,
+  therapistId: string,
+): Promise<{ ok?: boolean; error?: string }> {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
+  )
+    return { error: "Forbidden." };
+
+  const booking = await db.booking.findUnique({
+    where: { id: bookingId },
+    include: { service: { select: { slug: true } } },
+  });
+  if (!booking) return { error: "Booking not found." };
+
+  if (booking.service.slug !== "remedial-massage") {
+    return { error: "Therapist reassignment is only supported for remedial massage bookings." };
+  }
+
+  // Empty string -> null (unassign). Otherwise, sanity-check the therapist exists.
+  let resolvedId: string | null = null;
+  if (therapistId.trim().length > 0) {
+    const therapist = await db.therapist.findUnique({
+      where: { id: therapistId },
+      select: { id: true, active: true },
+    });
+    if (!therapist) return { error: "Therapist not found." };
+    if (!therapist.active) {
+      return { error: "Cannot assign an inactive therapist." };
+    }
+    resolvedId = therapist.id;
+  }
+
+  const previousTherapistId = booking.therapistId;
+  if (previousTherapistId === resolvedId) {
+    // No-op — same therapist already assigned.
+    return { ok: true };
+  }
+
+  await db.booking.update({
+    where: { id: bookingId },
+    data: { therapistId: resolvedId },
+  });
+
+  await audit({
+    userId: session.user.id,
+    action: "REASSIGN_THERAPIST",
+    resource: `Booking:${bookingId}`,
+    metadata: {
+      previousTherapistId,
+      newTherapistId: resolvedId,
+    },
+  });
+
+  revalidatePath(`/staff/bookings/${bookingId}`);
+  revalidatePath("/staff/bookings");
+  revalidatePath("/staff");
+  return { ok: true };
+}
