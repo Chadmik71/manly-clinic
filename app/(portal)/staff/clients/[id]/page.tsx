@@ -49,6 +49,14 @@ export default async function ClientProfile({
       }
     >
       <div className="p-4">
+        <div className="flex justify-end mb-4">
+          <Link
+            href={`/staff/clients/${id}/record`}
+            className="text-sm rounded-md border px-3 py-1.5 hover:bg-accent"
+          >
+            View clinical record (audit-friendly)
+          </Link>
+        </div>
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Contact</CardTitle></CardHeader>
