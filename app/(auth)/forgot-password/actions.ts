@@ -60,7 +60,7 @@ export async function requestPasswordReset(
         body: JSON.stringify({
           from:
             process.env.EMAIL_FROM ??
-            `bookings@${CLINIC.domain.replace(/^https?:\/\//, "")}`,
+            `bookings@${CLINIC.mailDomain}`,
           to: email,
           subject,
           html,
