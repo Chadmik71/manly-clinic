@@ -19,7 +19,7 @@ export const CLINIC = {
   abn: "82 669 994 183",
   legalName: "Manly Remedial Clinic Pty Ltd",
   privacyOfficerEmail: "privacy@manlyremedialthai.com.au",
-  domain: "https://manlyremedialthai.com.au",
+  domain: "https://www.manlyremedialthai.com.au",
 } as const;
 
 // Cancellation policy
