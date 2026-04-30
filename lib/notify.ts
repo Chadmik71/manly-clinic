@@ -9,7 +9,7 @@ type SmsArgs = { to: string; body: string };
 
 async function sendEmail({ to, subject, html, text }: EmailArgs): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || `bookings@${CLINIC.domain.replace(/^https?:\/\//, "")}`;
+  const from = process.env.EMAIL_FROM || `bookings@${CLINIC.mailDomain}`;
   if (!apiKey) {
     console.log("[notify:email:stub]", { to, subject, text });
     return;
