@@ -152,12 +152,21 @@ model Booking {
   noteAuthor        User?     @relation("ClinicalNoteAuthor", fields: [noteAuthorId], references: [id])
   noteUpdatedAt     DateTime?
 
+  // Service-slot model (e.g. "Therapist 1"). Customers always see this label
+  // in their portal/confirmations. The actual therapist (when relevant for
+  // remedial bookings) is stored separately in therapistId. Both nullable so
+  // legacy bookings continue to work.
+  slotId          String?
+  slot            Slot?     @relation(fields: [slotId], references: [id])
+  slotLabel       String?   // denormalized snapshot at booking time, stable even if slot is renamed/deleted
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   @@index([startsAt])
   @@index([clientId])
   @@index([therapistId])
+  @@index([slotId, startsAt])
 }
 
 // --- Health intake (Privacy Act compliant) ---
@@ -246,4 +255,19 @@ model AuditLog {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+/// Service slot — customer-facing label like "Therapist 1", "Therapist 2".
+/// Each clinic operates N concurrent slots at any time; admin can toggle
+/// individual slots active/inactive when short-staffed.
+model Slot {
+  id           String    @id @default(cuid())
+  label        String    @unique // e.g. "Therapist 1"
+  displayOrder Int       @default(0)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  bookings     Booking[]
+
+  @@index([active, displayOrder])
 }
