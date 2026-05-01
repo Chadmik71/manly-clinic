@@ -7,7 +7,7 @@ import { StaffShell } from "@/components/staff-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, therapistInternalName } from "@/lib/utils";
 
 export default async function ClientProfile({
   params,
@@ -148,7 +148,7 @@ export default async function ClientProfile({
                           {b.service.name} ({b.variant.durationMin}m)
                         </Link>
                       </td>
-                      <td className="px-4 py-3">{b.therapist?.user.name ?? "—"}</td>
+                      <td className="px-4 py-3">{b.therapist ? therapistInternalName(b.therapist) : "—"}</td>
                       <td className="px-4 py-3"><Badge variant="secondary">{b.status}</Badge></td>
                       <td className="px-4 py-3 text-right">{formatPrice(b.priceCentsAtBooking)}</td>
                     </tr>
