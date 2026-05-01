@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { format } from "date-fns";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, therapistInternalName } from "@/lib/utils";
 import { CLINIC } from "@/lib/clinic";
 import { parseHistory, historyLabel } from "@/lib/intake";
 
@@ -270,7 +270,7 @@ export default async function ClientClinicalRecord({
                       {format(b.startsAt, "h:mm a")} \u2013{" "}
                       {format(b.endsAt, "h:mm a")} ({b.variant.durationMin}{" "}
                       min) \u00b7 {b.service.name} \u00b7{" "}
-                      {b.therapist?.user.name ?? "Unassigned"} \u00b7{" "}
+                      {b.therapist ? therapistInternalName(b.therapist) : "Unassigned"} \u00b7{" "}
                       {formatPrice(b.priceCentsAtBooking)} \u00b7 {b.status}
                       {b.claimWithHealthFund ? " \u00b7 Health fund claim" : ""}
                     </p>
