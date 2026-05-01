@@ -70,6 +70,7 @@ export default async function TherapistEditPage({
               action={saveProfile}
               defaults={{
                 id: t.id,
+                displayName: t.displayName ?? "",
                 bio: t.bio ?? "",
                 qualifications: t.qualifications ?? "",
                 providerNumber: t.providerNumber ?? "",
