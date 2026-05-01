@@ -76,6 +76,10 @@ model Therapist {
   userId        String   @unique
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   bio           String?
+  // What customers see when picking a therapist (e.g. "Therapist 1").
+  // Falls back to user.name if null. Lets the clinic operate with rotating
+  // staff while keeping the customer-facing booking flow stable.
+  displayName   String?
   qualifications String? // free text, e.g. "Cert IV Massage Therapy, AAMT member"
   // Required on tax invoices for health-fund rebates
   providerNumber String?
