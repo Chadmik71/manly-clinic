@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, therapistInternalName } from "@/lib/utils";
 import { format } from "date-fns";
 
 export const metadata = { title: "All bookings" };
@@ -111,7 +111,7 @@ export default async function StaffBookingsPage({
                         </div>
                       </td>
                       <td className="px-4 py-3">{b.service.name}</td>
-                      <td className="px-4 py-3">{b.therapist?.user.name ?? "—"}</td>
+                      <td className="px-4 py-3">{b.therapist ? therapistInternalName(b.therapist) : "—"}</td>
                       <td className="px-4 py-3">
                         <Badge
                           variant={
