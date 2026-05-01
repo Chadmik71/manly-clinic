@@ -34,3 +34,37 @@ export function categoryLabel(c: string): string {
     } as Record<string, string>
   )[c] ?? c;
 }
+
+/**
+ * Therapist record shape sufficient for name resolution.
+ * Accepts either { displayName, user: { name } } or { displayName, name }.
+ */
+export type TherapistNameish = {
+  displayName?: string | null;
+  user?: { name: string | null } | null;
+  name?: string | null;
+};
+
+function realName(t: TherapistNameish): string {
+  return t.user?.name ?? t.name ?? "Unknown";
+}
+
+/**
+ * Customer-facing label. Returns the slot/display name when set, else the
+ * real human name as a graceful fallback for not-yet-relabelled therapists.
+ */
+export function therapistPublicName(t: TherapistNameish): string {
+  return t.displayName?.trim() || realName(t);
+}
+
+/**
+ * Staff-facing label. Shows the real name plus the slot label in parens
+ * when both are present, e.g. "Joy (Therapist 1)". When no slot label is
+ * set, returns just the real name.
+ */
+export function therapistInternalName(t: TherapistNameish): string {
+  const real = realName(t);
+  const display = t.displayName?.trim();
+  if (display && display !== real) return `${real} (${display})`;
+  return real;
+}
