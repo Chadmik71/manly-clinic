@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { therapistInternalName } from "@/lib/utils";
 import { StaffShell } from "@/components/staff-shell";
 import {
   Card,
@@ -65,7 +66,7 @@ export default async function NewStaffBookingPage() {
               }))}
               therapists={therapists.map((t) => ({
                 id: t.id,
-                name: t.user.name,
+                name: therapistInternalName(t),
               }))}
             />
           </CardContent>
