@@ -7,7 +7,7 @@ import { StaffShell } from "@/components/staff-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, therapistInternalName } from "@/lib/utils";
 import { StatusActions } from "./status-actions";
 import { setBookingStatus, updateBookingNotes, reassignTherapist } from "./actions";
 import { ClinicalNotesForm } from "./clinical-notes-form";
@@ -94,7 +94,7 @@ export default async function StaffBookingDetail({
             <Row label="Duration" value={`${b.variant.durationMin} min`} />
             <Row label="Date" value={format(b.startsAt, "EEEE d MMMM yyyy")} />
             <Row label="Time" value={`${format(b.startsAt, "h:mm a")} – ${format(b.endsAt, "h:mm a")}`} />
-            <Row label="Therapist" value={b.therapist?.user.name ?? "Unassigned"} />
+            <Row label="Therapist" value={b.therapist ? therapistInternalName(b.therapist) : "Unassigned"} />
             <Row label="Price" value={formatPrice(b.priceCentsAtBooking)} />
             <Row
               label="Health fund claim"
@@ -271,7 +271,7 @@ export default async function StaffBookingDetail({
               <ReassignTherapistForm
                 bookingId={b.id}
                 currentTherapistId={b.therapistId}
-                therapists={therapists.map((t) => ({ id: t.id, name: t.user.name }))}
+                therapists={therapists.map((t) => ({ id: t.id, name: therapistInternalName(t) }))}
                 action={reassignTherapist}
               />
             </CardContent>
