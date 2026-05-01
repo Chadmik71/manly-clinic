@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, therapistInternalName } from "@/lib/utils";
 import { Download, Filter } from "lucide-react";
 import { format, subDays } from "date-fns";
 import type { Prisma } from "@prisma/client";
@@ -171,7 +171,7 @@ export default async function ReportsPage({
   );
   const byStaff = group((b) =>
     b.therapistId
-      ? { key: b.therapistId, label: b.therapist?.user.name ?? "Unknown" }
+      ? { key: b.therapistId, label: b.therapist ? therapistInternalName(b.therapist) : "Unknown" }
       : { key: "_none", label: "Unassigned" },
   );
   const byService = group((b) => ({ key: b.serviceId, label: b.service.name }));
@@ -376,7 +376,7 @@ export default async function ReportsPage({
                           {b.variant.durationMin} min
                         </div>
                       </td>
-                      <td className="px-4 py-3">{b.therapist?.user.name ?? "—"}</td>
+                      <td className="px-4 py-3">{b.therapist ? therapistInternalName(b.therapist) : "—"}</td>
                       <td className="px-4 py-3">
                         {b.claimWithHealthFund ? (
                           <Badge variant="success">{b.fund ?? "Yes"}</Badge>
