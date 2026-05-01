@@ -16,6 +16,7 @@ export function ProfileForm({
   ) => Promise<{ ok?: boolean; error?: string }>;
   defaults: {
     id: string;
+    displayName: string;
     bio: string;
     qualifications: string;
     providerNumber: string;
@@ -38,6 +39,19 @@ export function ProfileForm({
   }
   return (
     <form onSubmit={onSubmit} className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="displayName">Display name (public)</Label>
+        <Input
+          id="displayName"
+          name="displayName"
+          defaultValue={defaults.displayName}
+          placeholder="e.g. Therapist 1"
+          maxLength={80}
+        />
+        <p className="text-xs text-muted-foreground">
+          What customers see when booking. Leave blank to show the real name.
+        </p>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="providerNumber">Provider number</Label>
