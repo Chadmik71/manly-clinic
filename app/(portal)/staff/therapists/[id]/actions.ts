@@ -18,6 +18,8 @@ async function requireStaff() {
 
 const profileSchema = z.object({
   id: z.string().min(1),
+  // What customers see (e.g. "Therapist 1"). Empty string -> null on save.
+  displayName: z.string().max(80).optional(),
   bio: z.string().max(2000).optional(),
   qualifications: z.string().max(500).optional(),
   providerNumber: z.string().max(80).optional(),
@@ -39,6 +41,7 @@ export async function saveProfile(
   await db.therapist.update({
     where: { id: parsed.data.id },
     data: {
+      displayName: parsed.data.displayName?.trim() || null,
       bio: parsed.data.bio || null,
       qualifications: parsed.data.qualifications || null,
       providerNumber: parsed.data.providerNumber || null,
