@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { therapistInternalName } from "@/lib/utils";
 import Link from "next/link";
 import { StaffShell } from "@/components/staff-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +37,7 @@ export default async function TherapistsPage() {
             <Card key={t.id}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Link href={`/staff/therapists/${t.id}`} className="hover:underline">{t.user.name}</Link>
+                  <Link href={`/staff/therapists/${t.id}`} className="hover:underline">{therapistInternalName(t)}</Link>
                   <Badge variant={t.active ? "success" : "secondary"}>{t.active ? "active" : "inactive"}</Badge>
                 </CardTitle>
               </CardHeader>
