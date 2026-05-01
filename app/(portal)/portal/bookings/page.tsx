@@ -5,7 +5,7 @@ import { PortalShell } from "@/components/portal-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, therapistPublicName } from "@/lib/utils";
 import { CancelBookingButton } from "./cancel-button";
 import { cancelBooking } from "./actions";
 
@@ -75,7 +75,7 @@ export default async function MyBookings() {
                   <div className="text-sm text-muted-foreground">
                     {SYD_DATE_TIME.format(b.startsAt)} ·{" "}
                     {b.variant.durationMin} min
-                    {b.therapist?.user.name ? ` · with ${b.therapist.user.name}` : ""}
+                    {b.therapist ? ` · with ${therapistPublicName(b.therapist)}` : ""}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
