@@ -7,8 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AddTherapistDialog } from "./add-therapist-dialog";
-import { SeedPlaceholderButton } from "./seed-button";
-import { seedPlaceholderTherapists } from "./actions";
 
 export const metadata = { title: "Therapists" };
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -27,23 +25,12 @@ export default async function TherapistsPage() {
     orderBy: { user: { name: "asc" } },
   });
 
-  // Placeholder bootstrap UI: only show the seed button when no
-  // "Therapist N" (N=2..10) records exist yet. After admin clicks once,
-  // these will all exist and the button auto-hides.
-  const placeholderLabels = ["Therapist 2", "Therapist 3", "Therapist 4", "Therapist 5", "Therapist 6", "Therapist 7", "Therapist 8", "Therapist 9", "Therapist 10"];
-  const hasPlaceholders = therapists.some((t) => t.displayName && placeholderLabels.includes(t.displayName));
-
   return (
     <StaffShell user={session.user} topbar={<span className="text-foreground font-medium">Therapists</span>}>
       <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">Click a therapist to edit their profile, hours, and time off.</p>
-          <div className="flex items-center gap-2 flex-wrap">
-            {!hasPlaceholders && (
-              <SeedPlaceholderButton action={seedPlaceholderTherapists} />
-            )}
-            <AddTherapistDialog />
-          </div>
+          <AddTherapistDialog />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {therapists.map((t) => (
