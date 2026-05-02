@@ -3,8 +3,6 @@
 import { db } from "@/lib/db";
 import { hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { audit } from "@/lib/audit";
 
 // Pattern for synthetic emails on casual-staff records that don't need login.
 // Use the .local TLD (RFC 6762 reserved) so we can never collide with a real
@@ -113,87 +111,3 @@ export async function addTherapist(formData: FormData) {
   revalidatePath("/staff/therapists");
 }
 
-
-/**
- * One-shot bootstrap: create 9 placeholder Therapist records (Therapist 2-10)
- * with synthetic emails, unusable passwords, full Mon-Sun 9am-8pm availability,
- * and displayName matching the slot label. Joy is left untouched (admin sets
- * her displayName to "Therapist 1" via the existing edit UI).
- *
- * Idempotent: refuses if any therapist with displayName "Therapist 2" through
- * "Therapist 10" already exists. Admin-only. Audit-logged.
- *
- * After running this once, the customer-facing booking flow will offer 10
- * anonymous slots. Admin can dial down by toggling individual therapists
- * inactive on /staff/therapists/[id].
- */
-export async function seedPlaceholderTherapists(): Promise<{
-  ok?: boolean;
-  error?: string;
-  created?: number;
-}> {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return { error: "Forbidden — admin only." };
-  }
-
-  // Idempotency check: any existing placeholder?
-  const existing = await db.therapist.findFirst({
-    where: {
-      displayName: {
-        in: ["Therapist 2", "Therapist 3", "Therapist 4", "Therapist 5", "Therapist 6", "Therapist 7", "Therapist 8", "Therapist 9", "Therapist 10"],
-      },
-    },
-    select: { id: true, displayName: true },
-  });
-  if (existing) {
-    return {
-      error: `Already seeded — found ${existing.displayName}. Refusing to create duplicates.`,
-    };
-  }
-
-  let created = 0;
-  for (let i = 2; i <= 10; i++) {
-    const label = `Therapist ${i}`;
-    const email = casualEmail();
-    const passwordHash = await unguessablePlaceholderHash();
-
-    const user = await db.user.create({
-      data: {
-        name: label,
-        email,
-        role: "STAFF",
-        passwordHash,
-      },
-    });
-
-    await db.therapist.create({
-      data: {
-        userId: user.id,
-        active: true,
-        displayName: label,
-        // Standard Mon-Sun 9am-8pm so the slot is always bookable within
-        // clinic hours. Admin can edit/restrict per slot via the existing
-        // availability UI.
-        availability: {
-          create: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
-            dayOfWeek: day,
-            startMin: 9 * 60,
-            endMin: 20 * 60,
-          })),
-        },
-      },
-    });
-    created++;
-  }
-
-  await audit({
-    userId: session.user.id,
-    action: "SEED_PLACEHOLDER_THERAPISTS",
-    resource: "Therapist:bulk",
-    metadata: { created },
-  });
-
-  revalidatePath("/staff/therapists");
-  return { ok: true, created };
-}
