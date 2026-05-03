@@ -39,6 +39,8 @@ model User {
 
   bookings        Booking[]        @relation("ClientBookings")
   notesAuthored   Booking[]        @relation("ClinicalNoteAuthor")
+  assignedBookings    Booking[]    @relation("AssignedTherapist")
+  assignedByBookings  Booking[]    @relation("AssignedBy")
   intakeForms     IntakeForm[]
   consentRecords  ConsentRecord[]
   auditLogs       AuditLog[]
@@ -159,6 +161,18 @@ model Booking {
   slotId          String?
   slot            Slot?     @relation(fields: [slotId], references: [id])
   slotLabel       String?   // denormalized snapshot at booking time, stable even if slot is renamed/deleted
+
+  // Therapist assigned by admin AFTER the booking is made (separate from
+  // the customer-facing slot label). For health-fund-rebate audits — these
+  // fields are the official "who actually did the session" record. The name
+  // is denormalised (frozen at assignment time) so renaming the User later
+  // never rewrites historical bookings.
+  assignedTherapistId   String?
+  assignedTherapist     User?     @relation("AssignedTherapist", fields: [assignedTherapistId], references: [id])
+  assignedTherapistName String?
+  assignedAt            DateTime?
+  assignedById          String?
+  assignedBy            User?     @relation("AssignedBy", fields: [assignedById], references: [id])
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
