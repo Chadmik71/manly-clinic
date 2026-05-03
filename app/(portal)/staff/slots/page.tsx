@@ -90,7 +90,13 @@ export default async function SlotsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={createSlot} className="flex flex-wrap items-end gap-3">
+            <form
+            action={async (fd) => {
+              "use server";
+              await createSlot(fd);
+            }}
+            className="flex flex-wrap items-end gap-3"
+          >
               <div className="space-y-1.5">
                 <Label htmlFor="label">Label</Label>
                 <Input
