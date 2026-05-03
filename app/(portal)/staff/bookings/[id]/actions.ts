@@ -208,3 +208,76 @@ export async function reassignTherapist(
   revalidatePath("/staff");
   return { ok: true };
 }
+
+
+/**
+ * Assign (or unassign) the real therapist who actually performed the session.
+ * This is the AUDIT data set — separate from the customer-facing slot label.
+ *
+ * The dropdown source is User table where role IN (STAFF, ADMIN). The User's
+ * name at assignment time is denormalised into Booking.assignedTherapistName
+ * so historical bookings stay frozen even if the User is later renamed.
+ *
+ * Pass an empty string to unassign. Available for ALL services (not just
+ * remedial). Audit-logged.
+ */
+export async function assignTherapist(
+  bookingId: string,
+  userId: string,
+): Promise<{ ok?: boolean; error?: string }> {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
+  )
+    return { error: "Forbidden." };
+
+  const booking = await db.booking.findUnique({
+    where: { id: bookingId },
+    select: { id: true, assignedTherapistId: true },
+  });
+  if (!booking) return { error: "Booking not found." };
+
+  let resolvedUser: { id: string; name: string | null } | null = null;
+  if (userId.trim().length > 0) {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, role: true },
+    });
+    if (!user) return { error: "User not found." };
+    if (user.role !== "STAFF" && user.role !== "ADMIN") {
+      return { error: "Only STAFF or ADMIN can be assigned to a session." };
+    }
+    resolvedUser = { id: user.id, name: user.name };
+  }
+
+  if (booking.assignedTherapistId === (resolvedUser?.id ?? null)) {
+    return { ok: true };
+  }
+
+  await db.booking.update({
+    where: { id: bookingId },
+    data: {
+      assignedTherapistId: resolvedUser?.id ?? null,
+      assignedTherapistName: resolvedUser?.name ?? null,
+      assignedAt: resolvedUser ? new Date() : null,
+      assignedById: resolvedUser ? session.user.id : null,
+    },
+  });
+
+  await audit({
+    userId: session.user.id,
+    action: "ASSIGN_THERAPIST",
+    resource: `Booking:${bookingId}`,
+    metadata: {
+      previousAssignedTherapistId: booking.assignedTherapistId,
+      newAssignedTherapistId: resolvedUser?.id ?? null,
+      newAssignedTherapistName: resolvedUser?.name ?? null,
+    },
+  });
+
+  revalidatePath(`/staff/bookings/${bookingId}`);
+  revalidatePath("/staff/bookings");
+  revalidatePath("/staff");
+  return { ok: true };
+}
