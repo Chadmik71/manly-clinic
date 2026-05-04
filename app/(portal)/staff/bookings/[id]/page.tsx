@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { formatPrice, therapistInternalName } from "@/lib/utils";
 import { StatusActions } from "./status-actions";
-import { setBookingStatus, updateBookingNotes, reassignTherapist } from "./actions";
+import { setBookingStatus, updateBookingNotes, reassignTherapist, assignTherapist } from "./actions";
 import { ClinicalNotesForm } from "./clinical-notes-form";
 import { ReassignTherapistForm } from "./reassign-therapist-form";
+import { AssignTherapistForm } from "./assign-therapist-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
 
 export default async function StaffBookingDetail({
@@ -48,6 +49,17 @@ export default async function StaffBookingDetail({
           orderBy: { user: { name: "asc" } },
         })
       : [];
+
+  // Staff pool for the audit-side "who actually did the session" assignment.
+  // All STAFF and ADMIN users (regardless of whether they have a Therapist
+  // record) can be assigned. The assigned name is denormalised onto the
+  // booking so historical assignments stay frozen even if the User is
+  // renamed later.
+  const staffPool = await db.user.findMany({
+    where: { role: { in: ["STAFF", "ADMIN"] } },
+    select: { id: true, name: true, role: true },
+    orderBy: { name: "asc" },
+  });
 
   // Audit: staff viewed health information
   if (intake) {
@@ -279,6 +291,28 @@ export default async function StaffBookingDetail({
         )}
 
         <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Therapist (assigned for clinical record)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-3">
+              Pick the staff member who actually performed (or will perform) this session. This name appears on the audit-friendly clinical record export and on health-fund claims. Customers always see the slot label they booked &mdash; never this name.
+            </p>
+            <AssignTherapistForm
+              bookingId={b.id}
+              currentAssignedId={b.assignedTherapistId}
+              currentAssignedName={b.assignedTherapistName}
+              staffOptions={staffPool.map((u) => ({
+                id: u.id,
+                name: u.name ?? "(no name)",
+                role: u.role,
+              }))}
+              action={assignTherapist}
+            />
+          </CardContent>
+        </Card>
+
+                <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Update status</CardTitle>
           </CardHeader>
