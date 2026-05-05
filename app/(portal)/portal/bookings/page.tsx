@@ -75,7 +75,7 @@ export default async function MyBookings() {
                   <div className="text-sm text-muted-foreground">
                     {SYD_DATE_TIME.format(b.startsAt)} ·{" "}
                     {b.variant.durationMin} min
-                    {b.therapist ? ` · with ${therapistPublicName(b.therapist)}` : ""}
+                    {b.slotLabel ? ` · ${b.slotLabel}` : b.therapist ? ` · with ${therapistPublicName(b.therapist)}` : ""}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
