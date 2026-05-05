@@ -250,6 +250,41 @@ export async function createBooking(
   if (!candidate)
     return { error: "That time was just taken — please pick another." };
 
+  // Phase 4 (slot model) — auto-assign the lowest-numbered active Slot
+  // that has no time conflict. The slot label is denormalised onto the
+  // booking so the customer-facing display stays stable even if the slot
+  // is later renamed or deleted. Soft-fails: if no slot fits, the booking
+  // still saves with slotId=null and downstream displays fall back to the
+  // therapist name. This keeps the customer-flow risk near zero.
+  let slotId: string | null = null;
+  let slotLabel: string | null = null;
+  try {
+    const candidateSlots = await db.slot.findMany({
+      where: {
+        active: true,
+        bookings: {
+          none: {
+            status: { in: ["PENDING", "CONFIRMED"] },
+            startsAt: { lt: endsAt },
+            endsAt: { gt: startsAt },
+          },
+        },
+      },
+      orderBy: [{ displayOrder: "asc" }, { label: "asc" }],
+      take: 1,
+    });
+    if (candidateSlots.length > 0) {
+      slotId = candidateSlots[0].id;
+      slotLabel = candidateSlots[0].label;
+    }
+  } catch {
+    // If the slot lookup throws (e.g. transient DB hiccup), proceed without
+    // slot data rather than block the booking. A backfill task can populate
+    // missing slot fields later.
+    slotId = null;
+    slotLabel = null;
+  }
+
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const ua = h.get("user-agent") ?? null;
@@ -372,6 +407,8 @@ export async function createBooking(
       serviceId: variant.serviceId,
       variantId: variant.id,
       therapistId: candidate.id,
+      slotId,
+      slotLabel,
       startsAt,
       endsAt,
       status: "CONFIRMED",
