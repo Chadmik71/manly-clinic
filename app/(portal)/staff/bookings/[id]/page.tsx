@@ -95,6 +95,19 @@ export default async function StaffBookingDetail({
           Download invoice (PDF)
         </a>
       </div>
+
+      {/* Health-fund + unassigned + not-yet-completed warning. Matching
+          server-side enforcement lives in setBookingStatus — this banner
+          is the polite heads-up so staff don't click "Mark complete" then
+          bounce off an error. */}
+      {b.claimWithHealthFund && !b.assignedTherapistId && b.status !== "COMPLETED" && b.status !== "CANCELLED" && b.status !== "NO_SHOW" && (
+        <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <strong className="font-semibold">Therapist assignment required.</strong>{" "}
+          This is a health-fund-rebate booking. Before it can be marked as
+          COMPLETED, assign the staff member who actually performed the session
+          in the &ldquo;Therapist (assigned for clinical record)&rdquo; card below.
+        </div>
+      )}
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
