@@ -28,6 +28,23 @@ export async function setBookingStatus(
   });
   if (!booking) return { error: "Not found." };
 
+  // Hard block: a health-fund booking cannot be marked COMPLETED until
+  // a real therapist has been assigned for the audit record. Health funds
+  // (Medibank/HCF/etc.) need to know which named clinician performed the
+  // session — the customer-facing slot label "Therapist 1" is not a
+  // valid audit answer. The /staff/bookings/[id] page surfaces this rule
+  // in a banner before the staff member tries to set the status.
+  if (
+    status === "COMPLETED" &&
+    booking.claimWithHealthFund &&
+    !booking.assignedTherapistId
+  ) {
+    return {
+      error:
+        "Health-fund bookings require a therapist assignment before they can be marked COMPLETED. Use the \"Therapist (assigned for clinical record)\" card above to assign someone, then try again.",
+    };
+  }
+
   await db.booking.update({
     where: { id },
     data: {
