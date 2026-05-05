@@ -53,6 +53,12 @@ const FORM_HTML = `<!DOCTYPE html>
     <button type="submit">Promote to ADMIN</button>
   </form>
   <hr style="margin: 2rem 0; border: none; border-top: 1px solid #ddd;" />
+  <h2 style="font-size: 1.1rem;">List all STAFF/ADMIN accounts</h2>
+  <p>Read-only. Returns all emails with role STAFF or ADMIN, plus their role and creation date. Useful when you don't remember which email is your admin account.</p>
+  <form method="POST" action="?action=list-staff">
+    <button type="submit">List staff/admin accounts</button>
+  </form>
+  <hr style="margin: 2rem 0; border: none; border-top: 1px solid #ddd;" />
   <h2 style="font-size: 1.1rem;">Check role</h2>
   <p>See what role your User currently has.</p>
   <form method="POST" action="?action=check">
@@ -85,6 +91,30 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     email = typeof body.email === "string" ? body.email.trim() : null;
     password = typeof body.password === "string" ? body.password : null;
+  }
+
+  // Branch: list-staff (read-only, no email required, no allowlist)
+  // This is intentionally before the allowlist check so admin can find
+  // their own account when they don't remember which email they used.
+  if (action === "list-staff") {
+    const staff = await db.user.findMany({
+      where: { role: { in: ["STAFF", "ADMIN"] } },
+      select: { email: true, name: true, role: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
+    });
+    if (staff.length === 0) {
+      return new NextResponse("No STAFF or ADMIN users in the database.", {
+        status: 200,
+        headers: { "Content-Type": "text/plain" },
+      });
+    }
+    const lines = staff.map((u) =>
+      `${u.role.padEnd(6)} | ${u.email} | ${u.name ?? "(no name)"} | created ${u.createdAt.toISOString().substring(0, 10)}`,
+    );
+    return new NextResponse(
+      `Found ${staff.length} STAFF/ADMIN account(s):\n\n${lines.join("\n")}`,
+      { status: 200, headers: { "Content-Type": "text/plain" } },
+    );
   }
 
   // Hard guard: email allowlist (applies to all actions)
