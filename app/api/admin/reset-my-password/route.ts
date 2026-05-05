@@ -45,6 +45,20 @@ const FORM_HTML = `<!DOCTYPE html>
     <label>New password (min ${MIN_PASSWORD_LENGTH} chars) <input type="password" name="password" required minlength="${MIN_PASSWORD_LENGTH}" autocomplete="new-password" /></label>
     <button type="submit">Reset password</button>
   </form>
+  <hr style="margin: 2rem 0; border: none; border-top: 1px solid #ddd;" />
+  <h2 style="font-size: 1.1rem;">Promote to ADMIN</h2>
+  <p>If your account exists with role CLIENT (the default for self-signup), use this to promote yourself to ADMIN so you can access the staff portal.</p>
+  <form method="POST" action="?action=promote">
+    <label>Email <input type="email" name="email" required autocomplete="username" /></label>
+    <button type="submit">Promote to ADMIN</button>
+  </form>
+  <hr style="margin: 2rem 0; border: none; border-top: 1px solid #ddd;" />
+  <h2 style="font-size: 1.1rem;">Check role</h2>
+  <p>See what role your User currently has.</p>
+  <form method="POST" action="?action=check">
+    <label>Email <input type="email" name="email" required autocomplete="username" /></label>
+    <button type="submit">Check role</button>
+  </form>
   <div class="note">After clicking reset, sign in at <a href="/staff/login">/staff/login</a> with the new password. Then ask Claude to delete this recovery route.</div>
 </body>
 </html>`;
@@ -57,6 +71,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const u = new URL(req.url);
+  const action = u.searchParams.get("action") || "reset";
   let email: string | null = null;
   let password: string | null = null;
 
@@ -71,10 +87,56 @@ export async function POST(req: NextRequest) {
     password = typeof body.password === "string" ? body.password : null;
   }
 
-  // Hard guard: email allowlist
+  // Hard guard: email allowlist (applies to all actions)
   if (!email || email.toLowerCase() !== ALLOWED_EMAIL.toLowerCase()) {
     return new NextResponse("Forbidden — email not on the allowlist for this recovery route.", { status: 403 });
   }
+
+  // Branch: check role (read-only)
+  if (action === "check") {
+    const u2 = await db.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: { id: true, email: true, name: true, role: true, createdAt: true },
+    });
+    if (!u2) {
+      return new NextResponse(`No user with email ${email}.`, { status: 404 });
+    }
+    return new NextResponse(
+      `User ${u2.email} (${u2.name ?? "no name"}) has role: ${u2.role}. Created: ${u2.createdAt.toISOString().substring(0, 10)}.`,
+      { status: 200, headers: { "Content-Type": "text/plain" } }
+    );
+  }
+
+  // Branch: promote to ADMIN (mutation, audit-logged)
+  if (action === "promote") {
+    const u3 = await db.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: { id: true, email: true, role: true },
+    });
+    if (!u3) {
+      return new NextResponse(`No user with email ${email}.`, { status: 404 });
+    }
+    const previousRole = u3.role;
+    if (previousRole === "ADMIN") {
+      return new NextResponse(`Already ADMIN — no change.`, { status: 200 });
+    }
+    await db.user.update({
+      where: { id: u3.id },
+      data: { role: "ADMIN" },
+    });
+    await audit({
+      userId: u3.id,
+      action: "PASSWORD_RECOVERY_PROMOTE_TO_ADMIN",
+      resource: `User:${u3.id}`,
+      metadata: { email: u3.email, previousRole, newRole: "ADMIN", route: "admin/reset-my-password" },
+    });
+    return new NextResponse(
+      `Promoted ${u3.email} from ${previousRole} to ADMIN. Sign out & in again at /staff/login.`,
+      { status: 200, headers: { "Content-Type": "text/plain" } }
+    );
+  }
+
+  // Default branch: password reset (existing behaviour)
   if (!password || password.length < MIN_PASSWORD_LENGTH) {
     return new NextResponse(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`, { status: 400 });
   }
