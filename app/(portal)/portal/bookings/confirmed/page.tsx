@@ -52,9 +52,11 @@ export default async function ConfirmedPage({
               </div>
               <div>
                 {SYD_DATE_TIME.format(booking.startsAt)}
-                {booking.therapist
-                  ? ` · with ${therapistPublicName(booking.therapist)}`
-                  : ""}
+                {booking.slotLabel
+                  ? ` · ${booking.slotLabel}`
+                  : booking.therapist
+                    ? ` · with ${therapistPublicName(booking.therapist)}`
+                    : ""}
               </div>
               <div>{formatPrice(booking.priceCentsAtBooking)}</div>
               {booking.voucherAppliedCents > 0 && (
