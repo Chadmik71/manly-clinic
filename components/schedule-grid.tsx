@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { format } from "date-fns";
+import { sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
 import { formatPrice } from "@/lib/utils";
 
 const DAY_START_HOUR = 8;
@@ -54,8 +54,21 @@ function hourLabel(h: number): string {
   return h < 12 ? `${h} am` : `${h - 12} pm`;
 }
 
+/**
+ * Minutes since Sydney-local midnight for the given UTC instant.
+ * Uses Intl to extract Sydney clock hours/minutes regardless of the
+ * server timezone — Vercel runs UTC so a naive d.getHours() would
+ * mis-position bookings by 10 or 11 hours.
+ */
 function minutesFromMidnight(d: Date): number {
-  return d.getHours() * 60 + d.getMinutes();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: SYDNEY_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(d);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return get("hour") * 60 + get("minute");
 }
 
 export function ScheduleGrid({
@@ -182,7 +195,7 @@ export function ScheduleGrid({
                       }}
                     >
                       <div className="font-semibold">
-                        {format(b.startsAt, "h:mm a")} – {format(b.endsAt, "h:mm a")}
+                        {sydneyTimeShort(b.startsAt)} – {sydneyTimeShort(b.endsAt)}
                       </div>
                       {b.client.phone && (
                         <div className="opacity-75 truncate">{b.client.phone}</div>
