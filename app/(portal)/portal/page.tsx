@@ -84,7 +84,7 @@ export default async function PortalHome() {
                   <div className="text-sm text-muted-foreground">
                     {format(b.startsAt, "EEE d MMM, h:mm a")} ·{" "}
                     {b.variant.durationMin} min
-                    {b.therapist?.user.name ? ` · with ${b.therapist.user.name}` : ""}
+                    {b.slotLabel ? ` · ${b.slotLabel}` : b.therapist?.user.name ? ` · with ${b.therapist.user.name}` : ""}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
