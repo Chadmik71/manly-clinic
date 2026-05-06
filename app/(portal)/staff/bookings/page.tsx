@@ -111,7 +111,19 @@ export default async function StaffBookingsPage({
                         </div>
                       </td>
                       <td className="px-4 py-3">{b.service.name}</td>
-                      <td className="px-4 py-3">{b.therapist ? therapistInternalName(b.therapist) : "—"}</td>
+                      <td className="px-4 py-3">
+                    {(() => {
+                      const slot = b.slotLabel;
+                      const assigned = b.assignedTherapistName;
+                      const legacy = b.therapist ? therapistInternalName(b.therapist) : null;
+                      if (slot && assigned) return `${slot} \u2192 ${assigned}`;
+                      if (assigned) return assigned;
+                      if (slot && legacy) return `${slot} \u2192 ${legacy}`;
+                      if (slot) return slot;
+                      if (legacy) return legacy;
+                      return "\u2014";
+                    })()}
+                  </td>
                       <td className="px-4 py-3">
                         <Badge
                           variant={
