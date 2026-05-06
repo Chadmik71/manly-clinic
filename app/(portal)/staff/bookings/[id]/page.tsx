@@ -75,13 +75,7 @@ export default async function StaffBookingDetail({
       }
     >
       <div className="p-4">
-      <div className="flex justify-end gap-2 mb-4">
-        <Link
-          href={`/staff/bookings/${b.id}/edit`}
-          className="text-sm rounded-md border px-3 py-1.5 hover:bg-accent"
-        >
-          Edit booking
-        </Link>
+      <div className="flex justify-end mb-4">
         <a
           href={`/api/bookings/${b.id}/invoice`}
           target="_blank"
