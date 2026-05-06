@@ -274,12 +274,14 @@ export default async function ClientClinicalRecord({
                       const slot = b.slotLabel;
                       const assigned = b.assignedTherapistName;
                       const legacy = b.therapist ? therapistInternalName(b.therapist) : null;
-                      // Audit-priority order: slot label + assigned (Phase 6 ideal),
-                      // then assigned alone, then legacy therapist name, then Unassigned.
+                      // Audit semantics: when slot is set, ONLY the explicit
+                      // admin assignment counts. The legacy auto-assigned
+                      // therapist is irrelevant for clinical records.
                       if (slot && assigned) return `${slot} \u2014 assigned: ${assigned}`;
-                      if (assigned) return `assigned: ${assigned}`;
-                      if (slot && legacy) return `${slot} \u2014 ${legacy}`;
                       if (slot) return `${slot} \u2014 Unassigned`;
+                      // No slot: pre-Phase-4 legacy booking. The legacy
+                      // therapist IS who performed the session.
+                      if (assigned) return `assigned: ${assigned}`;
                       if (legacy) return legacy;
                       return "Unassigned";
                     })()} \u00b7{" "}
