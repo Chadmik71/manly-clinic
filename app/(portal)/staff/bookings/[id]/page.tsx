@@ -6,7 +6,7 @@ import { audit } from "@/lib/audit";
 import { StaffShell } from "@/components/staff-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { sydneyDateLong, sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
 import { formatPrice, therapistInternalName } from "@/lib/utils";
 import { StatusActions } from "./status-actions";
 import { setBookingStatus, updateBookingNotes, reassignTherapist, assignTherapist } from "./actions";
@@ -117,8 +117,8 @@ export default async function StaffBookingDetail({
             <Row label="Status" value={<Badge variant={statusVariant(b.status)}>{b.status}</Badge>} />
             <Row label="Service" value={b.service.name} />
             <Row label="Duration" value={`${b.variant.durationMin} min`} />
-            <Row label="Date" value={format(b.startsAt, "EEEE d MMMM yyyy")} />
-            <Row label="Time" value={`${format(b.startsAt, "h:mm a")} – ${format(b.endsAt, "h:mm a")}`} />
+            <Row label="Date" value={sydneyDateLong(b.startsAt)} />
+            <Row label="Time" value={`${sydneyTimeShort(b.startsAt)} – ${sydneyTimeShort(b.endsAt)}`} />
             <Row label="Therapist" value={b.therapist ? therapistInternalName(b.therapist) : "Unassigned"} />
             <Row label="Price" value={formatPrice(b.priceCentsAtBooking)} />
             <Row
@@ -163,7 +163,7 @@ export default async function StaffBookingDetail({
             <Row label="Name" value={b.client.name} />
             <Row label="Email" value={<a className="underline" href={`mailto:${b.client.email}`}>{b.client.email}</a>} />
             <Row label="Phone" value={b.client.phone ?? "—"} />
-            <Row label="Member since" value={format(b.client.createdAt, "d MMM yyyy")} />
+            <Row label="Member since" value={new Intl.DateTimeFormat("en-AU", { timeZone: SYDNEY_TZ, day: "numeric", month: "short", year: "numeric" }).format(b.client.createdAt)} />
             <div className="pt-2">
               <Link href={`/staff/clients/${b.client.id}`} className="text-primary hover:underline text-sm">
                 Open client profile →
