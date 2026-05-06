@@ -182,7 +182,7 @@ export default async function StaffBookingDetail({
                 <dl className="grid gap-3 text-sm sm:grid-cols-2">
                   <Field
                     label="Submitted"
-                    value={format(intake.signedAt ?? intake.createdAt, "d MMM yyyy, h:mm a")}
+                    value={new Intl.DateTimeFormat("en-AU", { timeZone: SYDNEY_TZ, day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }).format(intake.signedAt ?? intake.createdAt)}
                   />
                   <Field
                     label="Pregnancy"
