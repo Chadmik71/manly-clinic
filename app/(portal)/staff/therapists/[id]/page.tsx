@@ -123,9 +123,12 @@ export default async function TherapistEditPage({
 
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Time off</CardTitle>
+            <CardTitle>Time off &amp; breaks</CardTitle>
             <CardDescription>
-              Block out leave / personal days. Existing bookings during this
+              Block out leave, personal days, lunch breaks, late starts, or any
+              other windows when this therapist isn&rsquo;t available. The booking
+              flow respects these — customers can&rsquo;t be assigned to this
+              therapist during a blocked window. Existing bookings during the
               window are NOT auto-cancelled — handle those manually.
             </CardDescription>
           </CardHeader>
