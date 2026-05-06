@@ -9,9 +9,19 @@ import { Badge } from "@/components/ui/badge";
 import { sydneyDateLong, sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
 import { formatPrice, therapistInternalName } from "@/lib/utils";
 import { StatusActions } from "./status-actions";
-import { setBookingStatus, updateBookingNotes, assignTherapist } from "./actions";
+import {
+  setBookingStatus,
+  updateBookingNotes,
+  assignTherapist,
+  updateBookingDetails,
+  updateWalkInClientDetails,
+  updateBookingInternalNotes,
+} from "./actions";
 import { ClinicalNotesForm } from "./clinical-notes-form";
 import { AssignTherapistForm } from "./assign-therapist-form";
+import { EditAppointmentForm } from "./edit-appointment-form";
+import { EditWalkInClientForm } from "./edit-walkin-client-form";
+import { EditInternalNotesForm } from "./edit-internal-notes-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
 
 export default async function StaffBookingDetail({
@@ -50,6 +60,35 @@ export default async function StaffBookingDetail({
     select: { id: true, name: true, role: true },
     orderBy: { name: "asc" },
   });
+
+  // Active Therapist (slot) records for the customer-facing therapist dropdown
+  // in the Edit appointment form. Different list than staffPool above (which
+  // is User records for the audit assignment).
+  const therapistsList = await db.therapist.findMany({
+    where: { active: true },
+    include: { user: { select: { name: true } } },
+    orderBy: { user: { name: "asc" } },
+  });
+
+  // Variants of this booking’s service so the form can offer a duration
+  // change (e.g. 60 min → 120 min) without having to switch the entire service.
+  const variantsList = await db.serviceVariant.findMany({
+    where: { serviceId: b.serviceId },
+    orderBy: { durationMin: "asc" },
+  });
+
+  // Format the existing startsAt into a Sydney-local "YYYY-MM-DDTHH:mm" string
+  // for the datetime-local input in EditAppointmentForm.
+  const _hmFmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: SYDNEY_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const _hmParts = _hmFmt.formatToParts(b.startsAt);
+  const _hh = _hmParts.find((p) => p.type === "hour")?.value ?? "00";
+  const _mm = _hmParts.find((p) => p.type === "minute")?.value ?? "00";
+  const initialStartsAt = `${b.startsAt.toLocaleDateString("en-CA", { timeZone: SYDNEY_TZ })}T${_hh}:${_mm}`;
 
   // Audit: staff viewed health information
   if (intake) {
@@ -121,7 +160,25 @@ export default async function StaffBookingDetail({
                 )
               }
             />
-            {b.notes && <Row label="Notes" value={b.notes} />}
+            <div className="pt-3 border-t">
+              <EditAppointmentForm
+                bookingId={b.id}
+                currentStartsAt={initialStartsAt}
+                currentTherapistId={b.therapistId ?? ""}
+                currentVariantId={b.variantId}
+                therapists={therapistsList.map((t) => ({
+                  id: t.id,
+                  name: t.user?.name ?? "(no name)",
+                }))}
+                variants={variantsList.map((vr) => ({
+                  id: vr.id,
+                  serviceName: b.service.name,
+                  durationMin: vr.durationMin,
+                  priceCents: vr.priceCents,
+                }))}
+                action={updateBookingDetails}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -153,6 +210,16 @@ export default async function StaffBookingDetail({
             <Row label="Name" value={b.client.name} />
             <Row label="Email" value={<a className="underline" href={`mailto:${b.client.email}`}>{b.client.email}</a>} />
             <Row label="Phone" value={b.client.phone ?? "—"} />
+            {b.isWalkIn && (
+              <div className="pt-3 border-t">
+                <EditWalkInClientForm
+                  bookingId={b.id}
+                  currentName={b.client.name ?? ""}
+                  currentPhone={b.client.phone ?? ""}
+                  action={updateWalkInClientDetails}
+                />
+              </div>
+            )}
             <Row label="Member since" value={new Intl.DateTimeFormat("en-AU", { timeZone: SYDNEY_TZ, day: "numeric", month: "short", year: "numeric" }).format(b.client.createdAt)} />
             <div className="pt-2">
               <Link href={`/staff/clients/${b.client.id}`} className="text-primary hover:underline text-sm">
@@ -300,6 +367,19 @@ export default async function StaffBookingDetail({
         </Card>
 
                 <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Internal notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EditInternalNotesForm
+              bookingId={b.id}
+              currentNotes={b.notes ?? ""}
+              action={updateBookingInternalNotes}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Update status</CardTitle>
           </CardHeader>
