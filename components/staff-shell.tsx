@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ListChecks, Users, Stethoscope, Settings, LogOut, ChevronLeft, ChevronRight, Clock, BarChart3, Gift, UserCircle } from "lucide-react";
+import { CalendarDays, ListChecks, Users, Stethoscope, Settings, LogOut, ChevronLeft, ChevronRight, Clock, BarChart3, Gift, UserCircle, LayoutGrid } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ const RAIL = [
   { href: "/staff/reports", label: "Reports", icon: BarChart3 },
   { href: "/staff/vouchers", label: "Vouchers", icon: Gift },
   { href: "/staff/therapists", label: "Therapists", icon: Stethoscope },
+  { href: "/staff/slots", label: "Slots", icon: LayoutGrid },
   { href: "/staff/services", label: "Services", icon: Settings },
 ];
 
