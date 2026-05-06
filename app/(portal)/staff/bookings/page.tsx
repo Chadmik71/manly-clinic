@@ -116,10 +116,14 @@ export default async function StaffBookingsPage({
                       const slot = b.slotLabel;
                       const assigned = b.assignedTherapistName;
                       const legacy = b.therapist ? therapistInternalName(b.therapist) : null;
+                      // Arrow ONLY when admin has actually used the assignment
+                      // dropdown. When slot is set, the legacy therapistId is
+                      // an auto-assignment artifact and is intentionally hidden.
                       if (slot && assigned) return `${slot} \u2192 ${assigned}`;
+                      if (slot) return `${slot} (unassigned)`;
+                      // No slot: pre-Phase-4 booking. Legacy therapist IS the
+                      // truth for these.
                       if (assigned) return assigned;
-                      if (slot && legacy) return `${slot} \u2192 ${legacy}`;
-                      if (slot) return slot;
                       if (legacy) return legacy;
                       return "\u2014";
                     })()}
