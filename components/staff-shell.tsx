@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { CalendarDays, ListChecks, Users, Stethoscope, Settings, LogOut, ChevronLeft, ChevronRight, Clock, BarChart3, Gift, UserCircle, LayoutGrid } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -24,7 +25,9 @@ export function StaffShell({ user, topbar, children }: { user: { name: string; e
   return (
     <div className="min-h-screen flex bg-background">
       <aside className="hidden sm:flex w-14 flex-col items-center border-r bg-[hsl(var(--rail))] py-3 gap-1 sticky top-0 self-start h-screen">
-        <Link href="/staff" className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground font-bold mb-2" title={CLINIC.name}>M</Link>
+        <Link href="/staff" className="block h-10 w-10 mb-2 overflow-hidden rounded-md" title={CLINIC.name}>
+          <Image src="/logo-icon.png" alt={CLINIC.name} width={80} height={80} className="h-full w-full object-cover" />
+        </Link>
         {RAIL.map((it) => {
           const active = pathname === it.href || (it.href !== "/staff" && pathname.startsWith(it.href));
           const Icon = it.icon;
