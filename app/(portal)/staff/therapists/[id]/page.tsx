@@ -20,7 +20,20 @@ import {
   addTimeOff,
   removeTimeOff,
 } from "./actions";
-import { format } from "date-fns";
+import { SYDNEY_TZ } from "@/lib/time";
+
+// Sydney-TZ datetime formatter for time-off display. Replaces date-fns
+// format() which honours the runtime TZ — Vercel runs UTC and times rendered
+// off by 10/11h.
+const sydDateTime = new Intl.DateTimeFormat("en-AU", {
+  timeZone: SYDNEY_TZ,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
 
 export default async function TherapistEditPage({
   params,
@@ -132,8 +145,8 @@ export default async function TherapistEditPage({
                   >
                     <div>
                       <div className="font-medium">
-                        {format(o.startsAt, "d MMM yyyy h:mm a")} →{" "}
-                        {format(o.endsAt, "d MMM yyyy h:mm a")}
+                        {sydDateTime.format(o.startsAt)} →{" "}
+                        {sydDateTime.format(o.endsAt)}
                       </div>
                       {o.reason && (
                         <div className="text-xs text-muted-foreground">{o.reason}</div>
