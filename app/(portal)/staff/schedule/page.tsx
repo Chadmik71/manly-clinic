@@ -55,7 +55,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const dateStr = sp.date ?? todayInSydney();
   const { start: dayStart, end: dayEnd, date: day, dow } = sydneyDayBounds(dateStr);
 
-  const [therapistsRaw, bookings] = await Promise.all([
+  const [therapistsRaw, bookings, timeOffs] = await Promise.all([
     db.therapist.findMany({
       where: { active: true },
       include: { user: { select: { name: true } }, availability: { where: { dayOfWeek: dow } } },
@@ -73,10 +73,27 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       },
       orderBy: { startsAt: "asc" },
     }),
+    // Time-off windows that overlap the displayed day. Multi-day vacations
+    // are clipped to the day inside the grid component.
+    db.timeOff.findMany({
+      where: {
+        therapist: { active: true },
+        startsAt: { lt: dayEnd },
+        endsAt: { gt: dayStart },
+      },
+      select: {
+        id: true,
+        therapistId: true,
+        startsAt: true,
+        endsAt: true,
+        reason: true,
+      },
+    }),
   ]);
 
   const therapists = therapistsRaw.map((t) => {
     const slot = t.availability[0];
+    const ts = timeOffs.filter((o) => o.therapistId === t.id);
     return {
       id: t.id,
       name: t.user.name,
@@ -84,6 +101,12 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       isWorking: !!slot,
       startMin: slot?.startMin,
       endMin: slot?.endMin,
+      timeOff: ts.map((o) => ({
+        id: o.id,
+        startsAt: o.startsAt,
+        endsAt: o.endsAt,
+        reason: o.reason,
+      })),
     };
   });
 
