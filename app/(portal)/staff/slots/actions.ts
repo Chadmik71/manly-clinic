@@ -177,3 +177,79 @@ export async function deleteSlot(
   revalidatePath("/staff/slots");
   return { ok: true };
 }
+
+/**
+ * Per-day capacity overrides — let admins reduce the number of active
+ * slots on a specific date (e.g. when a therapist is sick). The booking flow
+ * (app/(public)/book/confirm/actions.ts) consults this table when picking a
+ * slot for a new booking.
+ */
+const overrideSchema = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format."),
+  maxActiveSlots: z
+    .coerce.number()
+    .int("Capacity must be a whole number.")
+    .min(0, "Capacity must be 0 or higher.")
+    .max(50, "Capacity too high."),
+  reason: z.string().trim().max(200, "Reason too long.").optional(),
+});
+
+export async function setCapacityOverride(
+  fd: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
+  const session = await requireStaff();
+  if (!session) return { error: "Forbidden." };
+  const parsed = overrideSchema.safeParse({
+    date: fd.get("date"),
+    maxActiveSlots: fd.get("maxActiveSlots"),
+    reason: fd.get("reason") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { date, maxActiveSlots, reason } = parsed.data;
+
+  await db.dailyCapacityOverride.upsert({
+    where: { date },
+    create: {
+      date,
+      maxActiveSlots,
+      reason: reason ?? null,
+      createdBy: session.user.id,
+    },
+    update: {
+      maxActiveSlots,
+      reason: reason ?? null,
+      createdBy: session.user.id,
+    },
+  });
+
+  await audit({
+    userId: session.user.id,
+    action: "SET_CAPACITY_OVERRIDE",
+    resource: `DailyCapacityOverride:${date}`,
+    metadata: { date, maxActiveSlots, reason: reason ?? null },
+  });
+  revalidatePath("/staff/slots");
+  return { ok: true };
+}
+
+export async function deleteCapacityOverride(
+  fd: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
+  const session = await requireStaff();
+  if (!session) return { error: "Forbidden." };
+  const id = String(fd.get("id") ?? "");
+  if (!id) return { error: "Missing id." };
+  const ov = await db.dailyCapacityOverride.findUnique({ where: { id } });
+  if (!ov) return { error: "Override not found." };
+  await db.dailyCapacityOverride.delete({ where: { id } });
+  await audit({
+    userId: session.user.id,
+    action: "DELETE_CAPACITY_OVERRIDE",
+    resource: `DailyCapacityOverride:${id}`,
+    metadata: { date: ov.date, maxActiveSlots: ov.maxActiveSlots },
+  });
+  revalidatePath("/staff/slots");
+  return { ok: true };
+}
