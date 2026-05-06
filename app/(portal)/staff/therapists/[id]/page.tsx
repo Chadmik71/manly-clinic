@@ -49,6 +49,12 @@ export default async function TherapistEditPage({
           </Link>
           <span className="text-muted-foreground">/</span>
           <span className="text-foreground font-medium">{t.user.name}</span>
+          <Link
+            href={`/staff/therapists/${t.id}/record`}
+            className="ml-3 text-xs rounded-md border px-2 py-1 hover:bg-accent"
+          >
+            View record
+          </Link>
         </span>
       }
     >
