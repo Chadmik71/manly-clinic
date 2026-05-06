@@ -30,6 +30,29 @@ export function sydneyTodayISO(): string {
  * day. DST-safe: the day length will correctly be 23 or 25 hours on the
  * two days each year that AEST/AEDT switches over.
  */
+/**
+ * Parse a "YYYY-MM-DDTHH:mm" or "YYYY-MM-DDTHH:mm:ss" string as Sydney
+ * wall-clock time and return the equivalent UTC Date. DST-safe via
+ * sydneyWallToUtc. Returns null if the input is malformed.
+ *
+ * Use this in server actions when receiving values from <input
+ * type="datetime-local"> fields, since the raw string has no timezone and
+ * `new Date(str)` would interpret it as the SERVER’s local time (UTC on
+ * Vercel) rather than Sydney.
+ */
+export function sydneyLocalToUtc(localStr: string): Date | null {
+  const m = localStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi] = m;
+  return sydneyWallToUtc(
+    Number(y),
+    Number(mo),
+    Number(d),
+    Number(h),
+    Number(mi),
+  );
+}
+
 export function sydneyDayBoundsUtc(dateISO: string): {
   start: Date;
   end: Date;
