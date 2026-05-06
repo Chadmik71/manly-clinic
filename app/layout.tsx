@@ -16,10 +16,6 @@ export const metadata: Metadata = {
     icon: "/favicon.png",
     apple: "/apple-touch-icon.png",
   },
-  icons: {
-    icon: "/favicon.png",
-    apple: "/apple-touch-icon.png",
-  },
   metadataBase: new URL(CLINIC.domain),
   openGraph: {
     type: "website",
