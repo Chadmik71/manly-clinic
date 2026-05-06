@@ -259,9 +259,32 @@ export async function createBooking(
   let slotId: string | null = null;
   let slotLabel: string | null = null;
   try {
+    // Per-day capacity override: if an admin has set a cap for this date,
+    // restrict the candidate pool to the first N active slots by displayOrder.
+    // No override = behave exactly as before (all active slots eligible).
+    const sydneyDate = sydneyDateOf(startsAt);
+    const override = await db.dailyCapacityOverride.findUnique({
+      where: { date: sydneyDate },
+    });
+
+    // Resolve the allowed slot ID set when an override exists. An empty
+    // array (override.maxActiveSlots === 0) correctly results in no slot
+    // being assigned for the day.
+    let allowedIds: string[] | null = null;
+    if (override) {
+      const allowedSlots = await db.slot.findMany({
+        where: { active: true },
+        select: { id: true },
+        orderBy: [{ displayOrder: "asc" }, { label: "asc" }],
+        take: override.maxActiveSlots,
+      });
+      allowedIds = allowedSlots.map((s) => s.id);
+    }
+
     const candidateSlots = await db.slot.findMany({
       where: {
         active: true,
+        ...(allowedIds !== null ? { id: { in: allowedIds } } : {}),
         bookings: {
           none: {
             status: { in: ["PENDING", "CONFIRMED"] },
