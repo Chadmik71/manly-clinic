@@ -285,3 +285,12 @@ model Slot {
 
   @@index([active, displayOrder])
 }
+
+model DailyCapacityOverride {
+  id             String   @id @default(cuid())
+  date           String   @unique // YYYY-MM-DD in Sydney TZ
+  maxActiveSlots Int      // CAP: effective active slot count for this date is min(this, total active slots)
+  reason         String?
+  createdAt      DateTime @default(now())
+  createdBy      String?  // User.id of admin who set it (denormalised, no FK)
+}
