@@ -3,7 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { format } from "date-fns";
+import { sydneyDateLong, sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
 import { formatPrice, therapistInternalName } from "@/lib/utils";
 import { CLINIC } from "@/lib/clinic";
 import { parseHistory, historyLabel } from "@/lib/intake";
@@ -19,6 +19,16 @@ const sydFmt = new Intl.DateTimeFormat("en-AU", {
   timeZone: "Australia/Sydney",
   dateStyle: "medium",
   timeStyle: "short",
+});
+
+// Medium-format date in Sydney TZ for date-only fields (DOB, member-since,
+// intake-signed, etc.). Replaces the previous date-fns calls which honoured
+// runtime TZ — Vercel runs UTC and produced off-by-one date bugs.
+const sydDateMedium = new Intl.DateTimeFormat("en-AU", {
+  timeZone: SYDNEY_TZ,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
 });
 
 export default async function ClientClinicalRecord({
@@ -86,7 +96,7 @@ export default async function ClientClinicalRecord({
             href={`/staff/clients/${id}`}
             className="text-sm text-muted-foreground hover:text-foreground"
           >
-            \u2190 Back to client profile
+            ← Back to client profile
           </Link>
           <p className="text-sm text-muted-foreground">
             Press <kbd className="rounded border px-1 text-xs">Ctrl/Cmd+P</kbd> to print or save as PDF
@@ -112,7 +122,7 @@ export default async function ClientClinicalRecord({
             Client details
           </h3>
           <Field label="Name" value={client.name} />
-          <Field label="Date of birth" value={client.dob ? format(client.dob, "d MMM yyyy") : "\u2014"} />
+          <Field label="Date of birth" value={client.dob ? sydDateMedium.format(client.dob) : "\u2014"} />
           <Field label="Phone" value={client.phone ?? "\u2014"} />
           <Field label="Email" value={client.email} />
           <Field
@@ -132,7 +142,7 @@ export default async function ClientClinicalRecord({
           <Field label="GP phone" value={client.gpPhone ?? "\u2014"} />
           <Field
             label="Member since"
-            value={format(client.createdAt, "d MMM yyyy")}
+            value={sydDateMedium.format(client.createdAt)}
           />
         </section>
 
@@ -140,7 +150,7 @@ export default async function ClientClinicalRecord({
           <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700 mb-3 section-header">
             Health intake form
             {latestIntake
-              ? ` \u2014 submitted ${format(latestIntake.signedAt ?? latestIntake.createdAt, "d MMM yyyy")}`
+              ? ` \u2014 submitted ${sydDateMedium.format(latestIntake.signedAt ?? latestIntake.createdAt)}`
               : ""}
           </h3>
           {latestIntake ? (
@@ -214,10 +224,9 @@ export default async function ClientClinicalRecord({
                 <p className="text-xs text-gray-600 mt-2 italic">
                   Earlier intake submissions: {client.intakeForms.length - 1}{" "}
                   (oldest from{" "}
-                  {format(
+                  {sydDateMedium.format(
                     client.intakeForms[client.intakeForms.length - 1].signedAt ??
                       client.intakeForms[client.intakeForms.length - 1].createdAt,
-                    "d MMM yyyy",
                   )}
                   )
                 </p>
@@ -236,7 +245,7 @@ export default async function ClientClinicalRecord({
             <>
               <Field
                 label="Latest consent"
-                value={`${format(latestConsent.createdAt, "d MMM yyyy, h:mm a")} from IP ${latestConsent.ipAddress ?? "(not recorded)"}`}
+                value={`${sydFmt.format(latestConsent.createdAt)} from IP ${latestConsent.ipAddress ?? "(not recorded)"}`}
               />
               <Field
                 label="Total consent records"
@@ -250,7 +259,7 @@ export default async function ClientClinicalRecord({
 
         <section className="mb-6">
           <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700 mb-3 section-header">
-            Treatment history \u2014 {client.bookings.length}{" "}
+            Treatment history — {client.bookings.length}{" "}
             {client.bookings.length === 1 ? "booking" : "bookings"}
           </h3>
           {client.bookings.length === 0 ? (
@@ -264,12 +273,12 @@ export default async function ClientClinicalRecord({
                 >
                   <div className="mb-2 pb-2 border-b">
                     <p className="font-semibold">
-                      {format(b.startsAt, "EEEE d MMM yyyy")}
+                      {sydneyDateLong(b.startsAt)}
                     </p>
                     <p className="text-xs text-gray-600">
-                      {format(b.startsAt, "h:mm a")} \u2013{" "}
-                      {format(b.endsAt, "h:mm a")} ({b.variant.durationMin}{" "}
-                      min) \u00b7 {b.service.name} \u00b7{" "}
+                      {sydneyTimeShort(b.startsAt)} – 
+                      {sydneyTimeShort(b.endsAt)} ({b.variant.durationMin}{" "}
+                      min) · {b.service.name} · 
                       {(() => {
                       const slot = b.slotLabel;
                       const assigned = b.assignedTherapistName;
@@ -284,8 +293,8 @@ export default async function ClientClinicalRecord({
                       if (assigned) return `assigned: ${assigned}`;
                       if (legacy) return legacy;
                       return "Unassigned";
-                    })()} \u00b7{" "}
-                      {formatPrice(b.priceCentsAtBooking)} \u00b7 {b.status}
+                    })()} · 
+                      {formatPrice(b.priceCentsAtBooking)} · {b.status}
                       {b.claimWithHealthFund ? " \u00b7 Health fund claim" : ""}
                     </p>
                     <p className="text-xs text-gray-600 mt-0.5 font-mono">
