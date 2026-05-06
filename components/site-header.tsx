@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, X, Stethoscope } from "lucide-react";
+import Image from "next/image";
+import { Menu, X } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { CLINIC } from "@/lib/clinic";
@@ -21,9 +22,14 @@ export function SiteHeader({ user }: { user?: { name: string; role: string } | n
     <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-semibold">
-          <span className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Stethoscope className="h-4 w-4" />
-          </span>
+          <Image
+            src="/logo-icon.png"
+            alt={CLINIC.name}
+            width={80}
+            height={80}
+            priority
+            className="h-10 w-10"
+          />
           <span className="hidden sm:inline">{CLINIC.name}</span>
           <span className="sm:hidden">MRC</span>
         </Link>
