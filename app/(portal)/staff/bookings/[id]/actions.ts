@@ -4,6 +4,12 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { notifyBookingCancelled } from "@/lib/notify";
+import { addMinutes } from "date-fns";
+import {
+  BOOKING_EARLIEST_START_MIN,
+  BOOKING_LATEST_END_MIN,
+} from "@/lib/clinic";
+import { sydneyDateOf, sydneyLocalToUtc, SYDNEY_TZ } from "@/lib/time";
 import { sydneyLocalToUtc } from "@/lib/time";
 import { z } from "zod";
 
@@ -388,5 +394,221 @@ export async function assignTherapist(
   revalidatePath(`/staff/bookings/${bookingId}`);
   revalidatePath("/staff/bookings");
   revalidatePath("/staff");
+  return { ok: true };
+}
+
+
+// Renders a Date in Sydney calendar time, returning minute-of-day (0..1439).
+// Vercel runs in UTC; raw getHours/getMinutes would give UTC values for our
+// startsAt/endsAt. This helper formats via Intl with timeZone Australia/Sydney
+// so booking-window checks compare apples to apples.
+const SYD_HM_FMT = new Intl.DateTimeFormat("en-AU", {
+  timeZone: SYDNEY_TZ,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+function sydneyMinuteOfDay(d: Date): number {
+  const parts = SYD_HM_FMT.formatToParts(d);
+  const get = (t: string) =>
+    Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return get("hour") * 60 + get("minute");
+}
+
+/**
+ * Update the core appointment fields: time, therapist (slot/customer-facing),
+ * and service variant. Atomic with conflict checking.
+ *
+ * - startsAt is a "YYYY-MM-DDTHH:mm" Sydney wall-clock string from a
+ *   datetime-local input. Parsed via sydneyLocalToUtc so storage is correct.
+ * - therapistId may be empty string for unassigned.
+ * - variantId may match the existing variant (no service/duration change) or a
+ *   different variant (changes durationMin, priceCentsAtBooking, and serviceId).
+ *
+ * Cancelled or completed bookings are blocked. Conflict and TimeOff checks
+ * mirror the customer-facing reschedule action.
+ */
+export async function updateBookingDetails(
+  bookingId: string,
+  data: { startsAt: string; therapistId: string; variantId: string },
+): Promise<{ ok?: boolean; error?: string }> {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
+  )
+    return { error: "Forbidden." };
+
+  const booking = await db.booking.findUnique({ where: { id: bookingId } });
+  if (!booking) return { error: "Booking not found." };
+  if (booking.status === "CANCELLED" || booking.status === "COMPLETED")
+    return { error: "Cancelled or completed bookings cannot be edited." };
+
+  const startsAt = sydneyLocalToUtc(data.startsAt);
+  if (!startsAt) return { error: "Invalid date/time." };
+
+  const variant = await db.serviceVariant.findUnique({
+    where: { id: data.variantId },
+  });
+  if (!variant) return { error: "Service variant not found." };
+
+  const endsAt = addMinutes(startsAt, variant.durationMin);
+  const startMin = sydneyMinuteOfDay(startsAt);
+  const endMin = sydneyMinuteOfDay(endsAt);
+  const sameDay = sydneyDateOf(startsAt) === sydneyDateOf(endsAt);
+  if (
+    startMin < BOOKING_EARLIEST_START_MIN ||
+    !sameDay ||
+    endMin > BOOKING_LATEST_END_MIN
+  )
+    return { error: "Time falls outside opening hours." };
+
+  const newTherapistId =
+    data.therapistId.trim().length === 0 ? null : data.therapistId;
+
+  if (newTherapistId) {
+    const conflict = await db.booking.findFirst({
+      where: {
+        id: { not: bookingId },
+        therapistId: newTherapistId,
+        status: { in: ["PENDING", "CONFIRMED"] },
+        startsAt: { lt: endsAt },
+        endsAt: { gt: startsAt },
+      },
+      select: { id: true },
+    });
+    if (conflict)
+      return { error: "Therapist has another booking at this time." };
+    const timeOffHit = await db.timeOff.findFirst({
+      where: {
+        therapistId: newTherapistId,
+        startsAt: { lt: endsAt },
+        endsAt: { gt: startsAt },
+      },
+      select: { id: true },
+    });
+    if (timeOffHit)
+      return { error: "Therapist is blocked off at this time." };
+  }
+
+  await db.booking.update({
+    where: { id: bookingId },
+    data: {
+      startsAt,
+      endsAt,
+      therapistId: newTherapistId,
+      variantId: variant.id,
+      serviceId: variant.serviceId,
+      priceCentsAtBooking: variant.priceCents,
+    },
+  });
+
+  await audit({
+    userId: session.user.id,
+    action: "UPDATE_BOOKING_DETAILS",
+    resource: `Booking:${bookingId}`,
+    metadata: {
+      previousStartsAt: booking.startsAt.toISOString(),
+      newStartsAt: startsAt.toISOString(),
+      previousVariantId: booking.variantId,
+      newVariantId: variant.id,
+      previousTherapistId: booking.therapistId,
+      newTherapistId,
+    },
+  });
+
+  revalidatePath(`/staff/bookings/${bookingId}`);
+  revalidatePath("/staff/bookings");
+  revalidatePath("/staff/schedule");
+  return { ok: true };
+}
+
+/**
+ * Update walk-in client details (name / phone) on the Booking’s linked User.
+ * Only meaningful when booking.isWalkIn === true — the form should hide for
+ * online clients with their own portal accounts.
+ *
+ * Email is intentionally NOT editable here — it’s the User’s @unique
+ * identifier and changing it could collide with another walk-in (or a real
+ * client). If staff need to fix an email, that’s a different operation.
+ */
+export async function updateWalkInClientDetails(
+  bookingId: string,
+  data: { name: string; phone: string },
+): Promise<{ ok?: boolean; error?: string }> {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
+  )
+    return { error: "Forbidden." };
+
+  const booking = await db.booking.findUnique({
+    where: { id: bookingId },
+    select: { clientId: true, isWalkIn: true },
+  });
+  if (!booking) return { error: "Booking not found." };
+  if (!booking.isWalkIn)
+    return {
+      error:
+        "Only walk-in bookings can have their client details edited here.",
+    };
+
+  const name = data.name.trim();
+  const phone = data.phone.trim();
+  if (name.length === 0) return { error: "Name is required." };
+
+  await db.user.update({
+    where: { id: booking.clientId },
+    data: { name, phone: phone.length === 0 ? null : phone },
+  });
+
+  await audit({
+    userId: session.user.id,
+    action: "UPDATE_WALKIN_CLIENT",
+    resource: `Booking:${bookingId}`,
+    metadata: { clientId: booking.clientId },
+  });
+
+  revalidatePath(`/staff/bookings/${bookingId}`);
+  revalidatePath(`/staff/clients/${booking.clientId}`);
+  return { ok: true };
+}
+
+/**
+ * Update the per-booking internal/admin notes (Booking.notes). This is the
+ * free-text field shown to staff only — separate from per-visit clinical
+ * notes (SOAP, handled by updateBookingNotes elsewhere).
+ */
+export async function updateBookingInternalNotes(
+  bookingId: string,
+  notes: string,
+): Promise<{ ok?: boolean; error?: string }> {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
+  )
+    return { error: "Forbidden." };
+  const booking = await db.booking.findUnique({
+    where: { id: bookingId },
+    select: { id: true },
+  });
+  if (!booking) return { error: "Booking not found." };
+
+  const trimmed = notes.trim();
+  await db.booking.update({
+    where: { id: bookingId },
+    data: { notes: trimmed.length === 0 ? null : trimmed },
+  });
+
+  await audit({
+    userId: session.user.id,
+    action: "UPDATE_BOOKING_INTERNAL_NOTES",
+    resource: `Booking:${bookingId}`,
+    metadata: { hasContent: trimmed.length > 0 },
+  });
+
+  revalidatePath(`/staff/bookings/${bookingId}`);
   return { ok: true };
 }
