@@ -19,6 +19,8 @@ export function NewBookingForm({
   clients,
   services,
   therapists,
+  initialStartsAt,
+  initialTherapistId,
 }: {
   action: (
     formData: FormData,
@@ -26,6 +28,10 @@ export function NewBookingForm({
   clients: Client[];
   services: Service[];
   therapists: Therapist[];
+  /** "YYYY-MM-DDTHH:mm" — pre-fills the startsAt input. */
+  initialStartsAt?: string;
+  /** Pre-selects this therapist (or empty/undefined for auto-assign). */
+  initialTherapistId?: string;
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -183,6 +189,7 @@ export function NewBookingForm({
             name="startsAt"
             type="datetime-local"
             required
+            defaultValue={initialStartsAt}
           />
         </div>
         <div className="space-y-1.5">
@@ -190,6 +197,7 @@ export function NewBookingForm({
           <select
             id="therapistId"
             name="therapistId"
+            defaultValue={initialTherapistId ?? ""}
             className="h-10 w-full rounded-md border bg-background px-3 text-sm"
           >
             <option value="">— auto-assign —</option>
