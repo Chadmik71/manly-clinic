@@ -28,6 +28,12 @@ type Therapist = {
   isWorking: boolean;
   startMin?: number;
   endMin?: number;
+  timeOff?: {
+    id: string;
+    startsAt: Date;
+    endsAt: Date;
+    reason: string | null;
+  }[];
 };
 
 const HOURS = Array.from(
@@ -151,6 +157,37 @@ export function ScheduleGrid({
                 {!t.isWorking && (
                   <div className="absolute inset-0 bg-muted/40 pointer-events-none" />
                 )}
+
+                {/* Time off & breaks — rendered before bookings so a stale
+                    booking overlapping the block remains visible above. */}
+                {t.timeOff?.map((o) => {
+                  const dayStartUTC = date.getTime();
+                  const dayEndUTC = dayStartUTC + 24 * 3600 * 1000 - 1;
+                  const startTs = Math.max(o.startsAt.getTime(), dayStartUTC);
+                  const endTs = Math.min(o.endsAt.getTime(), dayEndUTC);
+                  if (endTs <= startTs) return null;
+                  const sMin = minutesFromMidnight(new Date(startTs));
+                  const eMin = minutesFromMidnight(new Date(endTs));
+                  const visStart = Math.max(sMin, dayStartMin);
+                  const visEnd = Math.min(eMin, dayEndMin);
+                  if (visEnd <= visStart) return null;
+                  const top = (visStart - dayStartMin) * MIN_PX;
+                  const height = (visEnd - visStart) * MIN_PX;
+                  return (
+                    <div
+                      key={o.id}
+                      className="absolute left-0 right-0 bg-muted-foreground/15 pointer-events-none border-l-2 border-muted-foreground/30"
+                      style={{ top: `${top}px`, height: `${height}px` }}
+                      title={o.reason ?? "Time off / break"}
+                    >
+                      {height >= 18 && (
+                        <div className="text-[10px] text-muted-foreground p-1.5 leading-tight italic truncate">
+                          {o.reason ?? "Off"}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {t.isWorking &&
                   t.startMin != null &&
                   t.startMin > dayStartMin && (
