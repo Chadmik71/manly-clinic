@@ -50,6 +50,35 @@ const NSW_PUBLIC_HOLIDAYS: Record<string, string> = {
   "2027-12-26": "Boxing Day",
   "2027-12-27": "Additional public holiday (Christmas Day)",
   "2027-12-28": "Additional public holiday (Boxing Day)",
+
+  // 2028 — dates calculated from NSW Public Holidays Act rules. VERIFY against
+  // https://www.nsw.gov.au/about-nsw/public-holidays once NSW publishes the
+  // 2028 list (typically released the year prior).
+  "2028-01-01": "New Year's Day",
+  "2028-01-03": "Additional public holiday (New Year's Day)",
+  "2028-01-26": "Australia Day",
+  "2028-04-14": "Good Friday",
+  "2028-04-15": "Easter Saturday",
+  "2028-04-16": "Easter Sunday",
+  "2028-04-17": "Easter Monday",
+  "2028-04-25": "Anzac Day",
+  "2028-06-12": "King's Birthday",
+  "2028-10-02": "Labour Day",
+  "2028-12-25": "Christmas Day",
+  "2028-12-26": "Boxing Day",
+
+  // 2029 — same caveat. Re-verify before reliance.
+  "2029-01-01": "New Year's Day",
+  "2029-01-26": "Australia Day",
+  "2029-03-30": "Good Friday",
+  "2029-03-31": "Easter Saturday",
+  "2029-04-01": "Easter Sunday",
+  "2029-04-02": "Easter Monday",
+  "2029-04-25": "Anzac Day",
+  "2029-06-11": "King's Birthday",
+  "2029-10-01": "Labour Day",
+  "2029-12-25": "Christmas Day",
+  "2029-12-26": "Boxing Day",
 };
 
 /** Returns the holiday name if `sydneyDateISO` (YYYY-MM-DD) is a NSW public
