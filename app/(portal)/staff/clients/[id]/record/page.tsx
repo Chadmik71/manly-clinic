@@ -270,7 +270,19 @@ export default async function ClientClinicalRecord({
                       {format(b.startsAt, "h:mm a")} \u2013{" "}
                       {format(b.endsAt, "h:mm a")} ({b.variant.durationMin}{" "}
                       min) \u00b7 {b.service.name} \u00b7{" "}
-                      {b.therapist ? therapistInternalName(b.therapist) : "Unassigned"} \u00b7{" "}
+                      {(() => {
+                      const slot = b.slotLabel;
+                      const assigned = b.assignedTherapistName;
+                      const legacy = b.therapist ? therapistInternalName(b.therapist) : null;
+                      // Audit-priority order: slot label + assigned (Phase 6 ideal),
+                      // then assigned alone, then legacy therapist name, then Unassigned.
+                      if (slot && assigned) return `${slot} \u2014 assigned: ${assigned}`;
+                      if (assigned) return `assigned: ${assigned}`;
+                      if (slot && legacy) return `${slot} \u2014 ${legacy}`;
+                      if (slot) return `${slot} \u2014 Unassigned`;
+                      if (legacy) return legacy;
+                      return "Unassigned";
+                    })()} \u00b7{" "}
                       {formatPrice(b.priceCentsAtBooking)} \u00b7 {b.status}
                       {b.claimWithHealthFund ? " \u00b7 Health fund claim" : ""}
                     </p>
