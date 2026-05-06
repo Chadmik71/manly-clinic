@@ -237,7 +237,7 @@ export function ScheduleGrid({
               >
                 {/* Off-hours overlay */}
                 {!t.isWorking && (
-                  <div className="absolute inset-0 bg-muted/40 pointer-events-none" />
+                  <div className="absolute inset-0 bg-slate-300/80 dark:bg-slate-700/60 pointer-events-none" />
                 )}
 
                 {/* Time off & breaks — rendered before bookings so a stale
@@ -288,7 +288,7 @@ export function ScheduleGrid({
                   t.startMin != null &&
                   t.startMin > dayStartMin && (
                     <div
-                      className="absolute left-0 right-0 bg-muted/40 pointer-events-none"
+                      className="absolute left-0 right-0 bg-slate-300/80 dark:bg-slate-700/60 pointer-events-none"
                       style={{
                         top: 0,
                         height: `${(t.startMin - dayStartMin) * MIN_PX}px`,
@@ -299,7 +299,7 @@ export function ScheduleGrid({
                   t.endMin != null &&
                   t.endMin < dayEndMin && (
                     <div
-                      className="absolute left-0 right-0 bg-muted/40 pointer-events-none"
+                      className="absolute left-0 right-0 bg-slate-300/80 dark:bg-slate-700/60 pointer-events-none"
                       style={{
                         top: `${(t.endMin - dayStartMin) * MIN_PX}px`,
                         bottom: 0,
