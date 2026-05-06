@@ -8,6 +8,7 @@ import { Plus } from "lucide-react";
 import {
   addTimeOff,
   toggleTherapistActive,
+  removeTimeOffFromSchedule,
 } from "@/app/(portal)/staff/therapists/[id]/actions";
 
 export const metadata = { title: "Calendar" };
@@ -143,6 +144,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             bookings={bookings}
             addTimeOffAction={addTimeOff}
             toggleActiveAction={toggleTherapistActive}
+            removeTimeOffAction={removeTimeOffFromSchedule}
           />
         )}
       </div>
