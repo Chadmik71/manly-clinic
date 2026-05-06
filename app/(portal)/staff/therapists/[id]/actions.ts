@@ -175,6 +175,30 @@ export async function toggleTherapistActive(
   return { ok: true };
 }
 
+export async function removeTimeOffFromSchedule(
+  fd: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
+  // Variant of removeTimeOff that does NOT redirect, so the schedule grid
+  // can stay on /staff/schedule after the click. Returns a result the client
+  // can use to show errors and trigger router.refresh() on success.
+  const session = await requireStaff();
+  if (!session) return { error: "Forbidden." };
+  const id = String(fd.get("id") ?? "");
+  if (!id) return { error: "Missing id." };
+  const existing = await db.timeOff.findUnique({ where: { id } });
+  if (!existing) return { error: "Block not found." };
+  await db.timeOff.delete({ where: { id } });
+  await audit({
+    userId: session.user.id,
+    action: "REMOVE_TIME_OFF",
+    resource: `TimeOff:${id}`,
+    metadata: { therapistId: existing.therapistId },
+  });
+  revalidatePath(`/staff/therapists/${existing.therapistId}`);
+  revalidatePath("/staff/schedule");
+  return { ok: true };
+}
+
 export async function removeTimeOff(fd: FormData) {
   const session = await requireStaff();
   if (!session) return;
