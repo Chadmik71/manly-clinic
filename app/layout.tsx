@@ -12,6 +12,10 @@ export const metadata: Metadata = {
     template: `%s | ${CLINIC.name}`,
   },
   description: CLINIC.tagline,
+  icons: {
+    icon: "/favicon.png",
+    apple: "/apple-touch-icon.png",
+  },
   metadataBase: new URL(CLINIC.domain),
   openGraph: {
     type: "website",
