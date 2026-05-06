@@ -89,6 +89,7 @@ export function ScheduleGrid({
   dateStr,
   addTimeOffAction,
   toggleActiveAction,
+  removeTimeOffAction,
 }: {
   date: Date;
   therapists: Therapist[];
@@ -99,6 +100,9 @@ export function ScheduleGrid({
     fd: FormData,
   ) => Promise<{ ok?: boolean; error?: string }>;
   toggleActiveAction?: (
+    fd: FormData,
+  ) => Promise<{ ok?: boolean; error?: string }>;
+  removeTimeOffAction?: (
     fd: FormData,
   ) => Promise<{ ok?: boolean; error?: string }>;
 }) {
@@ -252,18 +256,32 @@ export function ScheduleGrid({
                   const top = (visStart - dayStartMin) * MIN_PX;
                   const height = (visEnd - visStart) * MIN_PX;
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={o.id}
-                      className="absolute left-0 right-0 bg-muted-foreground/15 pointer-events-none border-l-2 border-muted-foreground/30"
+                      className={`absolute left-0 right-0 bg-muted-foreground/15 border-l-2 border-muted-foreground/30 text-left ${removeTimeOffAction ? "hover:bg-muted-foreground/25 cursor-pointer" : "pointer-events-none"}`}
                       style={{ top: `${top}px`, height: `${height}px` }}
-                      title={o.reason ?? "Time off / break"}
+                      title={removeTimeOffAction ? `${o.reason ?? "Time off / break"} — click to remove` : (o.reason ?? "Time off / break")}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!removeTimeOffAction) return;
+                        if (!confirm(`Remove this block (${o.reason ?? "Time off"})?`)) return;
+                        const fd = new FormData();
+                        fd.set("id", o.id);
+                        const res = await removeTimeOffAction(fd);
+                        if (res?.error) {
+                          alert(`Failed: ${res.error}`);
+                        } else {
+                          router.refresh();
+                        }
+                      }}
                     >
                       {height >= 18 && (
                         <div className="text-[10px] text-muted-foreground p-1.5 leading-tight italic truncate">
                           {o.reason ?? "Off"}
                         </div>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
                 {t.isWorking &&
