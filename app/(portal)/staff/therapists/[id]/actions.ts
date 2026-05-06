@@ -2,6 +2,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { sydneyLocalToUtc } from "@/lib/time";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -114,9 +115,14 @@ export async function addTimeOff(
   });
   const parsed = timeoffSchema.safeParse(raw);
   if (!parsed.success) return { error: "Invalid input." };
-  const startsAt = new Date(parsed.data.startsAt);
-  const endsAt = new Date(parsed.data.endsAt);
+  // Parse the datetime-local strings as Sydney wall-clock time. Without this
+  // the server (UTC on Vercel) would interpret them as UTC, storing every
+  // entry 10–11 hours off (e.g. a 12 PM lunch becomes 10 PM Sydney).
+  const startsAt = sydneyLocalToUtc(parsed.data.startsAt);
+  const endsAt = sydneyLocalToUtc(parsed.data.endsAt);
   if (
+    !startsAt ||
+    !endsAt ||
     isNaN(startsAt.getTime()) ||
     isNaN(endsAt.getTime()) ||
     startsAt >= endsAt
