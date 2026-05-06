@@ -14,8 +14,26 @@ import { createStaffBooking } from "./actions";
 
 export const metadata = { title: "New booking" };
 
-export default async function NewStaffBookingPage() {
+export default async function NewStaffBookingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    date?: string;
+    time?: string;
+    therapistId?: string;
+  }>;
+}) {
   const session = (await auth())!;
+  const sp = await searchParams;
+
+  // When the user clicks an empty slot on /staff/schedule, the grid navigates
+  // here with date=YYYY-MM-DD, time=HH:mm, and therapistId in the query string.
+  // Translate those into props for the form.
+  const dateOk = !!sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date);
+  const timeOk = !!sp.time && /^\d{2}:\d{2}$/.test(sp.time);
+  const initialStartsAt = dateOk
+    ? `${sp.date}T${timeOk ? sp.time : "09:00"}`
+    : undefined;
   const [services, therapists, clients] = await Promise.all([
     db.service.findMany({
       where: { active: true },
@@ -68,6 +86,8 @@ export default async function NewStaffBookingPage() {
                 id: t.id,
                 name: therapistInternalName(t),
               }))}
+              initialStartsAt={initialStartsAt}
+              initialTherapistId={sp.therapistId}
             />
           </CardContent>
         </Card>
