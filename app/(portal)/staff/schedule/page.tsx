@@ -5,6 +5,10 @@ import { StaffShell, DateNav } from "@/components/staff-shell";
 import { ScheduleGrid } from "@/components/schedule-grid";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import {
+  addTimeOff,
+  toggleTherapistActive,
+} from "@/app/(portal)/staff/therapists/[id]/actions";
 
 export const metadata = { title: "Calendar" };
 
@@ -56,10 +60,13 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const { start: dayStart, end: dayEnd, date: day, dow } = sydneyDayBounds(dateStr);
 
   const [therapistsRaw, bookings, timeOffs] = await Promise.all([
+    // Show ALL therapists on the schedule (active + inactive). Inactive ones
+    // get isWorking=false so their column reads as fully off, but their
+    // quick-action menu offers "Activate" so admins can re-enable them
+    // without leaving the schedule page.
     db.therapist.findMany({
-      where: { active: true },
       include: { user: { select: { name: true } }, availability: { where: { dayOfWeek: dow } } },
-      orderBy: { user: { name: "asc" } },
+      orderBy: [{ active: "desc" }, { user: { name: "asc" } }],
     }),
     db.booking.findMany({
       where: {
@@ -98,7 +105,10 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       id: t.id,
       name: t.user.name,
       initials: initials(t.user.name),
-      isWorking: !!slot,
+      // Inactive therapists are always rendered as off, even if they have a
+      // weekly-availability record for this day-of-week.
+      isWorking: t.active && !!slot,
+      isActive: t.active,
       startMin: slot?.startMin,
       endMin: slot?.endMin,
       timeOff: ts.map((o) => ({
@@ -126,7 +136,14 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             No active therapists. Add one in Therapists.
           </div>
         ) : (
-          <ScheduleGrid date={day} therapists={therapists} bookings={bookings} />
+          <ScheduleGrid
+            date={day}
+            dateStr={dateStr}
+            therapists={therapists}
+            bookings={bookings}
+            addTimeOffAction={addTimeOff}
+            toggleActiveAction={toggleTherapistActive}
+          />
         )}
       </div>
     </StaffShell>
