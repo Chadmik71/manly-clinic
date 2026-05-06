@@ -137,6 +137,35 @@ export async function addTimeOff(
     metadata: { startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() },
   });
   revalidatePath(`/staff/therapists/${parsed.data.therapistId}`);
+  revalidatePath("/staff/schedule");
+  return { ok: true };
+}
+
+export async function toggleTherapistActive(
+  fd: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
+  const session = await requireStaff();
+  if (!session) return { error: "Forbidden." };
+  const id = String(fd.get("id") ?? "");
+  if (!id) return { error: "Missing therapist id." };
+  const t = await db.therapist.findUnique({
+    where: { id },
+    include: { user: { select: { name: true } } },
+  });
+  if (!t) return { error: "Therapist not found." };
+  await db.therapist.update({
+    where: { id },
+    data: { active: !t.active },
+  });
+  await audit({
+    userId: session.user.id,
+    action: "TOGGLE_THERAPIST_ACTIVE",
+    resource: `Therapist:${id}`,
+    metadata: { name: t.user.name, active: !t.active },
+  });
+  revalidatePath(`/staff/therapists/${id}`);
+  revalidatePath("/staff/therapists");
+  revalidatePath("/staff/schedule");
   return { ok: true };
 }
 
