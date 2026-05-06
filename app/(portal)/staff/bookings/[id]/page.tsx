@@ -9,9 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { sydneyDateLong, sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
 import { formatPrice, therapistInternalName } from "@/lib/utils";
 import { StatusActions } from "./status-actions";
-import { setBookingStatus, updateBookingNotes, reassignTherapist, assignTherapist } from "./actions";
+import { setBookingStatus, updateBookingNotes, assignTherapist } from "./actions";
 import { ClinicalNotesForm } from "./clinical-notes-form";
-import { ReassignTherapistForm } from "./reassign-therapist-form";
 import { AssignTherapistForm } from "./assign-therapist-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
 
@@ -41,15 +40,6 @@ export default async function StaffBookingDetail({
 
   // For remedial-massage bookings only, fetch all active therapists so the
   // staff can reassign. Empty list for other services skips the query.
-  const therapists =
-    b.service.slug === "remedial-massage"
-      ? await db.therapist.findMany({
-          where: { active: true },
-          include: { user: { select: { name: true } } },
-          orderBy: { user: { name: "asc" } },
-        })
-      : [];
-
   // Staff pool for the audit-side "who actually did the session" assignment.
   // All STAFF and ADMIN users (regardless of whether they have a Therapist
   // record) can be assigned. The assigned name is denormalised onto the
@@ -287,23 +277,7 @@ export default async function StaffBookingDetail({
           </CardContent>
         </Card>
 
-        {b.service.slug === "remedial-massage" && (
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>Therapist (reassign)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ReassignTherapistForm
-                bookingId={b.id}
-                currentTherapistId={b.therapistId}
-                therapists={therapists.map((t) => ({ id: t.id, name: therapistInternalName(t) }))}
-                action={reassignTherapist}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        <Card className="md:col-span-2">
+                <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Therapist (assigned for clinical record)</CardTitle>
           </CardHeader>
