@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ export function TherapistQuickActions({
   addTimeOffAction,
   toggleActiveAction,
 }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
@@ -86,6 +88,8 @@ export function TherapistQuickActions({
         alert(`Failed to block: ${res.error}`);
       } else {
         setOpen(false);
+        // Pull fresh server data so the gray bar appears immediately.
+        router.refresh();
       }
     });
   }
@@ -124,6 +128,7 @@ export function TherapistQuickActions({
         setFromTime("12:00");
         setToTime("13:00");
         setReason("Lunch");
+        router.refresh();
       }
     });
   }
@@ -139,6 +144,7 @@ export function TherapistQuickActions({
         alert(`Failed: ${res.error}`);
       } else {
         setOpen(false);
+        router.refresh();
       }
     });
   }
