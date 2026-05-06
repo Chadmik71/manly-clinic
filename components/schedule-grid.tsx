@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
 import { formatPrice } from "@/lib/utils";
+import { TherapistQuickActions } from "@/components/therapist-quick-actions";
 
 const DAY_START_HOUR = 8;
 const DAY_END_HOUR = 21; // exclusive
@@ -26,6 +27,7 @@ type Therapist = {
   initials: string;
   name: string;
   isWorking: boolean;
+  isActive?: boolean;
   startMin?: number;
   endMin?: number;
   timeOff?: {
@@ -81,10 +83,21 @@ export function ScheduleGrid({
   date,
   therapists,
   bookings,
+  dateStr,
+  addTimeOffAction,
+  toggleActiveAction,
 }: {
   date: Date;
   therapists: Therapist[];
   bookings: Booking[];
+  /** Sydney YYYY-MM-DD that this grid is showing. Required for quick-actions menu. */
+  dateStr?: string;
+  addTimeOffAction?: (
+    fd: FormData,
+  ) => Promise<{ ok?: boolean; error?: string }>;
+  toggleActiveAction?: (
+    fd: FormData,
+  ) => Promise<{ ok?: boolean; error?: string }>;
 }) {
   const dayStartMin = DAY_START_HOUR * 60;
   const dayEndMin = DAY_END_HOUR * 60;
@@ -105,11 +118,11 @@ export function ScheduleGrid({
               key={t.id}
               className="border-b border-r last:border-r-0 bg-muted/30 h-12 px-3 flex items-center gap-2"
             >
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary text-xs font-semibold shrink-0">
                 {t.initials}
               </span>
-              <div className="text-sm">
-                <div className="font-medium leading-none">{t.name}</div>
+              <div className="text-sm flex-1 min-w-0">
+                <div className="font-medium leading-none truncate">{t.name}</div>
                 {t.isWorking && t.startMin != null && t.endMin != null ? (
                   <div className="text-[11px] text-muted-foreground mt-0.5">
                     {minToLabel(t.startMin)} – {minToLabel(t.endMin)}
@@ -120,6 +133,16 @@ export function ScheduleGrid({
                   </div>
                 )}
               </div>
+              {dateStr && addTimeOffAction && toggleActiveAction && (
+                <TherapistQuickActions
+                  therapistId={t.id}
+                  therapistName={t.name}
+                  isActive={t.isActive ?? true}
+                  dateStr={dateStr}
+                  addTimeOffAction={addTimeOffAction}
+                  toggleActiveAction={toggleActiveAction}
+                />
+              )}
             </div>
           ))}
 
