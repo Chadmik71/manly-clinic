@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
 import { formatPrice } from "@/lib/utils";
 import { TherapistQuickActions } from "@/components/therapist-quick-actions";
@@ -99,8 +102,50 @@ export function ScheduleGrid({
     fd: FormData,
   ) => Promise<{ ok?: boolean; error?: string }>;
 }) {
+  const router = useRouter();
   const dayStartMin = DAY_START_HOUR * 60;
   const dayEndMin = DAY_END_HOUR * 60;
+
+  function handleColumnClick(
+    e: React.MouseEvent<HTMLDivElement>,
+    t: Therapist,
+  ) {
+    if (!dateStr || !t.isWorking) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('a, button, [role="menu"]')) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    if (y < 0) return;
+    const minutes = dayStartMin + y / MIN_PX;
+    // Skip clicks outside the therapist's working hours.
+    if (t.startMin != null && minutes < t.startMin) return;
+    if (t.endMin != null && minutes >= t.endMin) return;
+    // Skip clicks that fall inside a time-off window.
+    if (t.timeOff && t.timeOff.length) {
+      const dayStartUTC = date.getTime();
+      const dayEndUTC = dayStartUTC + 24 * 3600 * 1000 - 1;
+      for (const tw of t.timeOff) {
+        const ts = Math.max(tw.startsAt.getTime(), dayStartUTC);
+        const te = Math.min(tw.endsAt.getTime(), dayEndUTC);
+        if (te <= ts) continue;
+        const sMin = minutesFromMidnight(new Date(ts));
+        const eMin = minutesFromMidnight(new Date(te));
+        if (minutes >= sMin && minutes < eMin) return;
+      }
+    }
+    // Floor to the nearest 30-min slot so a click anywhere in 9:00–9:29
+    // resolves to 9:00. Clamp to the visible 8 AM–9 PM range.
+    const rounded = Math.max(
+      dayStartMin,
+      Math.min(dayEndMin - 30, Math.floor(minutes / 30) * 30),
+    );
+    const h = Math.floor(rounded / 60);
+    const m = rounded % 60;
+    const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    router.push(
+      `/staff/bookings/new?date=${encodeURIComponent(dateStr)}&therapistId=${encodeURIComponent(t.id)}&time=${encodeURIComponent(timeStr)}`,
+    );
+  }
 
   return (
     <div className="border rounded-md bg-card overflow-hidden">
@@ -160,6 +205,15 @@ export function ScheduleGrid({
                 {hourLabel(h)}
               </div>
             ))}
+            {HOURS.slice(0, -1).map((h, i) => (
+              <div
+                key={`half-${h}`}
+                className="absolute left-0 right-0 text-[9px] text-muted-foreground/60 pr-2 text-right -translate-y-1/2"
+                style={{ top: `${(i + 0.5) * HOUR_PX}px` }}
+              >
+                :30
+              </div>
+            ))}
           </div>
 
           {therapists.map((t) => {
@@ -167,12 +221,13 @@ export function ScheduleGrid({
             return (
               <div
                 key={t.id}
-                className="relative border-r last:border-r-0"
+                className={`relative border-r last:border-r-0 ${dateStr && t.isWorking ? "cursor-pointer" : ""}`}
+                onClick={(e) => handleColumnClick(e, t)}
                 style={{
                   height: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_PX}px`,
                   backgroundImage:
                     "repeating-linear-gradient(to bottom, hsl(var(--grid)) 0 1px, transparent 1px " +
-                    HOUR_PX +
+                    HOUR_PX / 2 +
                     "px)",
                 }}
               >
