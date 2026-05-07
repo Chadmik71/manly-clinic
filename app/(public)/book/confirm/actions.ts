@@ -39,6 +39,12 @@ const schema = z.object({
   startsIso: z.string().min(1),
   notes: z.string().max(2000).optional(),
 
+  // Couple-massage extension. When partnerVariantId is set, the booking is
+  // for two and a second linked Booking is created on a different therapist.
+  // partnerName is optional but encouraged so reception knows who’s arriving.
+  partnerVariantId: z.string().optional(),
+  partnerName: z.string().max(120).optional(),
+
   // Guest contact details (when no session). Required at runtime; we
   // validate them after we know whether a session exists.
   guestName: z.string().max(120).optional(),
@@ -239,7 +245,8 @@ export async function createBooking(
     },
   });
 
-  const candidate = therapists.find(
+  const isCouple = Boolean(data.partnerVariantId);
+  const candidates = therapists.filter(
     (t) =>
       t.availability.some(
         (a) => a.startMin <= startMinutes && a.endMin >= endMinutes,
@@ -247,8 +254,30 @@ export async function createBooking(
       t.bookings.length === 0 &&
       t.timeOff.length === 0,
   );
-  if (!candidate)
-    return { error: "That time was just taken — please pick another." };
+  if (candidates.length < (isCouple ? 2 : 1))
+    return {
+      error: isCouple
+        ? "Couple bookings need two free therapists at the same time. Please pick another time."
+        : "That time was just taken — please pick another.",
+    };
+  const candidate = candidates[0];
+  const partnerCandidate = isCouple ? candidates[1] : null;
+
+  // Couple bookings need a second variant lookup so we know its duration
+  // matches (they share startsAt) and its price for the partner half.
+  let partnerVariant: { id: string; durationMin: number; priceCents: number; serviceId: string } | null = null;
+  if (isCouple && data.partnerVariantId) {
+    const pv = await db.serviceVariant.findUnique({
+      where: { id: data.partnerVariantId },
+    });
+    if (!pv) return { error: "Partner service not found." };
+    if (pv.durationMin !== variant.durationMin)
+      return {
+        error:
+          "Couple bookings require both partners to choose the same duration so you finish at the same time.",
+      };
+    partnerVariant = pv;
+  }
 
   // Phase 4 (slot model) — auto-assign the lowest-numbered active Slot
   // that has no time conflict. The slot label is denormalised onto the
@@ -258,6 +287,9 @@ export async function createBooking(
   // therapist name. This keeps the customer-flow risk near zero.
   let slotId: string | null = null;
   let slotLabel: string | null = null;
+  // Partner half (couple bookings) gets the next-numbered slot
+  let partnerSlotId: string | null = null;
+  let partnerSlotLabel: string | null = null;
   try {
     // Per-day capacity override: if an admin has set a cap for this date,
     // restrict the candidate pool to the first N active slots by displayOrder.
@@ -294,11 +326,15 @@ export async function createBooking(
         },
       },
       orderBy: [{ displayOrder: "asc" }, { label: "asc" }],
-      take: 1,
+      take: isCouple ? 2 : 1,
     });
     if (candidateSlots.length > 0) {
       slotId = candidateSlots[0].id;
       slotLabel = candidateSlots[0].label;
+    }
+    if (isCouple && candidateSlots.length > 1) {
+      partnerSlotId = candidateSlots[1].id;
+      partnerSlotLabel = candidateSlots[1].label;
     }
   } catch {
     // If the slot lookup throws (e.g. transient DB hiccup), proceed without
@@ -423,25 +459,67 @@ export async function createBooking(
   }
 
   const reference = bookingReference();
-  const booking = await db.booking.create({
-    data: {
-      reference,
-      clientId: clientUserId,
-      serviceId: variant.serviceId,
-      variantId: variant.id,
-      therapistId: candidate.id,
-      slotId,
-      slotLabel,
-      startsAt,
-      endsAt,
-      status: "CONFIRMED",
-      priceCentsAtBooking: pricing.finalPriceCents,
-      claimWithHealthFund,
-      voucherCode,
-      voucherAppliedCents,
-      paidCents: voucherAppliedCents, // voucher amount counts as paid
-      notes: data.notes ?? null,
-    },
+  const booking = // Couple bookings get a shared coupleGroupId so the two halves can be
+  // linked for cancellation prompts, audit trails, and staff UI surfacing.
+  const coupleGroupId =
+    isCouple && partnerVariant && partnerCandidate ? crypto.randomUUID() : null;
+
+  await db.$transaction(async (tx) => {
+    await tx.booking.create({
+      data: {
+        reference,
+        clientId: clientUserId,
+        serviceId: variant.serviceId,
+        variantId: variant.id,
+        therapistId: candidate.id,
+        slotId,
+        slotLabel,
+        startsAt,
+        endsAt,
+        status: "CONFIRMED",
+        priceCentsAtBooking: pricing.finalPriceCents,
+        claimWithHealthFund,
+        voucherCode,
+        voucherAppliedCents,
+        paidCents: voucherAppliedCents,
+        notes: data.notes ?? null,
+        coupleGroupId,
+      },
+    });
+
+    if (isCouple && partnerVariant && partnerCandidate) {
+      const partnerNotes =
+        (data.partnerName ? `Couple booking — partner: ${data.partnerName}` : "Couple booking — partner half") +
+        (data.notes ? `\n\n${data.notes}` : "");
+      await tx.booking.create({
+        data: {
+          reference: `${reference}-P`,
+          clientId: clientUserId,
+          serviceId: partnerVariant.serviceId,
+          variantId: partnerVariant.id,
+          therapistId: partnerCandidate.id,
+          slotId: partnerSlotId,
+          slotLabel: partnerSlotLabel,
+          startsAt,
+          // Partner half has its own duration/endsAt because each partner picks
+          // their own service, but we already validated durations match above so
+          // this is the same endsAt in practice. Keeping the per-variant compute
+          // here means a future "different durations allowed" mode just removes
+          // the duration check above.
+          endsAt: addMinutes(startsAt, partnerVariant.durationMin),
+          status: "CONFIRMED",
+          priceCentsAtBooking: partnerVariant.priceCents,
+          claimWithHealthFund: false,
+          // No voucher applied to the partner half — vouchers are tied to a
+          // single booking reference.
+          voucherCode: null,
+          voucherAppliedCents: 0,
+          paidCents: 0,
+          notes: partnerNotes,
+          coupleGroupId,
+        },
+      });
+    }
   });
 
   // Decrement voucher balance
