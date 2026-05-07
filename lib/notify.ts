@@ -104,7 +104,70 @@ export async function notifyBookingConfirmed(args: {
   serviceName: string;
   durationMin: number;
   startsAt: Date;
+  /** Primary booking price in cents. Optional; only used in the couple-mode email. */
+  priceCents?: number;
+  /**
+   * Partner half details. When set, the email and SMS describe a couple
+   * booking with both treatments listed. Solo callers omit this field
+   * entirely and the original solo template is used unchanged.
+   */
+  partner?: {
+    serviceName: string;
+    durationMin: number;
+    priceCents: number;
+    /** Partner reference (typically the primary reference with a -P suffix). */
+    reference: string;
+    /** Partner's name (the second person), if the customer entered one. */
+    partnerName?: string | null;
+  };
 }): Promise<void> {
+  // Couple bookings get a different layout that lists both treatments and
+  // both references in a single email. Solo path falls through unchanged.
+  if (args.partner) {
+    const p = args.partner;
+    const yourPriceStr =
+      args.priceCents !== undefined
+        ? ` (${(args.priceCents / 100).toFixed(2)})`
+        : "";
+    const partnerPriceStr = ` (${(p.priceCents / 100).toFixed(2)})`;
+    const partnerLabel = p.partnerName ? `for ${p.partnerName}` : "partner";
+
+    const subjectC = `Couple booking confirmed — ${args.reference}`;
+    const textC = `Hi ${args.name},
+
+Your couple booking is confirmed for ${fmt(args.startsAt)}:
+
+  • ${args.serviceName} — ${args.durationMin} min${yourPriceStr} (yours)
+  • ${p.serviceName} — ${p.durationMin} min${partnerPriceStr} (${partnerLabel})
+
+Booking references:
+  Yours:   ${args.reference}
+  Partner: ${p.reference}
+
+Manage / cancel / reschedule: ${CLINIC.domain}/portal/bookings
+
+${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb}
+${CLINIC.phone}`;
+    const htmlC = `<p>Hi ${args.name},</p>
+<p>Your <strong>couple booking</strong> is confirmed for <strong>${fmt(args.startsAt)}</strong>:</p>
+<ul style="margin:8px 0;padding-left:20px">
+  <li><strong>${args.serviceName}</strong> — ${args.durationMin} min${yourPriceStr} <span style="color:#64748b">(yours)</span></li>
+  <li><strong>${p.serviceName}</strong> — ${p.durationMin} min${partnerPriceStr} <span style="color:#64748b">(${partnerLabel})</span></li>
+</ul>
+<p>Booking references: <code>${args.reference}</code> (yours) &amp; <code>${p.reference}</code> (partner)<br/>
+<a href="${CLINIC.domain}/portal/bookings">Manage your booking</a></p>
+<p style="color:#64748b;font-size:12px">${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}</p>`;
+
+    await sendEmail({ to: args.email, subject: subjectC, html: htmlC, text: textC });
+    if (args.phone) {
+      await sendSms({
+        to: args.phone,
+        body: `${CLINIC.name}: couple booking ${fmtShort(args.startsAt)}. ${args.serviceName} + ${p.serviceName} (${args.durationMin}min). Refs ${args.reference} & ${p.reference}.`,
+      });
+    }
+    return;
+  }
+
   const subject = `Booking confirmed — ${args.reference}`;
   const text = `Hi ${args.name},
 
