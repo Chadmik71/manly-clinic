@@ -49,7 +49,13 @@ export default async function ClientProfile({
       }
     >
       <div className="p-4">
-        <div className="flex justify-end mb-4">
+        <div className="flex flex-wrap justify-end gap-2 mb-4">
+          <Link
+            href={`/staff/clients/${id}/intake-history`}
+            className="text-sm rounded-md border px-3 py-1.5 hover:bg-accent"
+          >
+            View intake history
+          </Link>
           <Link
             href={`/staff/clients/${id}/record`}
             className="text-sm rounded-md border px-3 py-1.5 hover:bg-accent"
