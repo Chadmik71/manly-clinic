@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 import { ServiceVariantPicker } from "./variant-picker";
 import { SlotPicker } from "./slot-picker";
+import { CouplePicker } from "./couple-picker";
 import { getDistinctSlotTimes } from "@/lib/booking";
 import { addDays, format, parseISO, isValid } from "date-fns";
 import { sydneyTodayISO } from "@/lib/time";
@@ -47,6 +48,7 @@ export default async function BookPage({
     variant?: string;
     date?: string;
     therapist?: string;
+    partner?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -103,6 +105,32 @@ export default async function BookPage({
   const variant =
     service.variants.find((v) => v.id === sp.variant) ?? service.variants[0];
 
+  // Couple bookings: fetch all variants from any active service whose duration
+  // matches the primary variant’s duration. Both partners must finish at the
+  // same time so they share the same slot. We exclude the primary variant
+  // itself — picking the same variant for both partners is fine in principle,
+  // but the dropdown should still let them pick a different one if they want.
+  const partnerVariantsRaw = variant
+    ? await db.serviceVariant.findMany({
+        where: {
+          durationMin: variant.durationMin,
+          service: { active: true },
+        },
+        include: { service: { select: { name: true, category: true } } },
+        orderBy: [{ priceCents: "asc" }],
+      })
+    : [];
+  const partnerVariants = partnerVariantsRaw.map((pv) => ({
+    id: pv.id,
+    durationMin: pv.durationMin,
+    priceCents: pv.priceCents,
+    serviceName: pv.service.name,
+  }));
+  const selectedPartnerId =
+    sp.partner && partnerVariants.some((pv) => pv.id === sp.partner)
+      ? sp.partner
+      : null;
+
   // Validate / default the date in Sydney terms. Past dates clamp to today,
   // dates more than 90 days out clamp to today+90, malformed input falls back
   // to today (instead of crashing).
@@ -152,6 +180,14 @@ export default async function BookPage({
               }))}
               selectedId={variant?.id ?? null}
             />
+            {variant && partnerVariants.length > 0 && (
+              <div className="mt-6 pt-4 border-t">
+                <CouplePicker
+                  partnerVariants={partnerVariants}
+                  selectedPartnerId={selectedPartnerId}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -193,6 +229,7 @@ export default async function BookPage({
                 serviceSlug={service.slug}
                 variantId={variant.id}
                 date={dateISO}
+                partnerVariantId={selectedPartnerId ?? undefined}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
