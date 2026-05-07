@@ -85,6 +85,10 @@ const schema = z.object({
   healthFundMemberNumber: z.string().max(40).optional(),
   reasonForTreatment: z.string().max(2000).optional(),
   voucherCode: z.string().max(40).optional(),
+  // PNG data URL of the client's drawn signature. Required at runtime when
+  // claimWithHealthFund is true (HICAPS audit). Capped at 150 KB to bound
+  // request size — typical signatures are 5-20 KB.
+  signatureDataUrl: z.string().max(150_000).optional(),
 });
 
 const guestSchema = z.object({
@@ -182,6 +186,18 @@ export async function createBooking(
     return { error: "This treatment is not eligible for health fund rebates." };
   }
   if (claimWithHealthFund) {
+    // HICAPS audit: every health-fund claim must include a fresh signature
+    // captured on this visit. The signature pad on the confirm form sends
+    // a PNG data URL via FormData.
+    if (
+      !data.signatureDataUrl ||
+      !data.signatureDataUrl.startsWith("data:image/png;base64,")
+    ) {
+      return {
+        error:
+          "Please sign in the signature pad to authorise the health fund claim.",
+      };
+    }
     if (!nonEmpty(data.healthFundName))
       return { error: "Please choose your health fund." };
     if (!nonEmpty(data.healthFundMemberNumber))
@@ -420,6 +436,12 @@ export async function createBooking(
       consentToTreat: true,
       consentToStore: true,
       signedAt: new Date(),
+      // Only store the signature when it was actually required (claim flow).
+      // Solo / non-claim intakes leave this null — no PII surplus.
+      signatureDataUrl:
+        claimWithHealthFund && data.signatureDataUrl
+          ? data.signatureDataUrl
+          : null,
     },
   });
 
