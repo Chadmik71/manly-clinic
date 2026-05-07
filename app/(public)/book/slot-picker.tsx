@@ -7,11 +7,18 @@ export function SlotPicker({
   serviceSlug,
   variantId,
   date,
+  partnerVariantId,
 }: {
   slots: string[];
   serviceSlug: string;
   variantId: string;
   date: string;
+  /**
+   * Optional partner variant id for couple bookings. When set, gets forwarded
+   * as &partner=... on the confirm URL so the partner-half is created in the
+   * same atomic transaction as the primary half.
+   */
+  partnerVariantId?: string;
 }) {
   if (slots.length === 0) {
     return (
@@ -24,7 +31,8 @@ export function SlotPicker({
     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
       {slots.map((iso) => {
         const t = new Date(iso);
-        const url = `/book/confirm?service=${serviceSlug}&variant=${variantId}&starts=${encodeURIComponent(iso)}&date=${date}`;
+        const partnerSuffix = partnerVariantId ? `&partner=${partnerVariantId}` : "";
+        const url = `/book/confirm?service=${serviceSlug}&variant=${variantId}${partnerSuffix}&starts=${encodeURIComponent(iso)}&date=${date}`;
         return (
           <Link
             key={iso}
