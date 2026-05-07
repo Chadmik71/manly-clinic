@@ -228,6 +228,11 @@ model IntakeForm {
   /// PNG data URL of the client's drawn signature. Required for health-fund
   /// claims (HICAPS audit trail), null when there is no claim.
   signatureDataUrl  String?
+  /// JSON-serialized array of body-diagram zone codes the client tapped on
+  /// the intake form (e.g. ["f-shoulder-l", "b-lower-back"]). Pairs with the
+  /// free-text painLocation field — the diagram is the structured view, the
+  /// text field is the supplemental detail.
+  painLocationCodes  String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
