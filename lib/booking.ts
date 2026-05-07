@@ -110,18 +110,28 @@ export async function getDistinctSlotTimes(params: {
   const slots = await getAvailableSlots(params);
   const minTherapists = params.minTherapists ?? 1;
 
-  // Count free therapists per slot time so we can enforce minTherapists.
-  const countByTime = new Map<number, number>();
+  // Count *distinct* free therapists per slot time so we can enforce
+  // minTherapists. Counting raw slot entries would over-count when a
+  // therapist has overlapping availability rows on the same day (each row
+  // re-emits the same slot), causing the picker to show times that the
+  // confirm action then rejects with "two free therapists" for couples.
+  const therapistsByTime = new Map<number, Set<string>>();
   for (const s of slots) {
     const t = s.startsAt.getTime();
-    countByTime.set(t, (countByTime.get(t) ?? 0) + 1);
+    let set = therapistsByTime.get(t);
+    if (!set) {
+      set = new Set<string>();
+      therapistsByTime.set(t, set);
+    }
+    set.add(s.therapistId);
   }
 
   const seen = new Set<number>();
   const out: Date[] = [];
   for (const s of slots) {
     const t = s.startsAt.getTime();
-    if (!seen.has(t) && (countByTime.get(t) ?? 0) >= minTherapists) {
+    const free = therapistsByTime.get(t)?.size ?? 0;
+    if (!seen.has(t) && free >= minTherapists) {
       seen.add(t);
       out.push(s.startsAt);
     }
