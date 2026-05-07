@@ -23,6 +23,8 @@ export type InvoiceData = {
     memberNumber: string;
     reasonForTreatment: string;
   } | null;
+  /** PNG data URL of the patient signature, if captured at booking. */
+  signatureDataUrl?: string | null;
 };
 
 const COLORS = {
@@ -31,6 +33,21 @@ const COLORS = {
   brand: "#0d8281",
   border: "#e2e8f0",
 };
+
+/**
+ * Decodes a `data:image/png;base64,...` data URL into a Buffer that pdfkit
+ * can embed via doc.image(). Returns null for any other shape (no signature,
+ * malformed input, non-PNG mime). Caller is expected to fail soft.
+ */
+function dataUrlToPngBuffer(dataUrl: string): Buffer | null {
+  const m = /^data:image\/png;base64,(.+)$/.exec(dataUrl);
+  if (!m) return null;
+  try {
+    return Buffer.from(m[1], "base64");
+  } catch {
+    return null;
+  }
+}
 
 function aud(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -233,6 +250,45 @@ export async function renderInvoicePdf(data: InvoiceData): Promise<Buffer> {
     writeTotal("Total", aud(total), true);
     writeTotal("Paid", aud(data.paidCents));
     writeTotal("Balance", aud(balance), true);
+
+    // --- Patient signature (HICAPS audit trail) ---
+    // Only renders when the customer signed at booking. Any failure decoding
+    // or embedding fails soft so the rest of the invoice still renders.
+    if (data.signatureDataUrl) {
+      const sigBuf = dataUrlToPngBuffer(data.signatureDataUrl);
+      if (sigBuf) {
+        y += 14;
+        doc
+          .moveTo(M, y)
+          .lineTo(M + innerW, y)
+          .strokeColor(COLORS.border)
+          .stroke();
+        y += 10;
+        doc
+          .fillColor(COLORS.muted)
+          .fontSize(8)
+          .font("Helvetica-Bold")
+          .text("PATIENT SIGNATURE", M, y, { characterSpacing: 1 });
+        y += 14;
+        try {
+          doc.image(sigBuf, M, y, { fit: [180, 60] });
+          y += 64;
+        } catch {
+          y += 4;
+        }
+        doc
+          .fillColor(COLORS.muted)
+          .fontSize(8)
+          .font("Helvetica")
+          .text(
+            `Captured electronically at booking on ${format(new Date(data.startsAt), "d MMM yyyy")}.`,
+            M,
+            y,
+            { width: innerW },
+          );
+        y = doc.y + 8;
+      }
+    }
 
     // --- Footer ---
     y += 20;
