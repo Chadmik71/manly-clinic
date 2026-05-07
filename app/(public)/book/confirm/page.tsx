@@ -253,6 +253,7 @@ export default async function ConfirmPage({
                 healthFundName: intake.healthFundName ?? "",
                 healthFundMemberNumber: intake.healthFundMemberNumber ?? "",
                 reasonForTreatment: intake.reasonForTreatment ?? "",
+              painLocationCodes: parseHistoryJson(intake.painLocationCodes),
               }
             : null
         }
