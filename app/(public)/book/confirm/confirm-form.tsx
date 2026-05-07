@@ -135,6 +135,8 @@ export function ConfirmForm({
   userDefaults,
   isGuest,
   signedInEmail,
+  partnerVariantId,
+  partnerVariantSummary,
 }: {
   action: (
     formData: FormData,
@@ -148,6 +150,10 @@ export function ConfirmForm({
   userDefaults: UserDefaults;
   isGuest: boolean;
   signedInEmail: string | null;
+  /** Set when this booking is the primary half of a couple booking. */
+  partnerVariantId?: string | null;
+  /** Optional human-readable partner-side summary, e.g. "Deep Tissue — 60 min ($120)". */
+  partnerVariantSummary?: string | null;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -810,6 +816,29 @@ export function ConfirmForm({
         </CardContent>
       </Card>
 
+      {partnerVariantId && (
+        <Card>
+          <SectionHeader
+            step="❤"
+            title="Partner’s details (couple booking)"
+            desc={
+              partnerVariantSummary
+                ? `Partner is booked for: ${partnerVariantSummary}`
+                : "Partner booked alongside the primary booking."
+            }
+          />
+          <CardContent className="pb-5 pt-4 space-y-1.5">
+            <Label htmlFor="partnerName">Partner’s name (optional)</Label>
+            <Input
+              id="partnerName"
+              name="partnerName"
+              maxLength={120}
+              placeholder="So reception knows who’s arriving with you"
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* 10 (or 9). Notes */}
       <Card>
         <SectionHeader
@@ -872,6 +901,11 @@ export function ConfirmForm({
       </div>
 
       {/* Suppress unused-prop warning if signedInEmail not displayed elsewhere */}
+      <input
+        type="hidden"
+        name="partnerVariantId"
+        value={partnerVariantId ?? ""}
+      />
       <input type="hidden" name="_signedInEmail" value={signedInEmail ?? ""} />
     </form>
   );
