@@ -89,6 +89,9 @@ const schema = z.object({
   // claimWithHealthFund is true (HICAPS audit). Capped at 150 KB to bound
   // request size — typical signatures are 5-20 KB.
   signatureDataUrl: z.string().max(150_000).optional(),
+  // JSON-serialized array of body-diagram zone codes the customer marked.
+  // Cap covers ~250 codes which is far beyond what the diagram offers.
+  painLocationCodes: z.string().max(2000).optional(),
 });
 
 const guestSchema = z.object({
@@ -418,6 +421,7 @@ export async function createBooking(
       allergies: data.allergies ?? null,
       injuries: data.injuries ?? null,
       medicalHistory: data.medicalHistory ?? null,
+      painLocationCodes: data.painLocationCodes ?? null,
       painLocation: data.painLocation ?? null,
       painScale,
       painOnset: data.painOnset ?? null,
