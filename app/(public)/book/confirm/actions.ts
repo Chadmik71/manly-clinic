@@ -464,8 +464,9 @@ export async function createBooking(
   const coupleGroupId =
     isCouple && partnerVariant && partnerCandidate ? crypto.randomUUID() : null;
 
+  let bookingId: string;
   await db.$transaction(async (tx) => {
-    await tx.booking.create({
+    const created = await tx.booking.create({
       data: {
         reference,
         clientId: clientUserId,
@@ -485,7 +486,9 @@ export async function createBooking(
         notes: data.notes ?? null,
         coupleGroupId,
       },
+      select: { id: true },
     });
+    bookingId = created.id;
 
     if (isCouple && partnerVariant && partnerCandidate) {
       const partnerNotes =
@@ -548,7 +551,7 @@ export async function createBooking(
   await audit({
     userId: clientUserId,
     action: "CREATE_BOOKING",
-    resource: `Booking:${booking.id}`,
+    resource: `Booking:${bookingId!}`,
     metadata: {
       reference,
       service: variant.service.name,
