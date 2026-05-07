@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { SignaturePad } from "@/components/signature-pad";
+import { BodyDiagram } from "@/components/body-diagram";
 import {
   MEDICAL_HISTORY_GROUPS,
   AU_STATES,
@@ -40,6 +41,7 @@ type IntakeDefaults = {
   healthFundName: string;
   healthFundMemberNumber: string;
   reasonForTreatment: string;
+  painLocationCodes: string[];
 } | null;
 
 type UserDefaults = {
@@ -166,6 +168,11 @@ export function ConfirmForm({
   );
   const [claiming, setClaiming] = useState<boolean>(false);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  // Body-diagram selection. Pre-fills from the most recent intake so
+  // returning customers do not have to re-mark unchanged areas.
+  const [painCodes, setPainCodes] = useState<string[]>(
+    intakeDefaults?.painLocationCodes ?? [],
+  );
   const [pain, setPain] = useState<number | null>(
     intakeDefaults?.painScale ?? null,
   );
@@ -192,6 +199,7 @@ export function ConfirmForm({
     fd.set("variantId", variantId);
     fd.set("startsIso", startsIso);
     fd.set("medicalHistory", JSON.stringify([...history]));
+    fd.set("painLocationCodes", JSON.stringify(painCodes));
     if (pain != null) fd.set("painScale", String(pain));
     // Health-fund claims require a per-visit signature for HICAPS audit.
     if (claiming) {
@@ -535,6 +543,15 @@ export function ConfirmForm({
           desc="If this is a relaxation booking, you can leave most fields blank."
         />
         <CardContent className="pb-5">
+          {/* Visual body-diagram zone selector. Returning customers see */}
+          {/* their previous selection pre-loaded; tap a marker to add or */}
+          {/* remove a focus area. */}
+          <div className="pt-3 pb-4">
+            <BodyDiagram
+              initialCodes={intakeDefaults?.painLocationCodes ?? []}
+              onChange={setPainCodes}
+            />
+          </div>
           <FieldGrid>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="painLocation">Area of concern / pain location</Label>
