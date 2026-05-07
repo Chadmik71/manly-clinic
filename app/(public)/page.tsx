@@ -22,6 +22,51 @@ import { db } from "@/lib/db";
 import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 import { GoogleReviews } from "@/components/google-reviews";
 
+const FAQS = [
+  {
+    q: "Do I need a referral to book?",
+    a: "No — you can book any of our treatments directly online or by phone. A referral is only needed if you’re claiming through Medicare on a chronic disease management plan, or for some workers compensation and DVA bookings. Standard private health-fund rebates for remedial massage do not require a referral.",
+  },
+  {
+    q: "Which health funds do you accept?",
+    a: "We’re HiCAPS-enabled and process on-the-spot rebates for all major Australian health funds — including Bupa, Medibank, HCF, NIB and most others. Rebate amounts depend on your specific policy, level of cover and remaining annual limit. Please bring your physical or digital health-fund card to your appointment.",
+  },
+  {
+    q: "How long is a typical session?",
+    a: "Treatments range from 10 minutes (Head, Neck and Shoulders add-on) up to 90 minutes (extended remedial or hot stone). Most first-time clients book a 60-minute remedial massage, which gives time for assessment, treatment and post-care advice. Booking durations include treatment time only; we allow a buffer between clients for room turnover.",
+  },
+  {
+    q: "What should I wear?",
+    a: "Wear whatever you’re comfortable arriving in. The treatment room is private and you’re draped with towels throughout, exposing only the area being worked on. For oil-based massages we recommend leaving valuables and jewellery at home. For Thai massage you’ll stay fully clothed; loose-fitting attire is best.",
+  },
+  {
+    q: "Can I claim on the spot with HiCAPS?",
+    a: "Yes — we process health-fund rebates on the spot via HiCAPS for eligible treatments such as remedial massage. You only pay the gap between our fee and your fund’s rebate. Please bring your fund card to the appointment. Note that relaxation-only services are generally not health-fund eligible.",
+  },
+  {
+    q: "How do I cancel or reschedule?",
+    a: "You can reschedule or cancel through your client portal at manlyremedialthai.com.au, or by replying to your confirmation email. Cancellations more than 24 hours before your appointment are free of charge. Cancellations or no-shows within 24 hours attract a 50% fee, per our published cancellation policy.",
+  },
+] as const;
+
+function FaqJsonLd() {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQS.map((item) => ({
+      "@type": "Question",
+      name: item.q,
+      acceptedAnswer: { "@type": "Answer", text: item.a },
+    })),
+  };
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
+}
+
 function LocalBusinessJsonLd() {
   const data = {
     "@context": "https://schema.org",
@@ -65,6 +110,7 @@ export default async function HomePage() {
   return (
     <>
       <LocalBusinessJsonLd />
+      <FaqJsonLd />
       {/* Hero */}
       <section className="relative overflow-hidden border-b">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/30 dark:from-primary/10 dark:via-background dark:to-accent/10" />
@@ -222,6 +268,39 @@ export default async function HomePage() {
       {/* Google reviews — server-fetched, cached 6h. Renders nothing when
           GOOGLE_PLACES_API_KEY is unset, so the page degrades gracefully. */}
       <GoogleReviews />
+
+      {/* FAQ */}
+      <section className="container py-16 md:py-20 max-w-3xl">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-bold tracking-tight">
+            Frequently asked questions
+          </h2>
+          <p className="text-muted-foreground mt-2">
+            Quick answers to the questions we get most often.
+          </p>
+        </div>
+        <div className="space-y-3">
+          {FAQS.map((item, i) => (
+            <details
+              key={i}
+              className="group rounded-lg border bg-card p-4 [&_summary::-webkit-details-marker]:hidden"
+            >
+              <summary className="flex cursor-pointer items-center justify-between gap-3 font-medium">
+                <span>{item.q}</span>
+                <span
+                  aria-hidden
+                  className="text-muted-foreground transition-transform group-open:rotate-180"
+                >
+                  ▾
+                </span>
+              </summary>
+              <p className="mt-3 text-sm text-muted-foreground whitespace-pre-line">
+                {item.a}
+              </p>
+            </details>
+          ))}
+        </div>
+      </section>
 
       {/* CTA */}
       <section className="container pb-20">
