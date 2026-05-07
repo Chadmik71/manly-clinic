@@ -13,7 +13,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { parseHistory, historyLabel } from "@/lib/intake";
-import { BodyDiagram, zoneLabel } from "@/components/body-diagram";
+import { BodyDiagram } from "@/components/body-diagram";
+import { zoneLabel } from "@/lib/body-diagram-zones";
 
 /**
  * Per-client intake history. Lists every IntakeForm row submitted by this
@@ -160,11 +161,7 @@ export default async function ClientIntakeHistory({
                             Focus areas
                           </div>
                           <div className="rounded-md border bg-card p-2">
-                            <BodyDiagram
-                              initialCodes={codes}
-                              onChange={() => {}}
-                              readOnly
-                            />
+                            <BodyDiagram initialCodes={codes} readOnly />
                           </div>
                           <p className="text-xs text-muted-foreground mt-1.5">
                             {codes.map(zoneLabel).join(", ")}

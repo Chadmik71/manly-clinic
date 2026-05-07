@@ -25,7 +25,8 @@ import { EditWalkInClientForm } from "./edit-walkin-client-form";
 import { AnnotatedDiagramSection } from "./annotated-diagram-section";
 import { EditInternalNotesForm } from "./edit-internal-notes-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
-import { BodyDiagram, zoneLabel } from "@/components/body-diagram";
+import { BodyDiagram } from "@/components/body-diagram";
+import { zoneLabel } from "@/lib/body-diagram-zones";
 
 export default async function StaffBookingDetail({
   params,
@@ -323,11 +324,7 @@ export default async function StaffBookingDetail({
                         Focus areas (body diagram)
                       </div>
                       <div className="rounded-md border bg-card p-3">
-                        <BodyDiagram
-                          initialCodes={codes}
-                          onChange={() => {}}
-                          readOnly
-                        />
+                        <BodyDiagram initialCodes={codes} readOnly />
                       </div>
                       <div className="text-xs text-muted-foreground mt-2">
                         {codes.map(zoneLabel).join(", ")}
