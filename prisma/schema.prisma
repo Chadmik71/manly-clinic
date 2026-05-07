@@ -153,6 +153,10 @@ model Booking {
   noteAuthorId      String?
   noteAuthor        User?     @relation("ClinicalNoteAuthor", fields: [noteAuthorId], references: [id])
   noteUpdatedAt     DateTime?
+  /// PNG data URL of the staff-drawn annotation overlay on the body diagram
+  /// (e.g. circles around trigger points, free-form notes). Captured per
+  /// booking by the treating therapist; null when no annotation was drawn.
+  noteAnnotationsPng String?
 
   // Service-slot model (e.g. "Therapist 1"). Customers always see this label
   // in their portal/confirmations. The actual therapist (when relevant for
