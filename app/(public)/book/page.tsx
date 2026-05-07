@@ -144,6 +144,8 @@ export default async function BookPage({
       date,
       durationMin: variant.durationMin,
       therapistId: sp.therapist,
+      // Couple bookings require two free therapists simultaneously.
+      minTherapists: selectedPartnerId ? 2 : 1,
     });
   }
 
