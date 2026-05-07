@@ -857,12 +857,13 @@ export function ConfirmForm({
             }
           />
           <CardContent className="pb-5 pt-4 space-y-1.5">
-            <Label htmlFor="partnerName">Partner’s name (optional)</Label>
+            <Label htmlFor="partnerName">Partner’s name <span className="text-destructive">*</span></Label>
             <Input
               id="partnerName"
               name="partnerName"
+              required
               maxLength={120}
-              placeholder="So reception knows who’s arriving with you"
+              placeholder="Partner’s full name"
             />
           </CardContent>
         </Card>
