@@ -66,6 +66,7 @@ export async function GET(
             reasonForTreatment: intake.reasonForTreatment ?? "—",
           }
         : null,
+    signatureDataUrl: intake?.signatureDataUrl ?? null,
   };
 
   const buffer = await renderInvoicePdf(data);
