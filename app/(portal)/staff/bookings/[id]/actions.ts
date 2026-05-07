@@ -160,6 +160,51 @@ export async function updateBookingNotes(
 
 
 /**
+ * Save (or clear) the staff body-diagram annotation overlay for a booking.
+ * Pass null as the data URL to remove the existing annotation. The PNG is
+ * size-capped at 500 KB which covers high-DPI 480x440 canvases comfortably.
+ */
+export async function updateBookingAnnotation(
+  bookingId: string,
+  dataUrl: string | null,
+): Promise<{ ok?: boolean; error?: string }> {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
+  )
+    return { error: "Forbidden." };
+
+  const booking = await db.booking.findUnique({
+    where: { id: bookingId },
+    select: { id: true },
+  });
+  if (!booking) return { error: "Booking not found." };
+
+  if (dataUrl !== null) {
+    if (!dataUrl.startsWith("data:image/png;base64,"))
+      return { error: "Invalid annotation image." };
+    if (dataUrl.length > 500_000)
+      return { error: "Annotation image is too large." };
+  }
+
+  await db.booking.update({
+    where: { id: bookingId },
+    data: { noteAnnotationsPng: dataUrl },
+  });
+
+  await audit({
+    userId: session.user.id,
+    action: "UPDATE_BOOKING_ANNOTATION",
+    resource: `Booking:${bookingId}`,
+    metadata: { hasAnnotation: dataUrl !== null },
+  });
+
+  revalidatePath(`/staff/bookings/${bookingId}`);
+  return { ok: true };
+}
+
+/**
  * Assign (or unassign) the real therapist who actually performed the session.
  * This is the AUDIT data set — separate from the customer-facing slot label.
  *
