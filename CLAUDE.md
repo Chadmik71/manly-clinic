@@ -130,7 +130,8 @@ Single owner-operator (Mick). Production handles real patient data.
 
 
 
-- `components/body-diagram.tsx` — front+back SVG silhouette, 38 zones, exports `BodyDiagram` + `zoneLabel`
+- `components/body-diagram.tsx` — front+back SVG silhouette client component (exports `BodyDiagram`)
+- `lib/body-diagram-zones.ts` — zone definitions + `zoneLabel` lookup; safe for server components to import (the body-diagram itself is `"use client"`)
 
 
 
@@ -314,6 +315,14 @@ After pushing, smoke-test against prod:
 
 
 
+- **`next-themes` script-tag warning** is a known React 19 vs next-themes 0.4.x compat gap. Dev-only console noise; non-fatal. `<html suppressHydrationWarning>` already handles the actual hydration mismatch — don't chase the warning until next-themes ships a fix.
+
+
+
+- **Auth middleware lives in `proxy.ts`** (renamed for Next.js 16 — the file convention used to be `middleware.ts`).
+
+
+
 
 
 
@@ -328,9 +337,9 @@ After pushing, smoke-test against prod:
 
 - No CI. Manual smoke after each release-y push.
 
+- `npm run smoke` hits ~50 routes/endpoints against a running server (default `http://localhost:3000`; override with `SMOKE_URL=...`). Run after `npm run build`, before `git push`. Catches the kind of "page renders fine in dev but 500s on first request" bug that bit the staff intake viewer.
 
-
-- Local dev: `npm run dev` with separate dev DB in `.env.local`.
+- Local dev: `npm run dev` with separate dev DB in `.env`. Prisma CLI auto-loads `.env`, not `.env.local`.
 
 
 
