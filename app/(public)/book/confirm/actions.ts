@@ -268,10 +268,11 @@ export async function createBooking(
 
   // Couple bookings need a second variant lookup so we know its duration
   // matches (they share startsAt) and its price for the partner half.
-  let partnerVariant: { id: string; durationMin: number; priceCents: number; serviceId: string } | null = null;
+  let partnerVariant: { id: string; durationMin: number; priceCents: number; serviceId: string; service: { name: string } } | null = null;
   if (isCouple && data.partnerVariantId) {
     const pv = await db.serviceVariant.findUnique({
       where: { id: data.partnerVariantId },
+      include: { service: { select: { name: true } } },
     });
     if (!pv) return { error: "Partner service not found." };
     if (pv.durationMin !== variant.durationMin)
@@ -564,7 +565,8 @@ export async function createBooking(
     },
   });
 
-  // Best-effort notification (never throws)
+  // Best-effort notification (never throws). Couple bookings include
+  // partner info so the email and SMS list both halves and both references.
   await notifyBookingConfirmed({
     email: clientEmail,
     phone: clientPhone,
@@ -573,6 +575,17 @@ export async function createBooking(
     serviceName: variant.service.name,
     durationMin: variant.durationMin,
     startsAt,
+    priceCents: pricing.finalPriceCents,
+    partner:
+      isCouple && partnerVariant
+        ? {
+            serviceName: partnerVariant.service.name,
+            durationMin: partnerVariant.durationMin,
+            priceCents: partnerVariant.priceCents,
+            reference: `${reference}-P`,
+            partnerName: data.partnerName ?? null,
+          }
+        : undefined,
   });
 
   return { ok: true, reference };
