@@ -37,7 +37,7 @@ const FAQS = [
   },
   {
     q: "What should I wear?",
-    a: "Wear whatever you’re comfortable arriving in. The treatment room is private and you’re draped with towels throughout, exposing only the area being worked on. For oil-based massages we recommend leaving valuables and jewellery at home. For Thai massage you’ll stay fully clothed; loose-fitting attire is best.",
+    a: "Please keep underwear on at all times during your treatment — this is a strict clinic policy. For oil-based and remedial massages, you’ll be draped with towels throughout, with only the area being worked on exposed. For Thai massage, you’ll stay fully clothed in loose-fitting attire. We recommend leaving valuables and jewellery at home.",
   },
   {
     q: "Can I claim on the spot with HiCAPS?",
