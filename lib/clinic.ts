@@ -24,6 +24,10 @@ export const CLINIC = {
   // Resend verified the apex domain only, so FROM must be bookings@manlyremedialthai.com.au
   // (sending from www.manlyremedialthai.com.au returns 403 unauthorized).
   mailDomain: "manlyremedialthai.com.au",
+  // Google Business Profile place ID — used to fetch reviews via the
+  // Places API (New). Find via:
+  // https://developers.google.com/maps/documentation/places/web-service/place-id
+  googlePlaceId: "ChIJMxmwQ7erEmsRe9sxOfV-nzA",
 } as const;
 
 // Cancellation policy

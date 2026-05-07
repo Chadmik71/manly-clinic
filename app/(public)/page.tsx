@@ -20,6 +20,7 @@ import {
 import { CLINIC } from "@/lib/clinic";
 import { db } from "@/lib/db";
 import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
+import { GoogleReviews } from "@/components/google-reviews";
 
 function LocalBusinessJsonLd() {
   const data = {
@@ -217,6 +218,10 @@ export default async function HomePage() {
           })}
         </div>
       </section>
+
+      {/* Google reviews — server-fetched, cached 6h. Renders nothing when
+          GOOGLE_PLACES_API_KEY is unset, so the page degrades gracefully. */}
+      <GoogleReviews />
 
       {/* CTA */}
       <section className="container pb-20">
