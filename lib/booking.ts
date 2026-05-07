@@ -104,13 +104,24 @@ export async function getDistinctSlotTimes(params: {
   date: Date;
   durationMin: number;
   therapistId?: string;
+  /** Couple bookings need 2 free therapists at the same time. Defaults to 1. */
+  minTherapists?: number;
 }): Promise<Date[]> {
   const slots = await getAvailableSlots(params);
+  const minTherapists = params.minTherapists ?? 1;
+
+  // Count free therapists per slot time so we can enforce minTherapists.
+  const countByTime = new Map<number, number>();
+  for (const s of slots) {
+    const t = s.startsAt.getTime();
+    countByTime.set(t, (countByTime.get(t) ?? 0) + 1);
+  }
+
   const seen = new Set<number>();
   const out: Date[] = [];
   for (const s of slots) {
     const t = s.startsAt.getTime();
-    if (!seen.has(t)) {
+    if (!seen.has(t) && (countByTime.get(t) ?? 0) >= minTherapists) {
       seen.add(t);
       out.push(s.startsAt);
     }
