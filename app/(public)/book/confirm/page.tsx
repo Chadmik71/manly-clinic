@@ -63,6 +63,7 @@ export default async function ConfirmPage({
     service?: string;
     variant?: string;
     starts?: string;
+    partner?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -73,6 +74,23 @@ export default async function ConfirmPage({
     include: { variants: { where: { id: sp.variant } } },
   });
   const variant = service?.variants[0];
+
+  // Couple-booking partner half. We resolve the partner variant from the
+  // ?partner=<variantId> URL param. The actual booking creation logic is
+  // server-side in actions.ts (which validates duration matching), so this
+  // page just needs to (a) verify the partner exists and (b) format a
+  // human-readable summary for the customer.
+  const partnerVariant = sp.partner
+    ? await db.serviceVariant.findUnique({
+        where: { id: sp.partner },
+        include: { service: { select: { name: true } } },
+      })
+    : null;
+  const partnerVariantSummary =
+    partnerVariant && variant && partnerVariant.durationMin === variant.durationMin
+      ? `${partnerVariant.service.name} — ${partnerVariant.durationMin} min ($${(partnerVariant.priceCents / 100).toFixed(2)})`
+      : null;
+  const validPartnerVariantId = partnerVariantSummary ? sp.partner : null;
   if (!service || !variant) redirect("/book");
 
   const starts = new Date(sp.starts);
@@ -209,6 +227,8 @@ export default async function ConfirmPage({
         startsIso={starts.toISOString()}
         serviceHealthFundEligible={service.healthFundEligible}
         isGuest={!session?.user}
+        partnerVariantId={validPartnerVariantId}
+        partnerVariantSummary={partnerVariantSummary}
         signedInEmail={signedInEmail}
         userDefaults={userDefaults}
         intakeDefaults={
