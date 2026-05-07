@@ -106,9 +106,19 @@ export async function getDistinctSlotTimes(params: {
   therapistId?: string;
   /** Couple bookings need 2 free therapists at the same time. Defaults to 1. */
   minTherapists?: number;
+  /**
+   * Couple bookings where the partner picks a different duration. When set
+   * (and minTherapists ≥ 2), a slot time is only returned if ≥1 therapist
+   * can do the primary duration AND ≥1 *different* therapist can do the
+   * partner duration at the same start time.
+   */
+  partnerDurationMin?: number;
 }): Promise<Date[]> {
   const slots = await getAvailableSlots(params);
   const minTherapists = params.minTherapists ?? 1;
+  const partnerDur = params.partnerDurationMin;
+  const useDualDuration =
+    partnerDur != null && partnerDur !== params.durationMin && minTherapists >= 2;
 
   // Count *distinct* free therapists per slot time so we can enforce
   // minTherapists. Counting raw slot entries would over-count when a
@@ -126,12 +136,42 @@ export async function getDistinctSlotTimes(params: {
     set.add(s.therapistId);
   }
 
+  // Dual-duration mode: also compute per-time therapists who can fit the
+  // partner's (different) duration, then require a distinct pairing.
+  let partnerTherapistsByTime: Map<number, Set<string>> | null = null;
+  if (useDualDuration) {
+    const partnerSlots = await getAvailableSlots({
+      date: params.date,
+      durationMin: partnerDur,
+      therapistId: params.therapistId,
+    });
+    partnerTherapistsByTime = new Map<number, Set<string>>();
+    for (const s of partnerSlots) {
+      const t = s.startsAt.getTime();
+      let set = partnerTherapistsByTime.get(t);
+      if (!set) {
+        set = new Set<string>();
+        partnerTherapistsByTime.set(t, set);
+      }
+      set.add(s.therapistId);
+    }
+  }
+
   const seen = new Set<number>();
   const out: Date[] = [];
   for (const s of slots) {
     const t = s.startsAt.getTime();
-    const free = therapistsByTime.get(t)?.size ?? 0;
-    if (!seen.has(t) && free >= minTherapists) {
+    if (seen.has(t)) continue;
+    const primarySet = therapistsByTime.get(t) ?? new Set<string>();
+    if (useDualDuration && partnerTherapistsByTime) {
+      const partnerSet = partnerTherapistsByTime.get(t) ?? new Set<string>();
+      // Need ≥1 in each pool AND a distinct pairing across them.
+      if (primarySet.size === 0 || partnerSet.size === 0) continue;
+      const union = new Set<string>([...primarySet, ...partnerSet]);
+      if (union.size < minTherapists) continue;
+      seen.add(t);
+      out.push(s.startsAt);
+    } else if (primarySet.size >= minTherapists) {
       seen.add(t);
       out.push(s.startsAt);
     }

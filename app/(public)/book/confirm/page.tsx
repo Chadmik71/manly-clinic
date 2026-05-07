@@ -76,10 +76,10 @@ export default async function ConfirmPage({
   const variant = service?.variants[0];
 
   // Couple-booking partner half. We resolve the partner variant from the
-  // ?partner=<variantId> URL param. The actual booking creation logic is
-  // server-side in actions.ts (which validates duration matching), so this
-  // page just needs to (a) verify the partner exists and (b) format a
-  // human-readable summary for the customer.
+  // ?partner=<variantId> URL param. Each partner picks their own duration —
+  // the slot-finding logic upstream already ensures both halves can be
+  // accommodated at the chosen time. This page formats a human-readable
+  // summary for the customer.
   const partnerVariant = sp.partner
     ? await db.serviceVariant.findUnique({
         where: { id: sp.partner },
@@ -87,7 +87,7 @@ export default async function ConfirmPage({
       })
     : null;
   const partnerVariantSummary =
-    partnerVariant && variant && partnerVariant.durationMin === variant.durationMin
+    partnerVariant && variant
       ? `${partnerVariant.service.name} — ${partnerVariant.durationMin} min ($${(partnerVariant.priceCents / 100).toFixed(2)})`
       : null;
   const validPartnerVariantId = partnerVariantSummary ? sp.partner : null;
@@ -230,6 +230,14 @@ export default async function ConfirmPage({
         partnerVariantId={validPartnerVariantId}
         partnerVariantSummary={partnerVariantSummary}
         signedInEmail={signedInEmail}
+        bookingSummary={{
+          serviceName: service.name,
+          durationLabel: formatDuration(variant.durationMin),
+          priceLabel: formatPrice(pricing.finalPriceCents),
+          dateLabel: SYD_DATE.format(starts),
+          timeLabel: `${SYD_TIME.format(starts)} – ${SYD_TIME.format(ends)} (Sydney)`,
+          partnerLabel: partnerVariantSummary,
+        }}
         userDefaults={userDefaults}
         intakeDefaults={
           intake

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,6 @@ import { SignaturePad } from "@/components/signature-pad";
 import { BodyDiagram } from "@/components/body-diagram";
 import {
   MEDICAL_HISTORY_GROUPS,
-  AU_STATES,
   GENDER_OPTIONS,
 } from "@/lib/intake";
 
@@ -140,6 +139,7 @@ export function ConfirmForm({
   signedInEmail,
   partnerVariantId,
   partnerVariantSummary,
+  bookingSummary,
 }: {
   action: (
     formData: FormData,
@@ -157,9 +157,20 @@ export function ConfirmForm({
   partnerVariantId?: string | null;
   /** Optional human-readable partner-side summary, e.g. "Deep Tissue — 60 min ($120)". */
   partnerVariantSummary?: string | null;
+  /** Display strings shown in the "Confirm your booking?" modal. */
+  bookingSummary: {
+    serviceName: string;
+    durationLabel: string;
+    priceLabel: string;
+    dateLabel: string;
+    timeLabel: string;
+    partnerLabel: string | null;
+  };
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const [guestSuccess, setGuestSuccess] = useState<{
     reference: string;
   } | null>(null);
@@ -244,7 +255,7 @@ export function ConfirmForm({
       : 'safety';
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-5">
       {guestSuccess && (
         <Card className="border-emerald-500/40 bg-emerald-500/5">
           <CardHeader>
@@ -360,50 +371,6 @@ export function ConfirmForm({
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="addressLine1">Street address</Label>
-              <Input
-                id="addressLine1"
-                name="addressLine1"
-                defaultValue={userDefaults.addressLine1}
-                placeholder="e.g. 12 Smith Street"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="suburb">Suburb</Label>
-              <Input
-                id="suburb"
-                name="suburb"
-                defaultValue={userDefaults.suburb}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="stateRegion">State</Label>
-                <select
-                  id="stateRegion"
-                  name="stateRegion"
-                  defaultValue={userDefaults.stateRegion}
-                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                >
-                  <option value="">—</option>
-                  {AU_STATES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="postcode">Postcode</Label>
-                <Input
-                  id="postcode"
-                  name="postcode"
-                  defaultValue={userDefaults.postcode}
-                  placeholder="2095"
-                />
-              </div>
             </div>
           </FieldGrid>
         </CardContent>
@@ -539,8 +506,8 @@ export function ConfirmForm({
       <Card>
         <SectionHeader
           step={stepNo(5)}
-          title="Why are you seeing us today?"
-          desc="If this is a relaxation booking, you can leave most fields blank."
+          title="Which areas should we focus on?"
+          desc="Mark the areas of concern on the diagram and add any details below."
         />
         <CardContent className="pb-5">
           {/* Visual body-diagram zone selector. Returning customers see */}
@@ -553,15 +520,6 @@ export function ConfirmForm({
             />
           </div>
           <FieldGrid>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="painLocation">Area of concern / pain location</Label>
-              <Input
-                id="painLocation"
-                name="painLocation"
-                defaultValue={intakeDefaults?.painLocation ?? ""}
-                placeholder="e.g. lower back, right side; left shoulder"
-              />
-            </div>
             <div className="space-y-2 sm:col-span-2">
               <Label>Pain intensity (0 = none, 10 = worst imaginable)</Label>
               <div className="flex flex-wrap gap-1">
@@ -942,7 +900,19 @@ export function ConfirmForm({
       )}
 
       <div className="flex gap-3 justify-end">
-        <Button type="submit" size="lg" disabled={pending}>
+        <Button
+          type="button"
+          size="lg"
+          disabled={pending}
+          onClick={() => {
+            // HTML5 validation runs against required fields before we open
+            // the dialog. If it fails, the browser surfaces the error and
+            // the dialog stays closed.
+            if (formRef.current && !formRef.current.reportValidity()) return;
+            setError(null);
+            setConfirmOpen(true);
+          }}
+        >
           {pending ? "Booking…" : "Confirm booking"}
         </Button>
       </div>
@@ -954,6 +924,70 @@ export function ConfirmForm({
         value={partnerVariantId ?? ""}
       />
       <input type="hidden" name="_signedInEmail" value={signedInEmail ?? ""} />
+
+      {confirmOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-booking-title"
+          onClick={() => setConfirmOpen(false)}
+        >
+          <div
+            className="bg-background rounded-lg max-w-md w-full p-6 shadow-xl border"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="confirm-booking-title"
+              className="text-lg font-semibold mb-3"
+            >
+              Confirm your booking?
+            </h2>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm mb-4">
+              <dt className="text-muted-foreground">Service</dt>
+              <dd className="font-medium">
+                {bookingSummary.serviceName} — {bookingSummary.durationLabel}
+              </dd>
+              {bookingSummary.partnerLabel ? (
+                <>
+                  <dt className="text-muted-foreground">Partner</dt>
+                  <dd className="font-medium">{bookingSummary.partnerLabel}</dd>
+                </>
+              ) : null}
+              <dt className="text-muted-foreground">Date</dt>
+              <dd className="font-medium">{bookingSummary.dateLabel}</dd>
+              <dt className="text-muted-foreground">Time</dt>
+              <dd className="font-medium">{bookingSummary.timeLabel}</dd>
+              <dt className="text-muted-foreground">Total</dt>
+              <dd className="font-semibold">{bookingSummary.priceLabel}</dd>
+            </dl>
+            <p className="text-xs text-muted-foreground mb-5">
+              Once confirmed, we’ll send you an email and SMS. To cancel or
+              reschedule, contact the clinic directly.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmOpen(false)}
+                disabled={pending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  setConfirmOpen(false);
+                  formRef.current?.requestSubmit();
+                }}
+              >
+                Yes, confirm booking
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

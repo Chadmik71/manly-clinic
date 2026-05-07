@@ -107,17 +107,15 @@ export default async function BookPage({
 
   // Couple bookings: fetch all variants from any active service whose duration
   // matches the primary variant’s duration. Both partners must finish at the
-  // same time so they share the same slot. We exclude the primary variant
-  // itself — picking the same variant for both partners is fine in principle,
-  // but the dropdown should still let them pick a different one if they want.
+  // We share startsAt with the partner half but each side has its own
+  // durationMin and endsAt — the partner can pick a longer or shorter
+  // service if they want. The slot calculation below intersects per-duration
+  // therapist availability so only times that work for *both* halves show.
   const partnerVariantsRaw = variant
     ? await db.serviceVariant.findMany({
-        where: {
-          durationMin: variant.durationMin,
-          service: { active: true },
-        },
+        where: { service: { active: true } },
         include: { service: { select: { name: true, category: true } } },
-        orderBy: [{ priceCents: "asc" }],
+        orderBy: [{ durationMin: "asc" }, { priceCents: "asc" }],
       })
     : [];
   const partnerVariants = partnerVariantsRaw.map((pv) => ({
@@ -126,10 +124,9 @@ export default async function BookPage({
     priceCents: pv.priceCents,
     serviceName: pv.service.name,
   }));
-  const selectedPartnerId =
-    sp.partner && partnerVariants.some((pv) => pv.id === sp.partner)
-      ? sp.partner
-      : null;
+  const selectedPartner =
+    sp.partner ? partnerVariants.find((pv) => pv.id === sp.partner) ?? null : null;
+  const selectedPartnerId = selectedPartner?.id ?? null;
 
   // Validate / default the date in Sydney terms. Past dates clamp to today,
   // dates more than 90 days out clamp to today+90, malformed input falls back
@@ -145,7 +142,11 @@ export default async function BookPage({
       durationMin: variant.durationMin,
       therapistId: sp.therapist,
       // Couple bookings require two free therapists simultaneously.
-      minTherapists: selectedPartnerId ? 2 : 1,
+      minTherapists: selectedPartner ? 2 : 1,
+      // Partner may pick a different duration. When set, slot times are
+      // intersected with partner-side availability so only times that work
+      // for both halves show.
+      partnerDurationMin: selectedPartner?.durationMin,
     });
   }
 

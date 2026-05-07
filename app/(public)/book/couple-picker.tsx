@@ -43,7 +43,14 @@ export function CouplePicker({
 
   function onToggle(next: boolean) {
     setIsCouple(next);
-    if (!next) setPartner(null);
+    if (!next) {
+      setPartner(null);
+    } else if (partnerVariants.length > 0 && !selectedPartnerId) {
+      // Default to the first partner variant on toggle so the URL immediately
+      // carries `&partner=...`. Without this, customers can leave the dropdown
+      // unselected and unknowingly submit a solo booking.
+      setPartner(partnerVariants[0].id);
+    }
   }
 
   return (
@@ -81,11 +88,10 @@ export function CouplePicker({
               </label>
               <select
                 id="partner-variant"
-                value={selectedPartnerId ?? ""}
+                value={selectedPartnerId ?? partnerVariants[0]?.id ?? ""}
                 onChange={(e) => setPartner(e.target.value || null)}
                 className="h-10 w-full rounded-md border bg-background px-3 text-sm"
               >
-                <option value="">— Choose partner’s service —</option>
                 {partnerVariants.map((pv) => (
                   <option key={pv.id} value={pv.id}>
                     {pv.serviceName} — {formatDuration(pv.durationMin)}{" "}

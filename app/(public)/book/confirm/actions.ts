@@ -230,16 +230,44 @@ export async function createBooking(
   const endsAt = addMinutes(startsAt, variant.durationMin);
   const pricing = applyHolidaySurcharge(variant.priceCents, startsAt);
 
-  // Clinic-wide policy: bookings must finish by 8:00 pm and start no
-  // earlier than 9:00 am, regardless of per-therapist availability.
   const startMinutes = sydneyMinuteOfDay(startsAt);
   const endMinutes = sydneyMinuteOfDay(endsAt);
+
+  // Couple-booking validation. Resolve the partner variant up front because
+  // the partner picks their own duration — that affects the conflict window
+  // and the latest-end cap below.
+  const isCouple = Boolean(data.partnerVariantId);
+  if (isCouple && !nonEmpty(data.partnerName)) {
+    return {
+      error: "Please enter the partner’s name for the couple booking.",
+    };
+  }
+  let partnerVariant: { id: string; durationMin: number; priceCents: number; serviceId: string; service: { name: string } } | null = null;
+  let partnerEndsAt = endsAt;
+  let partnerEndMinutes = endMinutes;
+  if (isCouple && data.partnerVariantId) {
+    const pv = await db.serviceVariant.findUnique({
+      where: { id: data.partnerVariantId },
+      include: { service: { select: { name: true } } },
+    });
+    if (!pv) return { error: "Partner service not found." };
+    partnerVariant = pv;
+    partnerEndsAt = addMinutes(startsAt, pv.durationMin);
+    partnerEndMinutes = sydneyMinuteOfDay(partnerEndsAt);
+  }
+
+  // Clinic-wide policy: bookings must finish by 8:00 pm and start no
+  // earlier than 9:00 am, regardless of per-therapist availability.
+  // For couples we enforce the cap against whichever half ends later.
+  const latestEndMinutes = Math.max(endMinutes, partnerEndMinutes);
+  const widestEndsAt = endsAt > partnerEndsAt ? endsAt : partnerEndsAt;
   const sameDay =
-    sydneyDateOf(startsAt) === sydneyDateOf(endsAt);
+    sydneyDateOf(startsAt) === sydneyDateOf(endsAt) &&
+    sydneyDateOf(startsAt) === sydneyDateOf(partnerEndsAt);
   if (
     startMinutes < BOOKING_EARLIEST_START_MIN ||
     !sameDay ||
-    endMinutes > BOOKING_LATEST_END_MIN
+    latestEndMinutes > BOOKING_LATEST_END_MIN
   ) {
     const cap = `${Math.floor(BOOKING_LATEST_END_MIN / 60) % 12 || 12}:${String(BOOKING_LATEST_END_MIN % 60).padStart(2, "0")} pm`;
     return { error: `Sessions must finish by ${cap}. Please pick an earlier time.` };
@@ -249,6 +277,8 @@ export async function createBooking(
   // Use Sydney day-of-week (matches getAvailableSlots) — startsAt.getDay()
   // returns the *server-local* (UTC on Vercel) dow, which is off-by-one for
   // early-morning Sydney times and rejects slots the picker said were OK.
+  // Conflict window is widened to whichever half ends later so we don't miss
+  // overlapping bookings on the longer-duration partner.
   const dow = sydneyDow(sydneyDateOf(startsAt));
   const therapists = await db.therapist.findMany({
     where: { active: true },
@@ -257,54 +287,72 @@ export async function createBooking(
       bookings: {
         where: {
           status: { in: ["PENDING", "CONFIRMED"] },
-          startsAt: { lt: endsAt },
+          startsAt: { lt: widestEndsAt },
           endsAt: { gt: startsAt },
         },
       },
       timeOff: {
-        where: { startsAt: { lt: endsAt }, endsAt: { gt: startsAt } },
+        where: { startsAt: { lt: widestEndsAt }, endsAt: { gt: startsAt } },
       },
     },
   });
 
-  const isCouple = Boolean(data.partnerVariantId);
-  if (isCouple && !nonEmpty(data.partnerName)) {
-    return {
-      error: "Please enter the partner’s name for the couple booking.",
-    };
-  }
-  const candidates = therapists.filter(
-    (t) =>
-      t.availability.some(
-        (a) => a.startMin <= startMinutes && a.endMin >= endMinutes,
-      ) &&
-      t.bookings.length === 0 &&
-      t.timeOff.length === 0,
-  );
-  if (candidates.length < (isCouple ? 2 : 1))
-    return {
-      error: isCouple
-        ? "Couple bookings need two free therapists at the same time. Please pick another time."
-        : "That time was just taken — please pick another.",
-    };
-  const candidate = candidates[0];
-  const partnerCandidate = isCouple ? candidates[1] : null;
+  // A therapist is eligible for a given half if their availability window
+  // covers that half's [start, end], with no booking or time-off conflicts.
+  // Each half is checked against its own end so a partner with a longer or
+  // shorter service is evaluated correctly.
+  const eligibleFor = (
+    halfEndMinutes: number,
+    halfEndsAt: Date,
+  ) =>
+    therapists.filter(
+      (t) =>
+        t.availability.some(
+          (a) => a.startMin <= startMinutes && a.endMin >= halfEndMinutes,
+        ) &&
+        !t.bookings.some(
+          (b) => startsAt < b.endsAt && halfEndsAt > b.startsAt,
+        ) &&
+        !t.timeOff.some(
+          (o) => startsAt < o.endsAt && halfEndsAt > o.startsAt,
+        ),
+    );
 
-  // Couple bookings need a second variant lookup so we know its duration
-  // matches (they share startsAt) and its price for the partner half.
-  let partnerVariant: { id: string; durationMin: number; priceCents: number; serviceId: string; service: { name: string } } | null = null;
-  if (isCouple && data.partnerVariantId) {
-    const pv = await db.serviceVariant.findUnique({
-      where: { id: data.partnerVariantId },
-      include: { service: { select: { name: true } } },
-    });
-    if (!pv) return { error: "Partner service not found." };
-    if (pv.durationMin !== variant.durationMin)
+  const primaryEligible = eligibleFor(endMinutes, endsAt);
+
+  let candidate: typeof therapists[number];
+  let partnerCandidate: typeof therapists[number] | null = null;
+  if (isCouple) {
+    const partnerEligible = eligibleFor(partnerEndMinutes, partnerEndsAt);
+    if (primaryEligible.length === 0 || partnerEligible.length === 0) {
       return {
         error:
-          "Couple bookings require both partners to choose the same duration so you finish at the same time.",
+          "Couple bookings need two free therapists at the same time. Please pick another time.",
       };
-    partnerVariant = pv;
+    }
+    // Find any primary/partner pairing on distinct therapists.
+    let pair: { p: typeof therapists[number]; pr: typeof therapists[number] } | null = null;
+    outer: for (const p of primaryEligible) {
+      for (const pr of partnerEligible) {
+        if (pr.id !== p.id) {
+          pair = { p, pr };
+          break outer;
+        }
+      }
+    }
+    if (!pair) {
+      return {
+        error:
+          "Couple bookings need two free therapists at the same time. Please pick another time.",
+      };
+    }
+    candidate = pair.p;
+    partnerCandidate = pair.pr;
+  } else {
+    if (primaryEligible.length === 0) {
+      return { error: "That time was just taken — please pick another." };
+    }
+    candidate = primaryEligible[0];
   }
 
   // Phase 4 (slot model) — auto-assign the lowest-numbered active Slot
@@ -539,11 +587,9 @@ export async function createBooking(
           slotId: partnerSlotId,
           slotLabel: partnerSlotLabel,
           startsAt,
-          // Partner half has its own duration/endsAt because each partner picks
-          // their own service, but we already validated durations match above so
-          // this is the same endsAt in practice. Keeping the per-variant compute
-          // here means a future "different durations allowed" mode just removes
-          // the duration check above.
+          // Partner picks their own duration, so this can differ from the
+          // primary half's endsAt. The slot picker upstream and the per-half
+          // therapist eligibility check above ensure both ends fit.
           endsAt: addMinutes(startsAt, partnerVariant.durationMin),
           status: "CONFIRMED",
           priceCentsAtBooking: partnerVariant.priceCents,
