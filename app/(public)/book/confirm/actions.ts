@@ -268,6 +268,11 @@ export async function createBooking(
   });
 
   const isCouple = Boolean(data.partnerVariantId);
+  if (isCouple && !nonEmpty(data.partnerName)) {
+    return {
+      error: "Please enter the partner’s name for the couple booking.",
+    };
+  }
   const candidates = therapists.filter(
     (t) =>
       t.availability.some(
