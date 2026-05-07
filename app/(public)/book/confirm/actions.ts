@@ -10,7 +10,7 @@ import {
   BOOKING_LATEST_END_MIN,
   BOOKING_EARLIEST_START_MIN,
 } from "@/lib/clinic";
-import { sydneyDateOf } from "@/lib/time";
+import { sydneyDateOf, sydneyDow } from "@/lib/time";
 
 // Sydney minute-of-day (0-1439). Robust against UTC server clock vs Sydney TZ.
 // Vercel serverless runs in UTC, but the clinic operates on Sydney calendar time.
@@ -226,8 +226,11 @@ export async function createBooking(
     return { error: `Sessions must finish by ${cap}. Please pick an earlier time.` };
   }
 
-  // Find an available therapist for this slot
-  const dow = startsAt.getDay();
+  // Find an available therapist for this slot.
+  // Use Sydney day-of-week (matches getAvailableSlots) — startsAt.getDay()
+  // returns the *server-local* (UTC on Vercel) dow, which is off-by-one for
+  // early-morning Sydney times and rejects slots the picker said were OK.
+  const dow = sydneyDow(sydneyDateOf(startsAt));
   const therapists = await db.therapist.findMany({
     where: { active: true },
     include: {
