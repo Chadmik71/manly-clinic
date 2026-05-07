@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { SignaturePad } from "@/components/signature-pad";
 import {
   MEDICAL_HISTORY_GROUPS,
   AU_STATES,
@@ -164,6 +165,7 @@ export function ConfirmForm({
     intakeDefaults?.pregnancy ?? false,
   );
   const [claiming, setClaiming] = useState<boolean>(false);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [pain, setPain] = useState<number | null>(
     intakeDefaults?.painScale ?? null,
   );
@@ -191,6 +193,16 @@ export function ConfirmForm({
     fd.set("startsIso", startsIso);
     fd.set("medicalHistory", JSON.stringify([...history]));
     if (pain != null) fd.set("painScale", String(pain));
+    // Health-fund claims require a per-visit signature for HICAPS audit.
+    if (claiming) {
+      if (!signatureDataUrl) {
+        setError(
+          "Please sign in the signature pad to authorise the health fund claim.",
+        );
+        return;
+      }
+      fd.set("signatureDataUrl", signatureDataUrl);
+    }
     start(async () => {
       const res = await action(fd);
       if (res?.error) setError(res.error);
@@ -887,6 +899,23 @@ export function ConfirmForm({
           </label>
         </CardContent>
       </Card>
+
+      {/* Signature — required for health-fund-claim bookings */}
+      {claiming && (
+        <Card>
+          <SectionHeader
+            step="✍"
+            title="Sign to authorise health fund claim"
+            desc="Required for every visit where you claim a rebate. If nothing has changed since your last visit, just sign below — your previous health information is already filled in above."
+          />
+          <CardContent className="pb-5 pt-4 space-y-3">
+            <SignaturePad onChange={setSignatureDataUrl} disabled={pending} />
+            <p className="text-xs text-muted-foreground">
+              By signing, you confirm the clinical information above is accurate as of today and authorise us to submit a HICAPS claim on your behalf.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {error && (
         <p className="text-sm text-destructive" role="alert">
