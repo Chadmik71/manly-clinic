@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -171,6 +171,18 @@ export function ConfirmForm({
   const [pending, start] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Close the confirm-booking modal on Escape so keyboard users have an
+  // explicit dismiss without enabling backdrop-click (too easy to dismiss
+  // accidentally on mobile, especially during signature capture nearby).
+  useEffect(() => {
+    if (!confirmOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !pending) setConfirmOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmOpen, pending]);
   const [guestSuccess, setGuestSuccess] = useState<{
     reference: string;
   } | null>(null);
@@ -931,12 +943,8 @@ export function ConfirmForm({
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-booking-title"
-          onClick={() => setConfirmOpen(false)}
         >
-          <div
-            className="bg-background rounded-lg max-w-md w-full p-6 shadow-xl border"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="bg-background rounded-lg max-w-md w-full p-6 shadow-xl border">
             <h2
               id="confirm-booking-title"
               className="text-lg font-semibold mb-3"
