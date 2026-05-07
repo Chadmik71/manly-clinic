@@ -16,11 +16,13 @@ import {
   updateBookingDetails,
   updateWalkInClientDetails,
   updateBookingInternalNotes,
+  updateBookingAnnotation,
 } from "./actions";
 import { ClinicalNotesForm } from "./clinical-notes-form";
 import { AssignTherapistForm } from "./assign-therapist-form";
 import { EditAppointmentForm } from "./edit-appointment-form";
 import { EditWalkInClientForm } from "./edit-walkin-client-form";
+import { AnnotatedDiagramSection } from "./annotated-diagram-section";
 import { EditInternalNotesForm } from "./edit-internal-notes-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
 import { BodyDiagram, zoneLabel } from "@/components/body-diagram";
@@ -359,6 +361,23 @@ export default async function StaffBookingDetail({
             <p className="text-xs text-muted-foreground mt-4">
               Access to this record is audit-logged under your staff account.
             </p>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Body diagram annotations</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              Sketch directly on the body diagram — circle trigger points,
+              jot “adhesion”, mark referral patterns. Saved per booking.
+            </p>
+            <AnnotatedDiagramSection
+              bookingId={b.id}
+              initialDataUrl={b.noteAnnotationsPng}
+              action={updateBookingAnnotation}
+            />
           </CardContent>
         </Card>
 
