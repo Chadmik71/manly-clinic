@@ -2,23 +2,28 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { formatPrice, formatDuration } from "@/lib/utils";
+import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 
 type PartnerVariant = {
   id: string;
   durationMin: number;
   priceCents: number;
   serviceName: string;
+  category: string;
 };
+
+// Show categories in this order in the dropdown — therapeutic first because
+// most couple bookings want clinical work, relaxation second.
+const CATEGORY_ORDER = ["THERAPEUTIC", "RELAXATION", "SPECIALTY", "ADD_ON"];
 
 /**
  * Toggle for couple booking. When checked, reveals a dropdown of available
  * service variants for the partner. Selecting one pushes &partner=<variantId>
  * into the URL; everything else (slot picker, confirm flow) reads it from there.
  *
- * Constraint: partner duration must match the primary duration (so they finish
- * at the same time). The partnerVariants list is filtered server-side by the
- * primary variant’s durationMin.
+ * The partner can pick any service and any duration — the slot logic
+ * upstream intersects per-duration availability so only times that work
+ * for both halves show.
  */
 export function CouplePicker({
   partnerVariants,
@@ -92,15 +97,24 @@ export function CouplePicker({
                 onChange={(e) => setPartner(e.target.value || null)}
                 className="h-10 w-full rounded-md border bg-background px-3 text-sm"
               >
-                {partnerVariants.map((pv) => (
-                  <option key={pv.id} value={pv.id}>
-                    {pv.serviceName} — {formatDuration(pv.durationMin)}{" "}
-                    ({formatPrice(pv.priceCents)})
-                  </option>
-                ))}
+                {CATEGORY_ORDER.flatMap((cat) => {
+                  const inCat = partnerVariants.filter((pv) => pv.category === cat);
+                  if (inCat.length === 0) return [];
+                  return [
+                    <optgroup key={cat} label={categoryLabel(cat)}>
+                      {inCat.map((pv) => (
+                        <option key={pv.id} value={pv.id}>
+                          {pv.serviceName} — {formatDuration(pv.durationMin)}{" "}
+                          ({formatPrice(pv.priceCents)})
+                        </option>
+                      ))}
+                    </optgroup>,
+                  ];
+                })}
               </select>
               <p className="text-xs text-muted-foreground">
-                Same duration as your booking so you finish together.
+                Pick any service and any duration — your partner can finish
+                earlier or later than you.
               </p>
             </div>
           )}

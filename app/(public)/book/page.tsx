@@ -123,6 +123,7 @@ export default async function BookPage({
     durationMin: pv.durationMin,
     priceCents: pv.priceCents,
     serviceName: pv.service.name,
+    category: pv.service.category,
   }));
   const selectedPartner =
     sp.partner ? partnerVariants.find((pv) => pv.id === sp.partner) ?? null : null;
