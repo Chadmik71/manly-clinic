@@ -23,6 +23,7 @@ import { EditAppointmentForm } from "./edit-appointment-form";
 import { EditWalkInClientForm } from "./edit-walkin-client-form";
 import { EditInternalNotesForm } from "./edit-internal-notes-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
+import { BodyDiagram, zoneLabel } from "@/components/body-diagram";
 
 export default async function StaffBookingDetail({
   params,
@@ -311,6 +312,46 @@ export default async function StaffBookingDetail({
                     full
                   />
                 </dl>
+                {/* Body diagram (read-only) — only when zones were captured */}
+                {(() => {
+                  const codes = parseHistory(intake.painLocationCodes);
+                  return codes.length > 0 ? (
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                        Focus areas (body diagram)
+                      </div>
+                      <div className="rounded-md border bg-card p-3">
+                        <BodyDiagram
+                          initialCodes={codes}
+                          onChange={() => {}}
+                          readOnly
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-2">
+                        {codes.map(zoneLabel).join(", ")}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+                {/* Authorisation signature — only when this intake was a HICAPS claim */}
+                {intake.signatureDataUrl ? (
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                      Authorisation signature
+                    </div>
+                    <div className="rounded-md border bg-white p-2 inline-block">
+                      <img
+                        src={intake.signatureDataUrl}
+                        alt="Client signature"
+                        className="block h-auto"
+                        style={{ maxHeight: 120, maxWidth: "100%" }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Captured at booking submission for HICAPS audit.
+                    </p>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">No intake on file.</p>
