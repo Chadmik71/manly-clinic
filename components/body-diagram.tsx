@@ -178,7 +178,7 @@ function ZoneMarker({ zone, offsetX, active, readOnly, onToggle }: ZoneMarkerPro
       aria-pressed={readOnly ? undefined : active}
       aria-label={zone.label + (active ? " (selected)" : "")}
     >
-      <title>{zone.label}{active ? " — selected" : ""}</title>
+      <title>{`${zone.label}${active ? " — selected" : ""}`}</title>
       {/* visible marker */}
       <circle
         cx={cx}
@@ -189,9 +189,13 @@ function ZoneMarker({ zone, offsetX, active, readOnly, onToggle }: ZoneMarkerPro
         strokeOpacity={active ? 1 : 0.55}
         strokeWidth="1.1"
       />
-      {/* enlarged transparent hit area for finger-friendly touch targets */}
+      {/* Enlarged transparent hit area for finger-friendly touch targets.
+          r=9 gives ~27 CSS px on a 360px-wide phone, closer to mobile-OS
+          touch-target guidance. Densest zone pairs (b-trap-l ↔ b-shoulder-l,
+          14 SVG units apart) will overlap by ~4 units — still resolves
+          unambiguously because SVG click picks the topmost element. */}
       {!readOnly && (
-        <circle cx={cx} cy={zone.cy} r="7" fill="transparent" />
+        <circle cx={cx} cy={zone.cy} r="9" fill="transparent" />
       )}
     </g>
   );
