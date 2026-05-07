@@ -459,7 +459,7 @@ export async function createBooking(
   }
 
   const reference = bookingReference();
-  const booking = // Couple bookings get a shared coupleGroupId so the two halves can be
+  // Couple bookings get a shared coupleGroupId so the two halves can be
   // linked for cancellation prompts, audit trails, and staff UI surfacing.
   const coupleGroupId =
     isCouple && partnerVariant && partnerCandidate ? crypto.randomUUID() : null;
