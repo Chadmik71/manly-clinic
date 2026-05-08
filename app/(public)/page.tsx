@@ -84,6 +84,9 @@ function LocalBusinessJsonLd() {
       postalCode: CLINIC.address.postcode,
       addressCountry: "AU",
     },
+    geo: { "@type": "GeoCoordinates", latitude: -33.7962, longitude: 151.2853 },
+    hasMap: `https://www.google.com/maps/place/?q=place_id:${CLINIC.googlePlaceId}`,
+    areaServed: ["Manly", "Northern Beaches", "Sydney"],
     openingHours: "Mo-Su 09:00-20:00",
     priceRange: "$$",
   };
