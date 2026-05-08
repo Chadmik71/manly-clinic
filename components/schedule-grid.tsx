@@ -153,7 +153,7 @@ export function ScheduleGrid({
 
   return (
     <div className="border rounded-md bg-card overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto overflow-y-hidden">
         <div
           className="grid"
           style={{
