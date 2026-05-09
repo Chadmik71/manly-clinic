@@ -321,11 +321,13 @@ export async function notifyVoucherIssued({
   <div style="margin:32px 0;padding:24px;border:2px solid #888;border-radius:8px;text-align:center;">
     <p style="margin:0 0 8px;font-size:11px;color:#777;text-transform:uppercase;letter-spacing:1.5px;">Voucher code</p>
     <p style="margin:0;font-family:'Courier New',monospace;font-size:24px;font-weight:bold;letter-spacing:2px;word-break:break-all;">${code}</p>
+    <p style="margin:20px 0 4px;font-size:11px;color:#777;text-transform:uppercase;letter-spacing:1.5px;">Value</p>
+    <p style="margin:0;font-size:22px;font-weight:bold;">${value}</p>
     <p style="margin:16px 0 0;font-size:13px;color:#666;">Valid until ${expiryLabel}</p>
   </div>
   <p>To redeem: book your massage at <a href="${bookUrl}">${CLINIC.domain}/book</a> and present the code at your appointment, or call us on ${CLINIC.phone}.</p>
   <hr style="border:none;border-top:1px solid #eee;margin:32px 0 16px;"/>
-  <p style="font-size:12px;color:#888;line-height:1.5;">${CLINIC.name}<br/>${CLINIC.address}<br/>${CLINIC.phone}</p>
+  <p style="font-size:12px;color:#888;line-height:1.5;">${CLINIC.name}<br/>${CLINIC.line1}, ${CLINIC.suburb} ${CLINIC.state} ${CLINIC.postcode}<br/>${CLINIC.phone}</p>
 </div>
 `.trim();
 
@@ -336,12 +338,13 @@ Hi ${recipientName},
 You\u2019ve been given a gift voucher worth ${value} at ${CLINIC.name}.
 ${message ? `\n"${message}"\n` : ""}
 Voucher code: ${code}
+Value: ${value}
 Valid until: ${expiryLabel}
 
 To redeem: book your massage at ${bookUrl} and present the code at your appointment, or call us on ${CLINIC.phone}.
 
 ${CLINIC.name}
-${CLINIC.address}
+${CLINIC.line1}, ${CLINIC.suburb} ${CLINIC.state} ${CLINIC.postcode}
 ${CLINIC.phone}
 `;
 
