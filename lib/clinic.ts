@@ -1,7 +1,7 @@
 // Single source of truth for clinic-wide content.
 // Update these and all pages reflect the change.
 export const CLINIC = {
-  name: "Manly Remedial Clinic",
+  name: "Manly Remedial Thai",
   tagline: "Evidence-based remedial therapy on Sydney's Northern Beaches",
   address: {
     line1: "Shop 2, 31 Belgrave St",
