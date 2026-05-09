@@ -62,7 +62,7 @@ export default async function VoucherDetailPage({
           )}
         {justRedeemed && (
           <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-            ✓ Redemption applied — {voucher.status === "REDEEMED" ? "voucher fully redeemed." : `new balance ${formatPrice(voucher.balanceCents)}.`}
+            ✓ Voucher redeemed — {formatPrice(voucher.amountCents)} applied.
           </div>
         )}
           <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -135,35 +135,21 @@ export default async function VoucherDetailPage({
           </CardContent>
         </Card>
 
-        {voucher.status === "ACTIVE" && voucher.balanceCents > 0 && (
+        {voucher.status === "ACTIVE" && (
           <Card className="mt-4 print:hidden">
             <CardContent className="p-6 space-y-4">
               <div>
                 <h3 className="font-semibold">Redeem voucher</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Apply when customer uses this voucher today. Remaining balance:{" "}
-                  <strong>{formatPrice(voucher.balanceCents)}</strong>
+                  Apply when customer uses this voucher today. Voucher value:{" "}
+                  <strong>{formatPrice(voucher.amountCents)}</strong> — single use, fully applied.
                 </p>
               </div>
               <form action={redeemVoucher} className="space-y-3">
                 <input type="hidden" name="voucherId" value={voucher.id} />
                 <div className="flex gap-2 items-end flex-wrap">
-                  <div className="flex-1 min-w-[120px]">
-                    <Label htmlFor="redeemAmount">Amount ($)</Label>
-                    <Input
-                      id="redeemAmount"
-                      name="amountDollars"
-                      type="number"
-                      inputMode="decimal"
-                      min={0.01}
-                      max={voucher.balanceCents / 100}
-                      step={0.01}
-                      required
-                      defaultValue={(voucher.balanceCents / 100).toFixed(2)}
-                    />
-                  </div>
-                  <div className="flex-[2] min-w-[200px]">
-                    <Label htmlFor="redeemNote">Note (optional)</Label>
+                  <div className="flex-1 min-w-[200px]">
+                    <Label htmlFor="redeemNote">Service / note (optional)</Label>
                     <Input
                       id="redeemNote"
                       name="note"
