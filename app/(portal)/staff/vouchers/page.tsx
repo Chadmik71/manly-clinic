@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { format } from "date-fns";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Vouchers" };
 
@@ -21,6 +23,12 @@ export default async function VouchersListPage() {
       topbar={<span className="text-foreground font-medium">Vouchers</span>}
     >
       <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h1 className="text-2xl font-bold">Vouchers</h1>
+          <Button asChild>
+            <Link href="/staff/vouchers/new">+ New voucher</Link>
+          </Button>
+        </div>
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
