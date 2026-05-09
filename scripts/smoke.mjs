@@ -9,6 +9,17 @@ let pass = 0;
 let fail = 0;
 const results = [];
 
+// Auth credentials for smoke-test login flows. Sourced from env vars
+// to avoid hardcoding seed creds in the repo. Set these in .env.local
+// for local dev; auth-required tests will fail with 401 if absent.
+const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD;
+const CLIENT_EMAIL = process.env.SMOKE_CLIENT_EMAIL;
+const CLIENT_PASSWORD = process.env.SMOKE_CLIENT_PASSWORD;
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD || !CLIENT_EMAIL || !CLIENT_PASSWORD) {
+  console.warn("\u26A0 SMOKE_*_EMAIL / SMOKE_*_PASSWORD env vars are not all set; auth-required tests will fail with 401.");
+}
+
 function ok(name, detail = "") {
   pass++;
   results.push(`PASS  ${name}${detail ? "  · " + detail : ""}`);
@@ -180,8 +191,8 @@ function cookieHeader() {
 
   const body = new URLSearchParams({
     csrfToken,
-    email: "client@example.com",
-    password: "client123",
+    email: CLIENT_EMAIL,
+    password: CLIENT_PASSWORD,
     redirect: "false",
     callbackUrl: BASE,
     json: "true",
@@ -264,8 +275,8 @@ function staffCookieHeader() {
   const { csrfToken } = await csrfRes.json();
   const body = new URLSearchParams({
     csrfToken,
-    email: "admin@clinic.local",
-    password: "admin123",
+    email: ADMIN_EMAIL,
+    password: ADMIN_PASSWORD,
     redirect: "false",
     callbackUrl: BASE,
     json: "true",
