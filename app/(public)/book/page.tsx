@@ -203,7 +203,7 @@ export default async function BookPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+            <div className="flex gap-2 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1">
               {days.map((d) => {
                 const iso = format(d, "yyyy-MM-dd");
                 const selected = dateISO === iso;
