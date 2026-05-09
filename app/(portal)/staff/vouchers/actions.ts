@@ -124,7 +124,6 @@ export async function emailWalkinVoucher(formData: FormData) {
 
 const RedeemSchema = z.object({
   voucherId: z.string().min(1),
-  amountDollars: z.coerce.number().min(0.01).max(10000),
   note: z.string().trim().max(200).optional().or(z.literal("")),
 });
 
@@ -137,7 +136,6 @@ export async function redeemVoucher(formData: FormData) {
 
   const parsed = RedeemSchema.safeParse({
     voucherId: formData.get("voucherId"),
-    amountDollars: formData.get("amountDollars"),
     note: formData.get("note") || "",
   });
   if (!parsed.success) {
@@ -147,8 +145,7 @@ export async function redeemVoucher(formData: FormData) {
     );
   }
 
-  const { voucherId, amountDollars, note } = parsed.data;
-  const amountCents = Math.round(amountDollars * 100);
+  const { voucherId, note } = parsed.data;
 
   const voucher = await db.voucher.findUnique({ where: { id: voucherId } });
   if (!voucher) throw new Error("Voucher not found");
@@ -159,20 +156,15 @@ export async function redeemVoucher(formData: FormData) {
   if (voucher.expiresAt && voucher.expiresAt < new Date()) {
     throw new Error("Voucher has expired");
   }
-  if (amountCents > voucher.balanceCents) {
-    throw new Error(
-      `Amount $${(amountCents / 100).toFixed(2)} exceeds remaining balance $${(voucher.balanceCents / 100).toFixed(2)}`,
-    );
-  }
 
-  const newBalance = voucher.balanceCents - amountCents;
-  const newStatus = newBalance === 0 ? "REDEEMED" : "ACTIVE";
+  // Single-use only: always fully redeem.
+  const redeemedAmountCents = voucher.balanceCents;
 
   await db.voucher.update({
     where: { id: voucherId },
     data: {
-      balanceCents: newBalance,
-      status: newStatus,
+      balanceCents: 0,
+      status: "REDEEMED",
     },
   });
 
@@ -181,9 +173,8 @@ export async function redeemVoucher(formData: FormData) {
     action: "voucher.redeem",
     resource: `Voucher:${voucherId}`,
     metadata: {
-      amountRedeemedCents: amountCents,
-      newBalanceCents: newBalance,
-      newStatus,
+      amountRedeemedCents: redeemedAmountCents,
+      newStatus: "REDEEMED",
       note: note || undefined,
       staffId: session.user.id,
     },
