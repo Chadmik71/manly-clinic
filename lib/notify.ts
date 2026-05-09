@@ -268,3 +268,82 @@ Need to change it? ${CLINIC.domain}/portal/bookings`;
     });
   }
 }
+
+function escapeVoucherHtml(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export async function notifyVoucherIssued({
+  code,
+  amountCents,
+  recipientName,
+  recipientEmail,
+  message,
+  expiresAt,
+}: {
+  code: string;
+  amountCents: number;
+  recipientName: string;
+  recipientEmail: string;
+  message: string | null;
+  expiresAt: Date | null;
+}): Promise<void> {
+  const value = `$${(amountCents / 100).toFixed(2)}`;
+  const expiryLabel = expiresAt
+    ? expiresAt.toLocaleDateString("en-AU", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "12 months from issue";
+  const subject = `Your gift voucher from ${CLINIC.name}`;
+
+  const safeName = escapeVoucherHtml(recipientName);
+  const safeMessage = message ? escapeVoucherHtml(message) : null;
+  const bookUrl = `https://${CLINIC.domain}/book`;
+
+  const messageBlockHtml = safeMessage
+    ? `<p style="margin:24px 0;padding:16px;background:#f7f5f0;border-radius:8px;font-style:italic;color:#555;">&ldquo;${safeMessage}&rdquo;</p>`
+    : "";
+
+  const html = `
+<div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#333;padding:24px;">
+  <h1 style="font-size:24px;margin:0 0 4px;">${CLINIC.name}</h1>
+  <p style="font-size:14px;color:#888;margin:0 0 24px;">Gift voucher</p>
+  <p>Hi ${safeName},</p>
+  <p>You&rsquo;ve been given a gift voucher worth <strong>${value}</strong> at ${CLINIC.name}.</p>
+  ${messageBlockHtml}
+  <div style="margin:32px 0;padding:24px;border:2px solid #888;border-radius:8px;text-align:center;">
+    <p style="margin:0 0 8px;font-size:11px;color:#777;text-transform:uppercase;letter-spacing:1.5px;">Voucher code</p>
+    <p style="margin:0;font-family:'Courier New',monospace;font-size:24px;font-weight:bold;letter-spacing:2px;word-break:break-all;">${code}</p>
+    <p style="margin:16px 0 0;font-size:13px;color:#666;">Valid until ${expiryLabel}</p>
+  </div>
+  <p>To redeem: book your massage at <a href="${bookUrl}">${CLINIC.domain}/book</a> and present the code at your appointment, or call us on ${CLINIC.phone}.</p>
+  <hr style="border:none;border-top:1px solid #eee;margin:32px 0 16px;"/>
+  <p style="font-size:12px;color:#888;line-height:1.5;">${CLINIC.name}<br/>${CLINIC.address}<br/>${CLINIC.phone}</p>
+</div>
+`.trim();
+
+  const text = `${CLINIC.name} \u2014 Gift voucher
+
+Hi ${recipientName},
+
+You\u2019ve been given a gift voucher worth ${value} at ${CLINIC.name}.
+${message ? `\n"${message}"\n` : ""}
+Voucher code: ${code}
+Valid until: ${expiryLabel}
+
+To redeem: book your massage at ${bookUrl} and present the code at your appointment, or call us on ${CLINIC.phone}.
+
+${CLINIC.name}
+${CLINIC.address}
+${CLINIC.phone}
+`;
+
+  await sendEmail({ to: recipientEmail, subject, html, text });
+}
