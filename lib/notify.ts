@@ -327,7 +327,7 @@ export async function notifyVoucherIssued({
   </div>
   <p>To redeem: book your massage at <a href="${bookUrl}">${CLINIC.domain}/book</a> and present the code at your appointment, or call us on ${CLINIC.phone}.</p>
   <hr style="border:none;border-top:1px solid #eee;margin:32px 0 16px;"/>
-  <p style="font-size:12px;color:#888;line-height:1.5;">${CLINIC.name}<br/>${CLINIC.line1}, ${CLINIC.suburb} ${CLINIC.state} ${CLINIC.postcode}<br/>${CLINIC.phone}</p>
+  <p style="font-size:12px;color:#888;line-height:1.5;">${CLINIC.name}<br/>${CLINIC.address.line1}, ${CLINIC.address.suburb} ${CLINIC.address.state} ${CLINIC.address.postcode}<br/>${CLINIC.phone}</p>
 </div>
 `.trim();
 
@@ -344,7 +344,7 @@ Valid until: ${expiryLabel}
 To redeem: book your massage at ${bookUrl} and present the code at your appointment, or call us on ${CLINIC.phone}.
 
 ${CLINIC.name}
-${CLINIC.line1}, ${CLINIC.suburb} ${CLINIC.state} ${CLINIC.postcode}
+${CLINIC.address.line1}, ${CLINIC.address.suburb} ${CLINIC.address.state} ${CLINIC.address.postcode}
 ${CLINIC.phone}
 `;
 
