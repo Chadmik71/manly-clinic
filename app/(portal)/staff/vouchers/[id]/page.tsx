@@ -9,12 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { format } from "date-fns";
 import { PrintButton } from "./print-button";
-import { emailWalkinVoucher } from "../actions";
+import { emailWalkinVoucher, redeemVoucher } from "../actions";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ id: string }>;
-type SearchParams = Promise<{ new?: string; emailed?: string }>;
+type SearchParams = Promise<{ new?: string; emailed?: string; redeemed?: string }>;
 
 export default async function VoucherDetailPage({
   params,
@@ -30,13 +32,14 @@ export default async function VoucherDetailPage({
   }
 
   const { id } = await params;
-  const { new: isNew, emailed: emailedFlag } = await searchParams;
+  const { new: isNew, emailed: emailedFlag, redeemed: redeemedFlag } = await searchParams;
 
   const voucher = await db.voucher.findUnique({ where: { id } });
   if (!voucher) notFound();
 
   const justCreated = isNew === "1";
   const justEmailed = emailedFlag === "1";
+  const justRedeemed = redeemedFlag === "1";
   const expiresAtLabel = voucher.expiresAt
     ? format(voucher.expiresAt, "d MMM yyyy")
     : "No expiry";
@@ -57,6 +60,11 @@ export default async function VoucherDetailPage({
               ✉ Email sent to {voucher.recipientName} ({voucher.recipientEmail}).
             </div>
           )}
+        {justRedeemed && (
+          <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+            ✓ Redemption applied — {voucher.status === "REDEEMED" ? "voucher fully redeemed." : `new balance ${formatPrice(voucher.balanceCents)}.`}
+          </div>
+        )}
           <div className="flex items-start justify-between gap-2 flex-wrap">
             <div>
               <div className="text-xs text-muted-foreground mb-1">
@@ -126,6 +134,49 @@ export default async function VoucherDetailPage({
             </div>
           </CardContent>
         </Card>
+
+        {voucher.status === "ACTIVE" && voucher.balanceCents > 0 && (
+          <Card className="mt-4 print:hidden">
+            <CardContent className="p-6 space-y-4">
+              <div>
+                <h3 className="font-semibold">Redeem voucher</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Apply when customer uses this voucher today. Remaining balance:{" "}
+                  <strong>{formatPrice(voucher.balanceCents)}</strong>
+                </p>
+              </div>
+              <form action={redeemVoucher} className="space-y-3">
+                <input type="hidden" name="voucherId" value={voucher.id} />
+                <div className="flex gap-2 items-end flex-wrap">
+                  <div className="flex-1 min-w-[120px]">
+                    <Label htmlFor="redeemAmount">Amount ($)</Label>
+                    <Input
+                      id="redeemAmount"
+                      name="amountDollars"
+                      type="number"
+                      inputMode="decimal"
+                      min={0.01}
+                      max={voucher.balanceCents / 100}
+                      step={0.01}
+                      required
+                      defaultValue={(voucher.balanceCents / 100).toFixed(2)}
+                    />
+                  </div>
+                  <div className="flex-[2] min-w-[200px]">
+                    <Label htmlFor="redeemNote">Note (optional)</Label>
+                    <Input
+                      id="redeemNote"
+                      name="note"
+                      maxLength={200}
+                      placeholder="e.g. 60min remedial massage"
+                    />
+                  </div>
+                  <Button type="submit">Apply</Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Action buttons — hidden when printing */}
         <div className="mt-4 flex gap-2 print:hidden flex-wrap">
