@@ -8,7 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { createWalkinVoucher } from "../actions";
 
-const TIERS = [50, 100, 150, 200, 250, 300] as const;
+const TIERS = [
+  { price: 70, label: "30min" },
+  { price: 95, label: "45min" },
+  { price: 120, label: "60min" },
+  { price: 155, label: "75min" },
+  { price: 170, label: "90min" },
+  { price: 230, label: "120min" },
+] as const;
 
 export function WalkinForm() {
   const [tier, setTier] = useState<number | null>(null);
@@ -31,22 +38,23 @@ export function WalkinForm() {
             <Label className="mb-2 block">Amount</Label>
             <div className="grid grid-cols-3 gap-2">
               {TIERS.map((t) => {
-                const selected = tier === t && !customAmount.trim();
+                const selected = tier === t.price && !customAmount.trim();
                 return (
                   <button
-                    key={t}
+                    key={t.price}
                     type="button"
                     onClick={() => {
-                      setTier(t);
+                      setTier(t.price);
                       setCustomAmount("");
                     }}
-                    className={`h-12 rounded-md border text-sm font-medium transition-colors ${
+                    className={`h-14 rounded-md border text-sm font-medium transition-colors flex flex-col items-center justify-center ${
                       selected
                         ? "border-primary bg-primary/10"
                         : "border-input bg-background hover:bg-accent"
                     }`}
                   >
-                    ${t}
+                    <span className="block text-base font-semibold">${t.price}</span>
+                    <span className="block text-[10px] text-muted-foreground mt-0.5">{t.label}</span>
                   </button>
                 );
               })}
