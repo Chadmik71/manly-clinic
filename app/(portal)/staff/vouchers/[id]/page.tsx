@@ -9,11 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { format } from "date-fns";
 import { PrintButton } from "./print-button";
+import { emailWalkinVoucher } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ id: string }>;
-type SearchParams = Promise<{ new?: string }>;
+type SearchParams = Promise<{ new?: string; emailed?: string }>;
 
 export default async function VoucherDetailPage({
   params,
@@ -29,12 +30,13 @@ export default async function VoucherDetailPage({
   }
 
   const { id } = await params;
-  const { new: isNew } = await searchParams;
+  const { new: isNew, emailed: emailedFlag } = await searchParams;
 
   const voucher = await db.voucher.findUnique({ where: { id } });
   if (!voucher) notFound();
 
   const justCreated = isNew === "1";
+  const justEmailed = emailedFlag === "1";
   const expiresAtLabel = voucher.expiresAt
     ? format(voucher.expiresAt, "d MMM yyyy")
     : "No expiry";
@@ -48,6 +50,11 @@ export default async function VoucherDetailPage({
           {justCreated && (
             <div className="mb-3 rounded-md border border-green-500/30 bg-green-500/10 p-3 text-sm">
               ✓ Voucher created. Hand the printed copy to the customer, or share the code below.
+            </div>
+          )}
+          {justEmailed && (
+            <div className="mb-3 rounded-md border border-blue-500/30 bg-blue-500/10 p-3 text-sm">
+              ✉ Email sent to {voucher.recipientName} ({voucher.recipientEmail}).
             </div>
           )}
           <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -123,6 +130,12 @@ export default async function VoucherDetailPage({
         {/* Action buttons — hidden when printing */}
         <div className="mt-4 flex gap-2 print:hidden flex-wrap">
           <PrintButton />
+          <form action={emailWalkinVoucher}>
+            <input type="hidden" name="voucherId" value={voucher.id} />
+            <Button type="submit" variant="outline">
+              Email to recipient
+            </Button>
+          </form>
           <Button asChild variant="outline">
             <Link href="/staff/vouchers">Back to vouchers</Link>
           </Button>
