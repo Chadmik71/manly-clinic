@@ -121,3 +121,75 @@ export async function emailWalkinVoucher(formData: FormData) {
   revalidatePath(`/staff/vouchers/${voucherId}`);
   redirect(`/staff/vouchers/${voucherId}?emailed=1`);
 }
+
+const RedeemSchema = z.object({
+  voucherId: z.string().min(1),
+  amountDollars: z.coerce.number().min(0.01).max(10000),
+  note: z.string().trim().max(200).optional().or(z.literal("")),
+});
+
+export async function redeemVoucher(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Not authenticated");
+  if (session.user.role !== "STAFF" && session.user.role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
+
+  const parsed = RedeemSchema.safeParse({
+    voucherId: formData.get("voucherId"),
+    amountDollars: formData.get("amountDollars"),
+    note: formData.get("note") || "",
+  });
+  if (!parsed.success) {
+    throw new Error(
+      "Invalid input: " +
+        parsed.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join("; "),
+    );
+  }
+
+  const { voucherId, amountDollars, note } = parsed.data;
+  const amountCents = Math.round(amountDollars * 100);
+
+  const voucher = await db.voucher.findUnique({ where: { id: voucherId } });
+  if (!voucher) throw new Error("Voucher not found");
+
+  if (voucher.status !== "ACTIVE") {
+    throw new Error(`Cannot redeem voucher with status ${voucher.status}`);
+  }
+  if (voucher.expiresAt && voucher.expiresAt < new Date()) {
+    throw new Error("Voucher has expired");
+  }
+  if (amountCents > voucher.balanceCents) {
+    throw new Error(
+      `Amount $${(amountCents / 100).toFixed(2)} exceeds remaining balance $${(voucher.balanceCents / 100).toFixed(2)}`,
+    );
+  }
+
+  const newBalance = voucher.balanceCents - amountCents;
+  const newStatus = newBalance === 0 ? "REDEEMED" : "ACTIVE";
+
+  await db.voucher.update({
+    where: { id: voucherId },
+    data: {
+      balanceCents: newBalance,
+      status: newStatus,
+    },
+  });
+
+  await audit({
+    userId: session.user.id,
+    action: "voucher.redeem",
+    resource: `Voucher:${voucherId}`,
+    metadata: {
+      amountRedeemedCents: amountCents,
+      newBalanceCents: newBalance,
+      newStatus,
+      note: note || undefined,
+      staffId: session.user.id,
+    },
+  });
+
+  revalidatePath(`/staff/vouchers/${voucherId}`);
+  revalidatePath("/staff/vouchers");
+  redirect(`/staff/vouchers/${voucherId}?redeemed=1`);
+}
