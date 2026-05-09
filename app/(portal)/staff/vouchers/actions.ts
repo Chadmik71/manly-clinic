@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { generateVoucherCode } from "@/lib/voucher";
+import { notifyVoucherIssued } from "@/lib/notify";
 
 const WalkinSchema = z.object({
   amountCents: z.coerce.number().int().min(500).max(100000),
@@ -83,4 +84,40 @@ export async function createWalkinVoucher(formData: FormData) {
 
   revalidatePath("/staff/vouchers");
   redirect(`/staff/vouchers/${voucher.id}?new=1`);
+}
+
+export async function emailWalkinVoucher(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Not authenticated");
+  if (session.user.role !== "STAFF" && session.user.role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
+
+  const voucherId = String(formData.get("voucherId") || "").trim();
+  if (!voucherId) throw new Error("Missing voucherId");
+
+  const voucher = await db.voucher.findUnique({ where: { id: voucherId } });
+  if (!voucher) throw new Error("Voucher not found");
+
+  await notifyVoucherIssued({
+    code: voucher.code,
+    amountCents: voucher.amountCents,
+    recipientName: voucher.recipientName,
+    recipientEmail: voucher.recipientEmail,
+    message: voucher.message,
+    expiresAt: voucher.expiresAt,
+  });
+
+  await audit({
+    userId: session.user.id,
+    action: "voucher.email.send",
+    resource: `Voucher:${voucher.id}`,
+    metadata: {
+      recipientEmail: voucher.recipientEmail,
+      sentByStaffId: session.user.id,
+    },
+  });
+
+  revalidatePath(`/staff/vouchers/${voucherId}`);
+  redirect(`/staff/vouchers/${voucherId}?emailed=1`);
 }
