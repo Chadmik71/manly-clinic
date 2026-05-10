@@ -15,10 +15,13 @@ export default function TermsPage() {
           or medication that may affect treatment.
         </p>
         <p>
-          <strong className="text-foreground">Cancellations.</strong>{" "}
-          Cancellations within 24 hours of your appointment may incur a 50%
-          fee. No-shows may incur full session fee.
-        </p>
+          <strong className="text-foreground">Cancellations &amp; rescheduling.</strong>{" "}
+            Please give us at least 1 hour&apos;s notice if you need to cancel
+            or reschedule your appointment. If you arrive more than 10 minutes
+            late without calling the clinic, your booking will be treated as
+            cancelled and the slot may be released to the next customer.
+            No-shows may incur the full session fee.
+          </p>
         <p>
           <strong className="text-foreground">Public holidays.</strong> A 10%
           surcharge applies to all services on NSW public holidays.
