@@ -176,13 +176,16 @@ Your ${args.serviceName} (${args.durationMin} min) is confirmed for ${fmt(args.s
 Booking reference: ${args.reference}
 Manage / cancel / reschedule: ${CLINIC.domain}/portal/bookings
 
+Cancellation policy: please give us at least 1 hour's notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.
+
 ${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb}
 ${CLINIC.phone}`;
   const html = `<p>Hi ${args.name},</p>
 <p>Your <strong>${args.serviceName}</strong> (${args.durationMin} min) is confirmed for <strong>${fmt(args.startsAt)}</strong>.</p>
 <p>Booking reference: <code>${args.reference}</code><br/>
 <a href="${CLINIC.domain}/portal/bookings">Manage your booking</a></p>
-<p style="color:#64748b;font-size:12px">${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}</p>`;
+<p style="color:#64748b;font-size:12px;margin:12px 0;">Cancellation policy: please give us at least 1 hour&apos;s notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.</p>
+      <p style="color:#64748b;font-size:12px">${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}</p>`;
   await sendEmail({ to: args.email, subject, html, text });
   if (args.phone) {
     await sendSms({
@@ -226,7 +229,7 @@ export async function notifyBookingCancelled(args: {
   const subject = `Booking cancelled — ${args.reference}`;
   const feeLine =
     args.feeCents > 0
-      ? `\nA late-cancellation fee of $${(args.feeCents / 100).toFixed(2)} applies (within 24h of start).\n`
+      ? `\nA late-cancellation fee of $${(args.feeCents / 100).toFixed(2)} applies (within 1h of start).\n`
       : "";
   const text = `Hi ${args.name},
 
@@ -234,7 +237,7 @@ Your booking (${args.reference}) for ${fmt(args.startsAt)} has been cancelled.${
 We hope to see you again soon.
 
 ${CLINIC.name}`;
-  const html = `<p>Hi ${args.name},</p><p>Your booking <code>${args.reference}</code> for ${fmt(args.startsAt)} has been cancelled.</p>${args.feeCents > 0 ? `<p>A late-cancellation fee of $${(args.feeCents / 100).toFixed(2)} applies (within 24h of start).</p>` : ""}<p>${CLINIC.name}</p>`;
+  const html = `<p>Hi ${args.name},</p><p>Your booking <code>${args.reference}</code> for ${fmt(args.startsAt)} has been cancelled.</p>${args.feeCents > 0 ? `<p>A late-cancellation fee of $${(args.feeCents / 100).toFixed(2)} applies (within 1h of start).</p>` : ""}<p>${CLINIC.name}</p>`;
   await sendEmail({ to: args.email, subject, html, text });
 }
 
