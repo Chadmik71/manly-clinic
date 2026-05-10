@@ -190,6 +190,29 @@ ${CLINIC.phone}`;
       body: `${CLINIC.name}: ${args.serviceName} ${args.durationMin}min confirmed ${fmtShort(args.startsAt)}. Ref ${args.reference}.`,
     });
   }
+
+  // Internal staff notification — heads-up that a booking came in.
+  // Sent to STAFF_NOTIFICATION_EMAIL if set, otherwise CLINIC.email.
+  // Wrapped so a failure here doesn't block the customer email/SMS that already sent.
+  try {
+    const staffTo =
+      process.env.STAFF_NOTIFICATION_EMAIL || CLINIC.email;
+    if (staffTo) {
+      const isCouple = !!args.partner;
+      const services = isCouple
+        ? `${args.serviceName} (${args.durationMin}min) + ${args.partner!.serviceName} (${args.partner!.durationMin}min)`
+        : `${args.serviceName} (${args.durationMin}min)`;
+      const partnerLine = isCouple && args.partner!.partnerName
+        ? `\n  Partner: ${args.partner!.partnerName}`
+        : "";
+      const staffSubject = `New booking: ${services} — ${fmtShort(args.startsAt)}`;
+      const staffText = `A new booking has been made.\n\n  When: ${fmt(args.startsAt)}\n  Services: ${services}\n  Customer: ${args.name}${partnerLine}\n  Email: ${args.email}\n  Phone: ${args.phone || "(not provided)"}\n  Reference: ${args.reference}${isCouple ? `\n  Partner reference: ${args.partner!.reference}` : ""}\n\nManage in the staff portal: https://${CLINIC.domain}/staff/bookings\n`;
+      const staffHtml = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#333;padding:16px;line-height:1.5;"><h2 style="margin:0 0 12px;">New booking</h2><p style="margin:0 0 4px;"><strong>When:</strong> ${fmt(args.startsAt)}</p><p style="margin:0 0 4px;"><strong>Services:</strong> ${services}</p><p style="margin:0 0 4px;"><strong>Customer:</strong> ${args.name}${isCouple && args.partner!.partnerName ? ` (with ${args.partner!.partnerName})` : ""}</p><p style="margin:0 0 4px;"><strong>Email:</strong> <a href="mailto:${args.email}">${args.email}</a></p><p style="margin:0 0 4px;"><strong>Phone:</strong> ${args.phone || "(not provided)"}</p><p style="margin:0 0 4px;"><strong>Reference:</strong> ${args.reference}${isCouple ? ` / ${args.partner!.reference}` : ""}</p><p style="margin:16px 0 0;"><a href="https://${CLINIC.domain}/staff/bookings">Manage in the staff portal</a></p></div>`;
+      await sendEmail({ to: staffTo, subject: staffSubject, html: staffHtml, text: staffText });
+    }
+  } catch (err) {
+    console.error("notifyBookingConfirmed: staff email failed", err);
+  }
 }
 
 export async function notifyBookingCancelled(args: {
