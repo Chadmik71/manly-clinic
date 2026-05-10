@@ -70,6 +70,24 @@ export async function createWalkinVoucher(formData: FormData) {
     },
   });
 
+  // Auto-send the voucher email so staff doesn't need a separate click.
+  // If sending fails, log it but don't roll back — the voucher exists and staff
+  // can retry from the detail page using the "Email to recipient" button.
+  let emailSent = false;
+  try {
+    await notifyVoucherIssued({
+      code: voucher.code,
+      amountCents: voucher.amountCents,
+      recipientName: voucher.recipientName,
+      recipientEmail: voucher.recipientEmail,
+      message: voucher.message,
+      expiresAt: voucher.expiresAt,
+    });
+    emailSent = true;
+  } catch (err) {
+    console.error("createWalkinVoucher: email send failed", err);
+  }
+
   await audit({
     userId: session.user.id,
     action: "voucher.walkin.create",
@@ -79,6 +97,7 @@ export async function createWalkinVoucher(formData: FormData) {
       recipientName,
       recipientEmail,
       createdByStaffId: session.user.id,
+      emailSentToRecipient: emailSent,
     },
   });
 
