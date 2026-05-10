@@ -197,9 +197,9 @@ export default async function HomePage() {
           <div className="flex items-start gap-3">
             <Stethoscope className="h-5 w-5 text-primary mt-0.5" />
             <div>
-              <div className="font-medium">Qualified clinicians</div>
+              <div className="font-medium">Experienced therapists</div>
               <p className="text-muted-foreground">
-                Diploma-trained remedial therapists with 10+ years of practice.
+                Friendly, experienced therapists trained in remedial, Thai, and relaxation massage.
               </p>
             </div>
           </div>
