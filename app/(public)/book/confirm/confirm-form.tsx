@@ -202,6 +202,7 @@ export function ConfirmForm({
   const [history, setHistory] = useState<Set<string>>(
     new Set(intakeDefaults?.medicalHistory ?? []),
   );
+  const [policyAccepted, setPolicyAccepted] = useState(false);
 
   const intakeRequired = claiming;
 
@@ -216,16 +217,6 @@ export function ConfirmForm({
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
-    // Confirm the customer has read the cancellation policy before submitting.
-    const policyConfirmed = window.confirm(
-      "Cancellation policy:\n\n" +
-        "\u2022 Please give at least 1 hour's notice if you need to cancel or reschedule.\n" +
-        "\u2022 If you arrive more than 10 minutes late without calling us, your booking will be treated as cancelled.\n\n" +
-        "Click OK to confirm your booking, or Cancel to go back."
-    );
-    if (!policyConfirmed) return;
-
     setError(null);
     const fd = new FormData(e.currentTarget);
     fd.set("serviceId", serviceId);
@@ -983,7 +974,21 @@ export function ConfirmForm({
               Once confirmed, we’ll send you an email and SMS. To cancel or
               reschedule, contact the clinic directly.
             </p>
-            <div className="flex gap-2 justify-end">
+<label className="flex items-start gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 cursor-pointer"
+                checked={policyAccepted}
+                onChange={(e) => setPolicyAccepted(e.target.checked)}
+              />
+              <span className="text-muted-foreground">
+                I have read the cancellation policy: at least 1 hour&apos;s
+                notice to cancel or reschedule, and arriving more than 10
+                minutes late without calling means my booking will be
+                treated as cancelled.
+              </span>
+            </label>
+                        <div className="flex gap-2 justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -994,7 +999,7 @@ export function ConfirmForm({
               </Button>
               <Button
                 type="button"
-                disabled={pending}
+                disabled={pending || !policyAccepted}
                 onClick={() => {
                   setConfirmOpen(false);
                   formRef.current?.requestSubmit();
