@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 30 25% 99%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -13,10 +13,10 @@
     --primary: 178 78% 36%;        /* Receptioner-style teal */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96%;
+    --secondary: 30 30% 92%;
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 40% 96%;
+    --muted: 30 20% 96%;
     --muted-foreground: 215 16% 47%;
 
     --accent: 178 78% 92%;
@@ -44,7 +44,7 @@
     --bk-4-bg: 280 50% 93%; --bk-4-border: 280 50% 60%; --bk-4-text: 280 50% 30%;
     --bk-5-bg: 0   0%  93%; --bk-5-border: 215 16% 60%; --bk-5-text: 215 16% 30%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 
   .dark {
