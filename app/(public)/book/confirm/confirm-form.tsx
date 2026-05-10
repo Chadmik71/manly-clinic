@@ -216,6 +216,16 @@ export function ConfirmForm({
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    // Confirm the customer has read the cancellation policy before submitting.
+    const policyConfirmed = window.confirm(
+      "Cancellation policy:\n\n" +
+        "\u2022 Please give at least 1 hour's notice if you need to cancel or reschedule.\n" +
+        "\u2022 If you arrive more than 10 minutes late without calling us, your booking will be treated as cancelled.\n\n" +
+        "Click OK to confirm your booking, or Cancel to go back."
+    );
+    if (!policyConfirmed) return;
+
     setError(null);
     const fd = new FormData(e.currentTarget);
     fd.set("serviceId", serviceId);
