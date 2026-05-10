@@ -146,7 +146,12 @@ export default async function BookingConfirmedPage({
               >
                 0412 822 226
               </a>{" "}
-              at least 24 hours ahead.
+              at least 1 hour ahead.
+            </p>
+            <p>
+              If you arrive more than 10 minutes late without calling us,
+              your booking will be treated as cancelled and the slot may
+              be released.
             </p>
           </div>
         </CardContent>
