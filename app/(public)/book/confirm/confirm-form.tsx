@@ -977,6 +977,9 @@ export function ConfirmForm({
             // the dialog stays closed.
             if (formRef.current && !formRef.current.reportValidity()) return;
             setError(null);
+            if (DEPOSITS_ENABLED && !paymentIntentId && paymentStage === "idle") {
+              fetchPaymentIntent();
+            }
             setConfirmOpen(true);
           }}
         >
