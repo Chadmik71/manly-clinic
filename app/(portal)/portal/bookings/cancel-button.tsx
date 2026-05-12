@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { CANCEL_FEE_THRESHOLD_HOURS, CANCEL_FEE_PERCENT } from "@/lib/clinic";
 
 function formatPrice(cents: number): string {
   return new Intl.NumberFormat("en-AU", {
@@ -29,10 +30,10 @@ export function CancelBookingButton({
   const [error, setError] = useState<string | null>(null);
   function onClick() {
     const hoursUntil = (new Date(startsAt).getTime() - Date.now()) / 36e5;
-    const fee = hoursUntil < 24 ? Math.round(priceCents * 0.5) : 0;
+    const fee = hoursUntil < CANCEL_FEE_THRESHOLD_HOURS ? Math.round((priceCents * CANCEL_FEE_PERCENT) / 100) : 0;
     const message =
       fee > 0
-        ? `This booking is within 24 hours of the start time. A ${formatPrice(fee)} cancellation fee applies. Continue?`
+        ? `This booking is within ${CANCEL_FEE_THRESHOLD_HOURS} hour${CANCEL_FEE_THRESHOLD_HOURS === 1 ? "" : "s"} of the start time. A ${formatPrice(fee)} cancellation fee applies. Continue?`
         : "Cancel this booking?";
     if (!confirm(message)) return;
     setError(null);
