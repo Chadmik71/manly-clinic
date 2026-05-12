@@ -306,9 +306,8 @@ export function ConfirmForm({
   // Step number offset: when guest, the 11 numbered sections become 1..11 too
   // (the guest contact section is rendered as "Step 1" and the rest shift up
   // by 1). When signed in, the original 1..10/11 numbering is preserved.
-  const offset = isGuest ? 1 : 0;
   let _stepCounter = 0;
-  const stepNo = (_n: number) => String(++_stepCounter + offset);
+  const stepNo = (_n: number) => String(++_stepCounter);
   const lastClinicalStep = serviceHealthFundEligible ? 11 : 10;
 
   // Three-tier intake based on service type:
@@ -362,7 +361,7 @@ export function ConfirmForm({
       {isGuest && (
         <Card>
           <SectionHeader
-            step="1"
+            step={stepNo(0)}
             title="Your contact details"
             desc="So we can find your record (or create one) and send you the booking confirmation."
           />
@@ -664,7 +663,7 @@ export function ConfirmForm({
       {intakeMode !== 'full' && (
         <Card>
           <SectionHeader
-            step="3"
+            step={stepNo(0)}
             title="Anything we should know?"
             desc="Optional — but please let us know about anything that could affect your treatment."
           />
