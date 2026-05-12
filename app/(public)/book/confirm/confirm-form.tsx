@@ -253,6 +253,16 @@ export function ConfirmForm({
     }
   }
 
+  function handlePaymentSuccess(piId: string) {
+    setPaymentStage("paying");
+    setPaymentIntentId(piId);
+    formRef.current?.requestSubmit();
+  }
+
+  function handlePaymentError(message: string) {
+    setPaymentError(message);
+  }
+
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -1031,6 +1041,19 @@ export function ConfirmForm({
                 treated as cancelled.
               </span>
             </label>
+                        {DEPOSITS_ENABLED && paymentStage === "card" && clientSecret ? (
+                          <div className="space-y-2 my-4">
+                            {paymentError && (
+                              <p className="text-sm text-destructive">{paymentError}</p>
+                            )}
+                            <DepositCard
+                              clientSecret={clientSecret}
+                              amountCents={depositAmountCents}
+                              onSuccess={handlePaymentSuccess}
+                              onError={handlePaymentError}
+                            />
+                          </div>
+                        ) : null}
                         <div className="flex gap-2 justify-end">
               <Button
                 type="button"
@@ -1042,7 +1065,7 @@ export function ConfirmForm({
               </Button>
               <Button
                 type="button"
-                disabled={pending || !policyAccepted}
+                disabled={pending || !policyAccepted || paymentStage !== "idle"}
                 onClick={() => {
                   setConfirmOpen(false);
                   formRef.current?.requestSubmit();
