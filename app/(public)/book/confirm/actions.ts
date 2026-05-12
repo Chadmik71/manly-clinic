@@ -601,7 +601,8 @@ export async function createBooking(
     isCouple && partnerVariant && partnerCandidate ? crypto.randomUUID() : null;
 
   let bookingId: string;
-  await db.$transaction(async (tx) => {
+  try {
+    await db.$transaction(async (tx) => {
     const created = await tx.booking.create({
       data: {
         reference,
@@ -659,6 +660,31 @@ export async function createBooking(
       });
     }
   });
+  } catch (err) {
+    console.error("Booking transaction failed:", err);
+    if (verifiedPaymentIntentId) {
+      try {
+        const stripeForRefund = getStripe();
+        if (stripeForRefund) {
+          await stripeForRefund.refunds.create({ payment_intent: verifiedPaymentIntentId });
+          await audit({
+            action: "stripe.refund.create",
+            resource: verifiedPaymentIntentId,
+            metadata: { reason: "booking_transaction_failed" },
+          });
+        }
+      } catch (refundErr) {
+        console.error("Refund failed after booking failure:", refundErr);
+        await audit({
+          action: "stripe.refund.failed",
+          resource: verifiedPaymentIntentId,
+          metadata: { error: String(refundErr) },
+        });
+      }
+      return { error: "Booking could not be created. Your $30 deposit has been refunded (it may take a few minutes to show in your account). Please try again or contact us." };
+    }
+    return { error: "Booking could not be created. Please try again." };
+  }
 
   // Decrement voucher balance
   if (voucherCode && voucherAppliedCents > 0) {
