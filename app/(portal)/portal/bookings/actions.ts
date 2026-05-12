@@ -9,6 +9,7 @@ import {
 } from "@/lib/clinic";
 import { notifyBookingCancelled } from "@/lib/notify";
 
+import { getStripe } from "@/lib/stripe";
 export async function cancelBooking(
   id: string,
 ): Promise<{ ok?: boolean; error?: string; feeCents?: number }> {
@@ -41,6 +42,28 @@ export async function cancelBooking(
     resource: `Booking:${id}`,
     metadata: { feeCents, hoursUntil: Math.round(hoursUntil) },
   });
+  if (b.paymentIntentId && feeCents === 0) {
+    try {
+      const stripe = getStripe();
+      if (stripe) {
+        await stripe.refunds.create({ payment_intent: b.paymentIntentId });
+        await audit({
+          userId: session.user.id,
+          action: "stripe.refund.create",
+          resource: b.paymentIntentId,
+          metadata: { reason: "booking_cancelled_in_policy", bookingId: id },
+        });
+      }
+    } catch (refundErr) {
+      console.error("Refund failed on cancellation:", refundErr);
+      await audit({
+        userId: session.user.id,
+        action: "stripe.refund.failed",
+        resource: b.paymentIntentId,
+        metadata: { error: String(refundErr), bookingId: id },
+      });
+    }
+  }
   await notifyBookingCancelled({
     email: b.client.email,
     phone: b.client.phone,
