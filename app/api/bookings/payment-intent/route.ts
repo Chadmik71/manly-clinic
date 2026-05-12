@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency: "aud",
-      automatic_payment_methods: { enabled: true },
+      payment_method_types: ["card"],
       description:
         `Manly Remedial Thai — booking deposit` +
         (body.serviceName ? ` (${body.serviceName})` : ""),
