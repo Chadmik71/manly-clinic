@@ -307,7 +307,8 @@ export function ConfirmForm({
   // (the guest contact section is rendered as "Step 1" and the rest shift up
   // by 1). When signed in, the original 1..10/11 numbering is preserved.
   const offset = isGuest ? 1 : 0;
-  const stepNo = (n: number) => String(n + offset);
+  let _stepCounter = 0;
+  const stepNo = (_n: number) => String(++_stepCounter + offset);
   const lastClinicalStep = serviceHealthFundEligible ? 11 : 10;
 
   // Three-tier intake based on service type:
@@ -323,6 +324,11 @@ export function ConfirmForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="space-y-5">
+      {DEPOSITS_ENABLED && !guestSuccess && (
+        <div className="rounded-md border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+          <span className="font-medium">$30 deposit required to confirm booking</span> — refundable if you cancel with at least 1 hour notice per our cancellation policy.
+        </div>
+      )}
       {guestSuccess && (
         <Card className="border-emerald-500/40 bg-emerald-500/5">
           <CardHeader>
