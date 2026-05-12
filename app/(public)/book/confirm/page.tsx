@@ -13,6 +13,7 @@ import {
 import { formatPrice, formatDuration } from "@/lib/utils";
 import { applyHolidaySurcharge } from "@/lib/holidays";
 import { ConfirmForm } from "./confirm-form";
+import { NotYouLink } from "./not-you-link";
 import { createBooking } from "./actions";
 
 // Sydney-aware formatters (Vercel runtime is UTC, clinic is Australia/Sydney).
@@ -166,9 +167,12 @@ export default async function ConfirmPage({
             </span>
           </div>
           {bookedUnderName ? (
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center gap-2">
               <span className="text-muted-foreground">Booked under</span>
-              <span className="font-medium">{bookedUnderName}</span>
+              <span className="flex items-center gap-2">
+                <span className="font-medium">{bookedUnderName}</span>
+                <NotYouLink />
+              </span>
             </div>
           ) : null}
 
