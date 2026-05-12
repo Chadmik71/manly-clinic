@@ -31,7 +31,7 @@ export const CLINIC = {
 } as const;
 
 // Cancellation policy
-export const CANCEL_FEE_THRESHOLD_HOURS = 24;
+export const CANCEL_FEE_THRESHOLD_HOURS = 1;
 export const CANCEL_FEE_PERCENT = 50; // % of price charged when cancelled inside the threshold
 
 // Clinic-wide booking policy. All sessions must finish by this time
