@@ -20,6 +20,9 @@ import {
   MEDICAL_HISTORY_GROUPS,
   GENDER_OPTIONS,
 } from "@/lib/intake";
+import { DepositCard } from "./deposit-card";
+
+const DEPOSITS_ENABLED = process.env.NEXT_PUBLIC_DEPOSITS_ENABLED === "true";
 
 type IntakeDefaults = {
   medicalConditions: string;
@@ -203,6 +206,11 @@ export function ConfirmForm({
     new Set(intakeDefaults?.medicalHistory ?? []),
   );
   const [policyAccepted, setPolicyAccepted] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [depositAmountCents, setDepositAmountCents] = useState(3000);
+  const [paymentStage, setPaymentStage] = useState<"idle" | "fetching" | "card" | "paying">("idle");
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const intakeRequired = claiming;
 
@@ -215,9 +223,43 @@ export function ConfirmForm({
     });
   }
 
+  async function fetchPaymentIntent() {
+    setPaymentStage("fetching");
+    setPaymentError(null);
+    try {
+      const f = new FormData(formRef.current!);
+      const resp = await fetch("/api/bookings/payment-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: String(f.get("email") ?? ""),
+          name: String(f.get("name") ?? ""),
+        }),
+      });
+      if (!resp.ok) {
+        const j = await resp.json().catch(() => ({}));
+        setPaymentStage("idle");
+        setPaymentError(j.error ?? "Payment unavailable (HTTP " + resp.status + ")");
+        return;
+      }
+      const data = await resp.json();
+      setClientSecret(data.clientSecret);
+      setPaymentIntentId(data.paymentIntentId);
+      setDepositAmountCents(data.amountCents);
+      setPaymentStage("card");
+    } catch {
+      setPaymentStage("idle");
+      setPaymentError("Could not contact payment server. Please try again.");
+    }
+  }
+
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    if (DEPOSITS_ENABLED && !paymentIntentId && paymentStage !== "paying") {
+      fetchPaymentIntent();
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     fd.set("serviceId", serviceId);
     fd.set("variantId", variantId);
@@ -236,6 +278,7 @@ export function ConfirmForm({
       fd.set("signatureDataUrl", signatureDataUrl);
     }
     start(async () => {
+      if (paymentIntentId) fd.set("paymentIntentId", paymentIntentId);
       const res = await action(fd);
       if (res?.error) setError(res.error);
       else if (res?.reference) {
