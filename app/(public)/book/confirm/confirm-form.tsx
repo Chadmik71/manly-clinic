@@ -295,6 +295,7 @@ export function ConfirmForm({
         if (isGuest) {
           setGuestSuccess({ reference: res.reference });
           window.scrollTo({ top: 0, behavior: "smooth" });
+          setConfirmOpen(false);
         } else {
           window.location.href = `/portal/bookings/confirmed?ref=${res.reference}`;
         }
