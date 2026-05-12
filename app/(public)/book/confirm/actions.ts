@@ -32,6 +32,7 @@ import { headers } from "next/headers";
 import { normalisePhone, isAuMobile } from "@/lib/phone";
 import { findOrCreateUserForGuest } from "@/lib/user-merge";
 import { applyHolidaySurcharge } from "@/lib/holidays";
+import { getStripe, depositCents, depositsEnabled } from "@/lib/stripe";
 
 const schema = z.object({
   serviceId: z.string().min(1),
@@ -108,6 +109,58 @@ export async function createBooking(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string; reference?: string }> {
   const session = await auth();
+
+  // Deposit verification — when feature flag is on, the booking confirm form
+  // attaches a Stripe PaymentIntent ID to the FormData. We verify here that
+  // the PaymentIntent has actually succeeded, paid the expected amount, and
+  // carries the booking_deposit metadata kind. Forged or mismatched intents
+  // are refunded (if charged) and rejected.
+  const paymentIntentIdFromFd = String(fd.get("paymentIntentId") ?? "").trim();
+  let verifiedDepositCents = 0;
+  let verifiedPaymentIntentId: string | null = null;
+
+  if (depositsEnabled()) {
+    if (!paymentIntentIdFromFd) {
+      return { error: "A deposit is required. Please refresh the page and try again." };
+    }
+    const stripe = getStripe();
+    if (!stripe) {
+      return { error: "Payment processing is temporarily unavailable. Please contact us." };
+    }
+    try {
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentIdFromFd);
+      if (pi.status !== "succeeded") {
+        return { error: "Your payment did not complete. Please try again." };
+      }
+      const expectedAmount = depositCents();
+      const amountOk = pi.amount === expectedAmount && pi.currency === "aud";
+      const metadataOk = pi.metadata?.kind === "booking_deposit";
+      if (!amountOk || !metadataOk) {
+        // Suspicious payment — refund and reject.
+        try {
+          await stripe.refunds.create({ payment_intent: paymentIntentIdFromFd });
+        } catch (refundErr) {
+          console.error("Refund failed on suspicious payment:", refundErr);
+        }
+        await audit({
+          action: "stripe.payment_intent.suspicious",
+          resource: paymentIntentIdFromFd,
+          metadata: {
+            amount: pi.amount,
+            currency: pi.currency,
+            metadataKind: pi.metadata?.kind ?? null,
+            expected: expectedAmount,
+          },
+        });
+        return { error: "Payment validation failed. If you were charged, a refund has been initiated." };
+      }
+      verifiedDepositCents = pi.amount;
+      verifiedPaymentIntentId = paymentIntentIdFromFd;
+    } catch (err) {
+      console.error("Failed to verify PaymentIntent:", err);
+      return { error: "Could not verify your payment. Please try again or contact us." };
+    }
+  }
 
   const raw: Record<string, string> = {};
   fd.forEach((v, k) => {
@@ -568,6 +621,8 @@ export async function createBooking(
         paidCents: voucherAppliedCents,
         notes: data.notes ?? null,
         coupleGroupId,
+        paidCents: verifiedDepositCents,
+        paymentIntentId: verifiedPaymentIntentId,
       },
       select: { id: true },
     });
