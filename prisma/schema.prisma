@@ -313,3 +313,21 @@ model DailyCapacityOverride {
   createdAt      DateTime @default(now())
   createdBy      String?  // User.id of admin who set it (denormalised, no FK)
 }
+
+
+// Singleton settings row for clinic-wide feature flags.
+//
+// Always has exactly one row with id = "default". The application creates it
+// lazily on first read if missing (see lib/clinic-settings.ts) so we do not
+// rely on a seed step that might be skipped in some environments.
+//
+// Fields are explicit columns (not key/value) so type safety follows through
+// from Prisma into the staff settings UI.
+model ClinicSetting {
+  id                    String    @id @default("default") // singleton; only one row exists
+  depositsEnabled       Boolean   @default(true)          // master kill switch for online deposits
+  cardSurchargeEnabled  Boolean   @default(false)         // when true, add cardSurchargeBps to deposit
+  cardSurchargeBps      Int       @default(150)           // surcharge in basis points (150 = 1.50%)
+  updatedAt             DateTime  @updatedAt
+  updatedBy             String?                            // User.id of admin who last changed it
+}
