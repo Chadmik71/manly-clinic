@@ -72,7 +72,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     db.booking.findMany({
       where: {
         startsAt: { gte: dayStart, lte: dayEnd },
-        status: { in: ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"] },
+        status: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
       },
       include: {
         service: true,
@@ -127,7 +127,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold">Schedule</h1>
           <Button asChild>
-            <Link href={`/book?date=${dateStr}`}>
+            <Link href={`/staff/bookings/new?date=${dateStr}`}>
               <Plus className="h-4 w-4 mr-1" /> New Booking
             </Link>
           </Button>
