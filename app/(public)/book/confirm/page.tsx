@@ -87,11 +87,7 @@ export default async function ConfirmPage({
         include: { service: { select: { name: true } } },
       })
     : null;
-  const partnerVariantSummary =
-    partnerVariant && variant
-      ? `${partnerVariant.service.name} — ${partnerVariant.durationMin} min ($${(partnerVariant.priceCents / 100).toFixed(2)})`
-      : null;
-  const validPartnerVariantId = partnerVariantSummary ? sp.partner : null;
+  const validPartnerVariantId = partnerVariant && variant ? sp.partner : null;
   if (!service || !variant) redirect("/book");
 
   const starts = new Date(sp.starts);
@@ -101,6 +97,15 @@ export default async function ConfirmPage({
   // Compute the public-holiday surcharge breakdown so the customer sees the
   // final price (and any surcharge) on the confirm page, not after submission.
   const pricing = applyHolidaySurcharge(variant.priceCents, starts);
+  // Apply the same public-holiday surcharge to the partner half (couple booking)
+  // so both halves are quoted consistently — same percentage on the same date.
+  const partnerPricing = partnerVariant
+    ? applyHolidaySurcharge(partnerVariant.priceCents, starts)
+    : null;
+  const partnerVariantSummary =
+    partnerVariant && variant && partnerPricing
+      ? `${partnerVariant.service.name} — ${partnerVariant.durationMin} min ($${(partnerPricing.finalPriceCents / 100).toFixed(2)})`
+      : null;
 
   // Optional session — we now allow guest checkout.
   const session = await auth();
@@ -199,7 +204,7 @@ export default async function ConfirmPage({
             <div className="flex justify-between">
               <span className="text-muted-foreground">Partner</span>
               <span className="font-medium">
-                {formatPrice(partnerVariant.priceCents)}
+                {formatPrice(partnerPricing?.finalPriceCents ?? 0)}
               </span>
             </div>
           ) : null}
@@ -207,7 +212,7 @@ export default async function ConfirmPage({
             <div className="border-t pt-2 flex justify-between">
               <span className="font-semibold">Total</span>
               <span className="font-semibold">
-                {formatPrice(pricing.finalPriceCents + (partnerVariant?.priceCents ?? 0))}
+                {formatPrice(pricing.finalPriceCents + (partnerPricing?.finalPriceCents ?? 0))}
               </span>
             </div>
           ) : null}
