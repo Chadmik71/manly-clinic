@@ -76,6 +76,7 @@ export default async function NewStaffBookingPage({
               services={services.map((s) => ({
                 id: s.id,
                 name: s.name,
+                healthFundEligible: s.healthFundEligible,
                 variants: s.variants.map((v) => ({
                   id: v.id,
                   durationMin: v.durationMin,

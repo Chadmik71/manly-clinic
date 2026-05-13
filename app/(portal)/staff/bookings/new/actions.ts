@@ -40,6 +40,15 @@ const schema = z.object({
   startsAt: z.string().min(1),
   therapistId: z.string().optional(),
   notes: z.string().max(2000).optional(),
+  // Health-fund claim (walk-in / staff-created bookings). When checked, all
+  // four fund fields below are required and a fresh signature is captured.
+  claimWithHealthFund: z.string().optional(),
+  healthFundName: z.string().max(80).optional(),
+  healthFundMemberNumber: z.string().max(40).optional(),
+  reasonForTreatment: z.string().max(2000).optional(),
+  // PNG data URL from the in-clinic signature pad. 150 KB ceiling matches the
+  // public confirm action — typical signatures are 5–20 KB.
+  signatureDataUrl: z.string().max(150_000).optional(),
 });
 
 export async function createStaffBooking(
@@ -65,6 +74,30 @@ export async function createStaffBooking(
     include: { service: true },
   });
   if (!variant) return { error: "Service variant not found." };
+
+  // Health-fund claim validation. Mirrors the public confirm flow: the four
+  // HiCAPS audit fields (fund, member#, reason, signature) are all-or-nothing.
+  const claimWithHealthFund = data.claimWithHealthFund === "on";
+  if (claimWithHealthFund) {
+    if (!variant.service.healthFundEligible) {
+      return { error: "This treatment is not eligible for health fund rebates." };
+    }
+    if (
+      !data.signatureDataUrl ||
+      !data.signatureDataUrl.startsWith("data:image/png;base64,")
+    ) {
+      return {
+        error:
+          "Please ask the client to sign in the signature pad to authorise the health-fund claim.",
+      };
+    }
+    if (!data.healthFundName || !data.healthFundName.trim())
+      return { error: "Please choose the client's health fund." };
+    if (!data.healthFundMemberNumber || !data.healthFundMemberNumber.trim())
+      return { error: "Please enter the client's health fund member number." };
+    if (!data.reasonForTreatment || !data.reasonForTreatment.trim())
+      return { error: "Please describe the reason for treatment." };
+  }
 
   const startsAt = new Date(data.startsAt);
   if (isNaN(startsAt.getTime())) return { error: "Invalid start time." };
@@ -166,13 +199,43 @@ export async function createStaffBooking(
       priceCentsAtBooking: variant.priceCents,
       notes: data.notes ?? null,
       isWalkIn,
+      claimWithHealthFund,
     },
   });
+
+  // When the client is claiming via HiCAPS today, persist the signature +
+  // fund metadata as a fresh IntakeForm row. The walk-in flow doesn't
+  // collect a full clinical intake at the counter; staff captures the
+  // remaining fields on the booking detail page after the session, but the
+  // HiCAPS-required pieces (fund, member#, reason, signature) are locked in
+  // here with consent flags so the audit trail starts at booking time.
+  if (claimWithHealthFund) {
+    await db.intakeForm.create({
+      data: {
+        userId: clientId,
+        healthFundName: data.healthFundName ?? null,
+        healthFundMemberNumber: data.healthFundMemberNumber ?? null,
+        reasonForTreatment: data.reasonForTreatment ?? null,
+        consentToTreat: true,
+        consentToStore: true,
+        signedAt: new Date(),
+        signatureDataUrl: data.signatureDataUrl ?? null,
+      },
+    });
+  }
+
   await audit({
     userId: session.user.id,
     action: "CREATE_BOOKING_STAFF",
     resource: `Booking:${booking.id}`,
-    metadata: { reference, isWalkIn },
+    metadata: {
+      reference,
+      isWalkIn,
+      claimWithHealthFund,
+      ...(claimWithHealthFund
+        ? { healthFundName: data.healthFundName ?? null }
+        : {}),
+    },
   });
   revalidatePath("/staff/bookings");
   revalidatePath("/staff/schedule");

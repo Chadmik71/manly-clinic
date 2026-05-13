@@ -19,6 +19,7 @@ import { BodyDiagram } from "@/components/body-diagram";
 import {
   MEDICAL_HISTORY_GROUPS,
   GENDER_OPTIONS,
+  HEALTH_FUNDS,
 } from "@/lib/intake";
 import { DepositCard } from "./deposit-card";
 
@@ -60,49 +61,6 @@ type UserDefaults = {
   gpClinic: string;
   gpPhone: string;
 };
-
-const HEALTH_FUNDS = [
-  "ACA Health Benefits Fund",
-  "AHM",
-  "Australian Unity",
-  "Bupa",
-  "CBHS Corporate Health",
-  "CBHS Health Fund",
-  "Cessnock District Health",
-  "CUA Health",
-  "Defence Health",
-  "Doctors' Health Fund",
-  "Emergency Services Health",
-  "Frank Health Insurance",
-  "GMHBA",
-  "HBF",
-  "HCF",
-  "HCI (Health Care Insurance)",
-  "Health.com.au",
-  "Health Partners",
-  "HIF (Health Insurance Fund)",
-  "Latrobe Health Services",
-  "Medibank",
-  "Mildura Health Fund",
-  "myOwn Health Insurance",
-  "Navy Health",
-  "NIB",
-  "Nurses & Midwives Health",
-  "Onemedifund",
-  "Peoplecare",
-  "Phoenix Health Fund",
-  "Police Health",
-  "Queensland Country Health Fund",
-  "RBHS (Reserve Bank Health Society)",
-  "RT Health",
-  "St.LukesHealth",
-  "Teachers Health",
-  "Transport Health",
-  "TUH (Teachers Union Health)",
-  "Union Health",
-  "Westfund",
-  "Other",
-];
 
 function SectionHeader({
   step,
