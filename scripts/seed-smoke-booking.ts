@@ -19,11 +19,10 @@
  * production, ensure .env.local has the prod URL or pre-export it.
  */
 try {
-  // @ts-expect-error Node 20.6+
+  // Node 20.6+ — types are bundled in current @types/node.
   process.loadEnvFile(".env.local");
 } catch {
   try {
-    // @ts-expect-error
     process.loadEnvFile(".env");
   } catch {
     /* rely on env */
