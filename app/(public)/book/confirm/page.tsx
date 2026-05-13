@@ -15,6 +15,7 @@ import { applyHolidaySurcharge } from "@/lib/holidays";
 import { ConfirmForm } from "./confirm-form";
 import { NotYouLink } from "./not-you-link";
 import { createBooking } from "./actions";
+import { getClinicSettingsSafe } from "@/lib/clinic-settings";
 
 // Sydney-aware formatters (Vercel runtime is UTC, clinic is Australia/Sydney).
 const SYD_DATE = new Intl.DateTimeFormat("en-AU", {
@@ -107,6 +108,12 @@ export default async function ConfirmPage({
 
   // Optional session — we now allow guest checkout.
   const session = await auth();
+
+  // Runtime deposit toggle — when admin disables deposits in the settings UI,
+  // the booking flow must bypass the payment step entirely (server route would
+  // otherwise 503 the PaymentIntent call). Safe variant falls back to defaults
+  // (deposits enabled) on DB failure, preserving the existing behaviour.
+  const clinicSettings = await getClinicSettingsSafe();
 
   // Pull intake + user defaults only when the visitor is signed in. For
   // guests we render empty defaults and the form prompts for their basics
@@ -241,6 +248,7 @@ export default async function ConfirmPage({
         partnerVariantId={validPartnerVariantId}
         partnerVariantSummary={partnerVariantSummary}
         signedInEmail={signedInEmail}
+        depositsEnabled={clinicSettings.depositsEnabled}
         bookingSummary={{
           serviceName: service.name,
           durationLabel: formatDuration(variant.durationMin),

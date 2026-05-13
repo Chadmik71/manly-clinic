@@ -33,6 +33,7 @@ import { normalisePhone, isAuMobile } from "@/lib/phone";
 import { findOrCreateUserForGuest } from "@/lib/user-merge";
 import { applyHolidaySurcharge } from "@/lib/holidays";
 import { getStripe, depositCents, depositsEnabled } from "@/lib/stripe";
+import { getClinicSettingsSafe } from "@/lib/clinic-settings";
 
 const schema = z.object({
   serviceId: z.string().min(1),
@@ -115,11 +116,20 @@ export async function createBooking(
   // the PaymentIntent has actually succeeded, paid the expected amount, and
   // carries the booking_deposit metadata kind. Forged or mismatched intents
   // are refunded (if charged) and rejected.
+  //
+  // The deposit requirement is gated by both the env kill switch
+  // (depositsEnabled()) and the admin-controlled runtime flag in
+  // ClinicSetting. When either is off, the booking proceeds without a
+  // deposit. The Safe variant falls back to defaults (deposits enabled) on
+  // DB failure, preserving fail-closed behaviour.
   const paymentIntentIdFromFd = String(fd.get("paymentIntentId") ?? "").trim();
   let verifiedDepositCents = 0;
   let verifiedPaymentIntentId: string | null = null;
 
-  if (depositsEnabled()) {
+  const clinicSettings = await getClinicSettingsSafe();
+  const requireDeposit = depositsEnabled() && clinicSettings.depositsEnabled;
+
+  if (requireDeposit) {
     if (!paymentIntentIdFromFd) {
       return { error: "A deposit is required. Please refresh the page and try again." };
     }

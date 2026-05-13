@@ -22,7 +22,10 @@ import {
 } from "@/lib/intake";
 import { DepositCard } from "./deposit-card";
 
-const DEPOSITS_ENABLED = process.env.NEXT_PUBLIC_DEPOSITS_ENABLED === "true";
+// Build-time kill switch: when false, the deposit UI is hidden globally even
+// if the admin enables it via the settings UI. The runtime DB flag passed in
+// as a prop is AND-ed with this — both must be true to require a deposit.
+const DEPOSITS_ENV_ENABLED = process.env.NEXT_PUBLIC_DEPOSITS_ENABLED === "true";
 
 type IntakeDefaults = {
   medicalConditions: string;
@@ -143,6 +146,7 @@ export function ConfirmForm({
   partnerVariantId,
   partnerVariantSummary,
   bookingSummary,
+  depositsEnabled,
 }: {
   action: (
     formData: FormData,
@@ -169,7 +173,13 @@ export function ConfirmForm({
     timeLabel: string;
     partnerLabel: string | null;
   };
+  /** Runtime DB-backed setting from ClinicSetting. When false, the booking
+   *  flow bypasses the deposit step entirely. */
+  depositsEnabled: boolean;
 }) {
+  // Effective deposit-required flag: env kill switch AND admin's runtime
+  // toggle must both be on for the booking to require a deposit.
+  const depositsActive = DEPOSITS_ENV_ENABLED && depositsEnabled;
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -278,7 +288,7 @@ export function ConfirmForm({
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    if (DEPOSITS_ENABLED && !paymentIntentId && paymentStage !== "paying") {
+    if (depositsActive && !paymentIntentId && paymentStage !== "paying") {
       fetchPaymentIntent();
       return;
     }
@@ -335,7 +345,7 @@ export function ConfirmForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="space-y-5">
-      {DEPOSITS_ENABLED && !guestSuccess && (
+      {depositsActive && !guestSuccess && (
         <div className="rounded-md border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
           <span className="font-medium">$30 deposit required to confirm booking</span> — refundable if you cancel with at least 1 hour notice per our cancellation policy.
         </div>
@@ -994,7 +1004,7 @@ export function ConfirmForm({
             // the dialog stays closed.
             if (formRef.current && !formRef.current.reportValidity()) return;
             setError(null);
-            if (DEPOSITS_ENABLED && !paymentIntentId && paymentStage === "idle") {
+            if (depositsActive && !paymentIntentId && paymentStage === "idle") {
               fetchPaymentIntent();
             }
             setConfirmOpen(true);
@@ -1062,7 +1072,7 @@ export function ConfirmForm({
                 treated as cancelled.
               </span>
             </label>
-                        {DEPOSITS_ENABLED && paymentStage === "card" && clientSecret ? (
+                        {depositsActive && paymentStage === "card" && clientSecret ? (
                           <div className="space-y-2 my-4">
                             {paymentError && (
                               <p className="text-sm text-destructive">{paymentError}</p>
