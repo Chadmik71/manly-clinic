@@ -435,26 +435,33 @@ if (bookingId) {
   else bad("Reschedule page", `got ${r.status}`);
 }
 
-// --- 24. Deposit page renders (Stripe disabled → "pay in clinic" copy) ---
+// --- 24. Deposit page renders (either Stripe card form OR "pay in clinic"
+//         fallback when Stripe isn't configured) ---
 if (bookingId) {
   const r = await fetch(BASE + `/portal/bookings/${bookingId}/deposit`, {
     headers: { cookie: cookieHeader() },
     redirect: "manual",
   });
   const html = await r.text();
-  if (r.status === 200 && /pay in clinic/i.test(html))
-    ok("Deposit page falls back to 'pay in clinic' when Stripe not configured");
-  else bad("Deposit page fallback", `status=${r.status}`);
+  // Accept either mode: fallback copy when Stripe is unset, or any deposit-
+  // page indicator (card form, $30, Stripe pubkey, etc.) when configured.
+  const fallback = /pay in clinic/i.test(html);
+  const stripeMode = /deposit/i.test(html) && /\$\s*30/.test(html);
+  if (r.status === 200 && (fallback || stripeMode))
+    ok(`Deposit page renders (${fallback ? "fallback" : "Stripe mode"})`);
+  else bad("Deposit page", `status=${r.status}`);
 }
 
-// --- 25. Deposit API returns 501 without Stripe ---
+// --- 25. Deposit API responds with either a 200 clientSecret (Stripe
+//         configured) or 501 (not configured). Both are valid prod states. ---
 if (bookingId) {
   const r = await fetch(BASE + `/api/bookings/${bookingId}/deposit`, {
     method: "POST",
     headers: { cookie: cookieHeader() },
   });
-  if (r.status === 501) ok("Deposit API returns 501 when Stripe not configured");
-  else bad("Deposit API 501", `got ${r.status}`);
+  if (r.status === 200) ok("Deposit API returns 200 (Stripe configured)");
+  else if (r.status === 501) ok("Deposit API returns 501 (Stripe not configured)");
+  else bad("Deposit API", `unexpected status ${r.status}`);
 }
 
 // --- 26. Therapist edit page renders for admin ---
