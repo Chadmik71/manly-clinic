@@ -9,6 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { formatPrice, therapistInternalName } from "@/lib/utils";
 
+// Sydney calendar time for booking.startsAt (UTC in DB; Vercel runs in UTC).
+const SYD_DATE_TIME = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
 export default async function ClientProfile({
   params,
 }: {
@@ -148,7 +159,7 @@ export default async function ClientProfile({
                 <tbody>
                   {client.bookings.map((b) => (
                     <tr key={b.id} className="border-t">
-                      <td className="px-4 py-3">{format(b.startsAt, "d MMM yyyy h:mm a")}</td>
+                      <td className="px-4 py-3">{SYD_DATE_TIME.format(b.startsAt)}</td>
                       <td className="px-4 py-3">
                         <Link href={`/staff/bookings/${b.id}`} className="hover:underline">
                           {b.service.name} ({b.variant.durationMin}m)

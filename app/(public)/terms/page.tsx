@@ -16,12 +16,12 @@ export default function TermsPage() {
         </p>
         <p>
           <strong className="text-foreground">Cancellations &amp; rescheduling.</strong>{" "}
-            Please give us at least 1 hour&apos;s notice if you need to cancel
-            or reschedule your appointment. If you arrive more than 10 minutes
-            late without calling the clinic, your booking will be treated as
-            cancelled and the slot may be released to the next customer.
-            No-shows may incur the full session fee.
-          </p>
+          Please give us at least 1 hour&apos;s notice if you need to cancel or
+          reschedule your appointment. Cancellations within 1 hour of the start
+          time, no-shows, and arriving more than 10 minutes late without
+          calling the clinic attract a 50% cancellation fee. In the late-arrival
+          case the slot may also be released to the next customer.
+        </p>
         <p>
           <strong className="text-foreground">Public holidays.</strong> A 10%
           surcharge applies to all services on NSW public holidays.

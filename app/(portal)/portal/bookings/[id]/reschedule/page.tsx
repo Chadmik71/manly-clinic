@@ -10,6 +10,17 @@ import { ReschedulePicker } from "./reschedule-picker";
 import { rescheduleBooking } from "./actions";
 import { formatPrice, formatDuration } from "@/lib/utils";
 
+// Sydney calendar time for booking.startsAt (UTC in DB; Vercel runs in UTC).
+const SYD_DATE_TIME = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
 export const metadata = { title: "Reschedule booking" };
 
 export default async function ReschedulePage({
@@ -60,7 +71,7 @@ export default async function ReschedulePage({
         <CardHeader>
           <CardTitle>{b.service.name}</CardTitle>
           <CardDescription>
-            Currently booked {format(b.startsAt, "EEE d MMM, h:mm a")} ·{" "}
+            Currently booked {SYD_DATE_TIME.format(b.startsAt)} ·{" "}
             {formatDuration(b.variant.durationMin)} ·{" "}
             {formatPrice(b.priceCentsAtBooking)}
           </CardDescription>

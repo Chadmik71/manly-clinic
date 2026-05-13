@@ -11,6 +11,22 @@ import { Download, Filter } from "lucide-react";
 import { format, subDays } from "date-fns";
 import type { Prisma } from "@prisma/client";
 
+// Sydney calendar time for booking.startsAt (UTC in DB; Vercel runs in UTC).
+// date-fns format() is still fine for the date-input defaults and filter chip
+// because those operate on user-provided local-day Date objects.
+const SYD_DATE = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+const SYD_TIME = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
 export const metadata = { title: "Reports" };
 
 type SP = {
@@ -363,9 +379,9 @@ export default async function ReportsPage({
                   {bookings.slice(0, 200).map((b) => (
                     <tr key={b.id} className="border-t">
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {format(b.startsAt, "d MMM yyyy")}
+                        {SYD_DATE.format(b.startsAt)}
                         <div className="text-xs text-muted-foreground">
-                          {format(b.startsAt, "h:mm a")}
+                          {SYD_TIME.format(b.startsAt)}
                         </div>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs">{b.reference}</td>

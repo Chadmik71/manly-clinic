@@ -7,7 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
-import { format } from "date-fns";
+
+// Render Sydney calendar time regardless of the runtime TZ (Vercel = UTC).
+// Raw date-fns format() would show UTC, so a 7pm Sydney slot shows as ~9am.
+const SYD_DATE_TIME = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
 
 export const metadata = { title: "My portal" };
 
@@ -82,7 +93,7 @@ export default async function PortalHome() {
                   </div>
                   <div className="font-semibold mt-1">{b.service.name}</div>
                   <div className="text-sm text-muted-foreground">
-                    {format(b.startsAt, "EEE d MMM, h:mm a")} ·{" "}
+                    {SYD_DATE_TIME.format(b.startsAt)} ·{" "}
                     {b.variant.durationMin} min
                     {b.slotLabel ? ` · ${b.slotLabel}` : b.therapist?.user.name ? ` · with ${b.therapist.user.name}` : ""}
                   </div>
