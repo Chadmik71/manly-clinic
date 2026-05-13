@@ -47,7 +47,14 @@ export default async function VouchersListPage() {
                 <tbody>
                   {vouchers.map((v) => (
                     <tr key={v.id} className="border-t">
-                      <td className="px-4 py-3 font-mono text-xs">{v.code}</td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        <Link
+                          href={`/staff/vouchers/${v.id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {v.code}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3">
                         <div>{v.recipientName}</div>
                         <div className="text-xs text-muted-foreground">{v.recipientEmail}</div>
