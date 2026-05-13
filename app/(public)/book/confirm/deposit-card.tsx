@@ -126,9 +126,7 @@ function CardForm({
         Deposit: ${dollars} AUD
       </div>
       <div className="text-xs text-muted-foreground">
-        Your card will be charged ${dollars} to confirm this booking.
-        The deposit is refundable if you cancel with at least 1 hour&apos;s notice
-        per our cancellation policy.
+        {`Your card will be charged $${dollars} to confirm this booking. The deposit is refundable if you cancel with at least 1 hour\u0027s notice per our cancellation policy.`}
       </div>
       <PaymentElement />
       <Button
