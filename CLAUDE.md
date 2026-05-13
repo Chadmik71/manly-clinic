@@ -26,11 +26,11 @@ Single owner-operator (Mick). Production handles real patient data.
 
 
 
-- **Framework**: Next.js 14 (App Router, RSC)
+- **Framework**: Next.js 16 (App Router, RSC)
 
 
 
-- **DB**: Prisma 6+ → PostgreSQL (Vercel Postgres in prod)
+- **DB**: Prisma 5.22 → PostgreSQL (Neon Postgres in prod)
 
 
 
@@ -648,6 +648,124 @@ Solo repo, no PRs needed for routine work. But:
 
 
 - Don't open PRs for trivial changes — that just adds friction
+
+
+
+
+
+## Lessons (2026-05-13)
+
+
+
+### JSX `$` adjacent to `{` bug
+
+
+
+Writing template-literal syntax (`${...}`) in JSX text or attribute values is a parse hazard — JSX wants `{expr}`, not `${expr}`. Even valid-looking forms like `"$" + {value}` or `<span>$$ {amount}</span>` have bitten us once the surrounding code includes a real `{` for a JSX expression.
+
+
+
+**Fix pattern**: pre-compute the display string in a `const` outside the JSX, then interpolate the variable on its own. See `app/(portal)/staff/settings/settings-form.tsx:51-55` — `pctStr` is computed in an IIFE above the return statement, and the JSX just renders `{pctStr}`. The inline comment in that file calls this out explicitly: *"Pre-compute display string outside JSX to keep the JSX free of $ adjacent to { problems."*
+
+
+
+Rule of thumb: any `$` next to `{` inside JSX is suspicious. Move the formatting to a variable.
+
+
+
+### StaffShell wrapper pattern
+
+
+
+`components/staff-shell.tsx` is the sidebar-rail shell for the staff portal. It is a **client component** (`"use client"`) because it uses `usePathname` for active-route highlighting and the next-auth client `signOut`. The staff route group's `layout.tsx` stays a **server** component so it can `await auth()` and redirect non-staff users.
+
+
+
+The shell is therefore **wrapped per-page, not in the layout**:
+
+
+
+```tsx
+// app/(portal)/staff/settings/page.tsx — canonical pattern
+export default async function SettingsPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login?from=/staff/settings");
+  const settings = await getClinicSettings();
+  return (
+    <StaffShell user={session.user}>
+      <div className="p-4 space-y-6 max-w-2xl">...</div>
+    </StaffShell>
+  );
+}
+```
+
+
+
+**Why per-page, not in `layout.tsx`**: putting `StaffShell` in the layout would force the entire staff subtree across the client boundary, breaking RSC data fetching in nested pages. Per-page wrapping also lets each page pass its own `topbar` slot.
+
+
+
+**The bug that motivated this section**: the settings page initially shipped without the wrap and rendered as a bare form with no sidebar. Fixed in `7717454 fix(staff/settings): wrap page in StaffShell so the sidebar renders`. **When adding a new staff page, always wrap in `<StaffShell user={session.user}>…</StaffShell>` — there is no layout fallback.**
+
+
+
+### Clinic settings (runtime feature flags)
+
+
+
+Runtime-editable settings for things we previously hard-coded. Lives at:
+
+
+
+- `lib/clinic-settings.ts` — `getClinicSettings()` (lazy-upserts a singleton row at `id: "default"`) and `getClinicSettingsSafe()` (same, but falls back to `CLINIC_SETTINGS_DEFAULTS` on DB error). Also exports `computeCardSurchargeCents(baseCents, settings)`.
+- `app/(portal)/staff/settings/{page,settings-form,actions}.tsx` — admin UI, wrapped in `StaffShell`, marked `dynamic = "force-dynamic"`.
+- `prisma/schema.prisma` — `ClinicSetting` model, singleton pattern.
+
+
+
+Current fields: `depositsEnabled`, `cardSurchargeEnabled`, `cardSurchargeBps` (basis points, hard-capped at 500 = 5%).
+
+
+
+**Important call-site choice**:
+
+
+
+- Payment-critical paths (e.g. `/api/bookings/payment-intent`) call `getClinicSettings()` — DB failure should propagate, never silently fall back to defaults that could charge the wrong amount.
+- Display-only paths (deposit-card UI surcharge preview) call `getClinicSettingsSafe()` — better to render with defaults than blank-page.
+
+
+
+Surcharge appears as an **itemised line** on the customer confirm page for ACCC disclosure (`feat(deposit-card): show itemised surcharge breakdown for ACCC disclosure`). Don't bury it in the total.
+
+
+
+### Rate-limit module
+
+
+
+`lib/rate-limit.ts` — fixed-window, in-memory limiter for public API routes. Surface area:
+
+
+
+- `getClientIp(req)` — reads `x-forwarded-for` (first entry), falls back to `x-real-ip`, then `"unknown"`.
+- `rateLimit(key, limit, windowMs)` — returns `{ allowed, remaining, resetAt, retryAfterSec }`.
+- `rateLimitResponse(result)` — 429 JSON with `Retry-After` header.
+- `RATE_LIMITS` presets: `paymentIntent` 10/min, `depositRefund` 20/min, `signup` 5/min.
+
+
+
+Wired into: `app/api/signup/route.ts`, `app/api/bookings/payment-intent/route.ts`, `app/api/bookings/[id]/deposit/route.ts`. All key on `"<route>:<ip>"`.
+
+
+
+**Caveats**:
+
+
+
+- **Per-instance, not global**. Vercel runs multiple lambda instances; a warm instance counts repeat callers but a cold start resets the Map. Treat the limit as casual-abuse deterrent (card-testing, signup spam, retry loops), **not a DDoS or security boundary** — for that, pair with Vercel WAF or move to Upstash Redis. The file's header comment says this explicitly; don't rip it out.
+- **Self-prunes on read** (`pruneIfNeeded`, at most once per minute) — no background job needed, memory stays bounded.
+- **Variable-shadow gotcha**: in `/api/signup` the rate-limit `ip` collided with the audit-log `ip` and silently broke audit logging. Fixed in `bd4f61d fix(api/signup): rename rate-limit ip var to avoid shadowing audit ip`. When adding the limiter to a new route that also calls `audit.log({ ip })`, rename one of them (e.g. `clientIp`).
 
 
 
