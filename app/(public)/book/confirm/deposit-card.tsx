@@ -105,7 +105,7 @@ function CardForm({
   }
 
   return (
-    <div className="space-y-4 rounded-md border bg-card p-4">
+    <div className="space-y-4 rounded-md border bg-card p-4 mb-32 scroll-mt-24" id="deposit-card-wrapper">
       {hasSurcharge ? (
         <div className="text-xs text-muted-foreground space-y-1 -mb-2">
           <div className="flex justify-between">
