@@ -253,6 +253,7 @@ export default async function ConfirmPage({
           serviceName: service.name,
           durationLabel: formatDuration(variant.durationMin),
           priceLabel: formatPrice(pricing.basePriceCents),
+          priceCents: pricing.basePriceCents,
           dateLabel: SYD_DATE.format(starts),
           timeLabel: `${SYD_TIME.format(starts)} – ${SYD_TIME.format(ends)} (Sydney)`,
           partnerLabel: partnerVariantSummary,

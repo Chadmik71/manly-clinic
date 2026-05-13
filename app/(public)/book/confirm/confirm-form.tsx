@@ -22,6 +22,8 @@ import {
   HEALTH_FUNDS,
 } from "@/lib/intake";
 import { DepositCard } from "./deposit-card";
+import { previewVoucher } from "./actions";
+import { formatPrice } from "@/lib/utils";
 
 // Build-time kill switch: when false, the deposit UI is hidden globally even
 // if the admin enables it via the settings UI. The runtime DB flag passed in
@@ -127,6 +129,9 @@ export function ConfirmForm({
     serviceName: string;
     durationLabel: string;
     priceLabel: string;
+    /** Treatment-only price in cents. Passed to previewVoucher so the Apply
+     *  button can show "$X off" before the customer submits. */
+    priceCents: number;
     dateLabel: string;
     timeLabel: string;
     partnerLabel: string | null;
@@ -182,6 +187,34 @@ export function ConfirmForm({
   const [depositSurchargeBps, setDepositSurchargeBps] = useState<number | undefined>(undefined);
   const [paymentStage, setPaymentStage] = useState<"idle" | "fetching" | "card" | "paying">("idle");
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [voucherCode, setVoucherCode] = useState("");
+  const [voucherChecking, setVoucherChecking] = useState(false);
+  const [voucherResult, setVoucherResult] = useState<
+    | { ok: true; appliedCents: number; balanceCents: number; amountCents: number; code: string }
+    | { ok: false; error: string }
+    | null
+  >(null);
+
+  async function onApplyVoucher() {
+    if (!voucherCode.trim()) return;
+    setVoucherChecking(true);
+    setVoucherResult(null);
+    try {
+      const res = await previewVoucher(voucherCode, bookingSummary.priceCents);
+      if (res.ok) {
+        setVoucherResult({ ...res, code: voucherCode.trim().toUpperCase() });
+      } else {
+        setVoucherResult(res);
+      }
+    } finally {
+      setVoucherChecking(false);
+    }
+  }
+
+  function clearVoucher() {
+    setVoucherCode("");
+    setVoucherResult(null);
+  }
 
   const intakeRequired = claiming;
 
@@ -846,12 +879,61 @@ export function ConfirmForm({
           title="Gift voucher (optional)"
           desc="Got a code? We'll deduct the balance, up to the session price."
         />
-        <CardContent className="pb-5 pt-4">
-          <Input
-            name="voucherCode"
-            placeholder="GV-XXXX-XXXX"
-            className="max-w-xs uppercase font-mono"
-          />
+        <CardContent className="pb-5 pt-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              name="voucherCode"
+              value={voucherCode}
+              onChange={(e) => {
+                setVoucherCode(e.target.value);
+                // Stale result if the user edits after applying — force a re-apply.
+                if (voucherResult) setVoucherResult(null);
+              }}
+              placeholder="GV-XXXX-XXXX"
+              className="max-w-xs uppercase font-mono"
+              disabled={pending}
+            />
+            {voucherResult && voucherResult.ok ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={clearVoucher}
+                disabled={pending}
+              >
+                Remove
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onApplyVoucher}
+                disabled={pending || voucherChecking || !voucherCode.trim()}
+              >
+                {voucherChecking ? "Checking…" : "Apply"}
+              </Button>
+            )}
+          </div>
+          {voucherResult && !voucherResult.ok && (
+            <p className="text-sm text-destructive">{voucherResult.error}</p>
+          )}
+          {voucherResult && voucherResult.ok && (
+            <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 px-3 py-2 text-sm">
+              <span className="font-medium text-emerald-700 dark:text-emerald-300">
+                Voucher applied:
+              </span>{" "}
+              <span className="font-semibold">
+                {formatPrice(voucherResult.appliedCents)}
+              </span>{" "}
+              off the {formatPrice(bookingSummary.priceCents)} treatment.
+              {voucherResult.balanceCents > voucherResult.appliedCents && (
+                <>
+                  {" "}
+                  Remaining balance after this booking:{" "}
+                  {formatPrice(voucherResult.balanceCents - voucherResult.appliedCents)}.
+                </>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -987,13 +1069,28 @@ export function ConfirmForm({
           aria-modal="true"
           aria-labelledby="confirm-booking-title"
         >
-          <div className="bg-background rounded-lg max-w-md w-full p-6 shadow-xl border">
-            <h2
-              id="confirm-booking-title"
-              className="text-lg font-semibold mb-3"
-            >
-              Confirm your booking?
-            </h2>
+          <div className="bg-background rounded-lg max-w-md w-full shadow-xl border max-h-[90vh] flex flex-col">
+            {/* Header — always visible. The X gives a way out once the Stripe
+                card form pushes the bottom Cancel button below the viewport
+                fold (the bug that prompted this layout). */}
+            <div className="flex items-center justify-between gap-3 p-6 pb-3 border-b shrink-0">
+              <h2
+                id="confirm-booking-title"
+                className="text-lg font-semibold"
+              >
+                Confirm your booking?
+              </h2>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setConfirmOpen(false)}
+                disabled={pending}
+                className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 transition-colors"
+              >
+                <span className="text-xl leading-none">×</span>
+              </button>
+            </div>
+            <div className="overflow-y-auto px-6 py-4 flex-1">
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm mb-4">
               <dt className="text-muted-foreground">Service</dt>
               <dd className="font-medium">
@@ -1046,7 +1143,10 @@ export function ConfirmForm({
                             />
                           </div>
                         ) : null}
-                        <div className="flex gap-2 justify-end">
+            </div>
+            {/* Sticky footer — Cancel stays reachable even when Stripe's
+                expanded card form makes the body scroll. */}
+            <div className="flex gap-2 justify-end px-6 py-3 border-t shrink-0">
               <Button
                 type="button"
                 variant="outline"

@@ -35,6 +35,43 @@ import { applyHolidaySurcharge } from "@/lib/holidays";
 import { getStripe, depositCents, depositsEnabled } from "@/lib/stripe";
 import { getClinicSettingsSafe } from "@/lib/clinic-settings";
 
+/**
+ * Read-only voucher lookup used by the "Apply" button in the booking confirm
+ * form. Returns what would be deducted *if* this voucher were redeemed against
+ * the given service price, without touching the row. The actual redemption
+ * (status flip / balance decrement) happens inside createBooking — keeping
+ * this preview side-effect-free avoids partial-redeem states if the customer
+ * applies but then abandons the booking.
+ */
+export async function previewVoucher(
+  rawCode: string,
+  servicePriceCents: number,
+): Promise<
+  | { ok: true; appliedCents: number; balanceCents: number; amountCents: number }
+  | { ok: false; error: string }
+> {
+  const code = rawCode.trim().toUpperCase();
+  if (!code) return { ok: false, error: "Enter a voucher code." };
+  if (!Number.isFinite(servicePriceCents) || servicePriceCents <= 0)
+    return { ok: false, error: "Could not determine service price." };
+
+  const v = await db.voucher.findUnique({ where: { code } });
+  if (!v) return { ok: false, error: "Voucher code not found." };
+  if (v.status !== "ACTIVE")
+    return { ok: false, error: `Voucher is ${v.status.toLowerCase().replace("_", " ")}.` };
+  if (v.expiresAt && v.expiresAt < new Date())
+    return { ok: false, error: "Voucher has expired." };
+  if (v.balanceCents <= 0)
+    return { ok: false, error: "Voucher has no remaining balance." };
+
+  return {
+    ok: true,
+    appliedCents: Math.min(v.balanceCents, servicePriceCents),
+    balanceCents: v.balanceCents,
+    amountCents: v.amountCents,
+  };
+}
+
 const schema = z.object({
   serviceId: z.string().min(1),
   variantId: z.string().min(1),
