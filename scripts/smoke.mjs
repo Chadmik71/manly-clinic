@@ -3,6 +3,17 @@
 //   npm run smoke                         # against localhost:3000
 //   npm run smoke -- http://other:port    # different host
 //   SMOKE_URL=https://prod.example.com npm run smoke
+//
+// Credentials + target URL can also live in .env.smoke (see
+// .env.smoke.example). The file is gitignored; this loader picks it up
+// before reading process.env. process.loadEnvFile is Node 20.6+; older
+// Node hits the catch and falls back to whatever's already in env.
+try {
+  process.loadEnvFile(".env.smoke");
+} catch {
+  // file missing or older Node — rely on env vars set externally
+}
+
 const BASE =
   process.argv[2] || process.env.SMOKE_URL || "http://localhost:3000";
 let pass = 0;

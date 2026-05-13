@@ -3,6 +3,7 @@ node_modules
 out
 .env*
 !.env.example
+!.env.smoke.example
 tsconfig.tsbuildinfo
 *.db
 *.db-journal
