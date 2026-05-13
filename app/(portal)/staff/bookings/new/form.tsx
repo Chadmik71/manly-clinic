@@ -49,6 +49,28 @@ export function NewBookingForm({
   const [claiming, setClaiming] = useState(false);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
+  // Split the single datetime-local control into a date input + a time
+  // dropdown — Chrome/desktop only opens the date popup, leaving time as a
+  // keyboard-only field. Time options run 9:00 am to 7:45 pm in 15-min steps,
+  // matching the clinic-wide BOOKING_EARLIEST_START_MIN / LATEST_END windows.
+  const initialDate = initialStartsAt?.slice(0, 10) ?? "";
+  const initialTime = initialStartsAt?.slice(11, 16) ?? "09:00";
+  const [dateValue, setDateValue] = useState(initialDate);
+  const [timeValue, setTimeValue] = useState(initialTime);
+
+  const timeOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [];
+    for (let m = 9 * 60; m <= 19 * 60 + 45; m += 15) {
+      const hh = Math.floor(m / 60);
+      const mm = m % 60;
+      const value = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+      const period = hh < 12 ? "am" : "pm";
+      const h12 = hh % 12 === 0 ? 12 : hh % 12;
+      opts.push({ value, label: `${h12}:${String(mm).padStart(2, "0")} ${period}` });
+    }
+    return opts;
+  }, []);
+
   const variants = useMemo(
     () => services.find((s) => s.id === serviceId)?.variants ?? [],
     [services, serviceId],
@@ -83,6 +105,11 @@ export function NewBookingForm({
     fd.set("mode", mode);
     fd.set("serviceId", serviceId);
     fd.set("variantId", variantId);
+    if (!dateValue) {
+      setError("Please pick a date.");
+      return;
+    }
+    fd.set("startsAt", `${dateValue}T${timeValue}`);
     if (claimActive) {
       // HiCAPS audit: every health-fund claim must include a fresh signature
       // captured at the counter. Validate before hitting the server so staff
@@ -220,14 +247,29 @@ export function NewBookingForm({
           </select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="startsAt">Starts at</Label>
+          <Label htmlFor="startsAtDate">Date</Label>
           <Input
-            id="startsAt"
-            name="startsAt"
-            type="datetime-local"
+            id="startsAtDate"
+            type="date"
             required
-            defaultValue={initialStartsAt}
+            value={dateValue}
+            onChange={(e) => setDateValue(e.target.value)}
           />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="startsAtTime">Time</Label>
+          <select
+            id="startsAtTime"
+            value={timeValue}
+            onChange={(e) => setTimeValue(e.target.value)}
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+          >
+            {timeOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="therapistId">Therapist</Label>
