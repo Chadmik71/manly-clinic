@@ -22,8 +22,17 @@ import {
   depositsEnabled,
 } from "@/lib/stripe";
 import { audit } from "@/lib/audit";
+import { rateLimit, rateLimitResponse, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  // Rate limit: prevent card-testing / abuse on this public endpoint.
+  const ip = getClientIp(req);
+  const rl = rateLimit(
+    `payment-intent:${ip}`,
+    RATE_LIMITS.paymentIntent.limit,
+    RATE_LIMITS.paymentIntent.windowMs,
+  );
+  if (!rl.allowed) return rateLimitResponse(rl);
   if (!depositsEnabled()) {
     return NextResponse.json(
       { error: "Deposits are not currently enabled." },
