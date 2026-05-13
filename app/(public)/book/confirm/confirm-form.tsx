@@ -1106,9 +1106,37 @@ export function ConfirmForm({
               <dd className="font-medium">{bookingSummary.dateLabel}</dd>
               <dt className="text-muted-foreground">Time</dt>
               <dd className="font-medium">{bookingSummary.timeLabel}</dd>
-              <dt className="text-muted-foreground">Total</dt>
-              <dd className="font-semibold">{bookingSummary.priceLabel}</dd>
+              <dt className="text-muted-foreground">Treatment</dt>
+              <dd className={voucherResult && voucherResult.ok ? "font-medium" : "font-semibold"}>
+                {bookingSummary.priceLabel}
+              </dd>
+              {voucherResult && voucherResult.ok && (
+                <>
+                  <dt className="text-muted-foreground">Voucher</dt>
+                  <dd className="font-medium text-emerald-700 dark:text-emerald-300">
+                    −{formatPrice(voucherResult.appliedCents)}
+                  </dd>
+                  <dt className="text-muted-foreground font-semibold">Total payable</dt>
+                  <dd className="font-semibold">
+                    {formatPrice(
+                      Math.max(bookingSummary.priceCents - voucherResult.appliedCents, 0),
+                    )}
+                  </dd>
+                </>
+              )}
             </dl>
+            {voucherResult && voucherResult.ok && depositsActive && (
+              <p className="text-xs text-muted-foreground mb-3">
+                You&apos;ll pay the $30 deposit online now; the remaining{" "}
+                {formatPrice(
+                  Math.max(
+                    bookingSummary.priceCents - voucherResult.appliedCents - 3000,
+                    0,
+                  ),
+                )}{" "}
+                is settled in clinic at your appointment.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground mb-5">
               Once confirmed, we’ll send you an email and SMS. To cancel or
               reschedule, contact the clinic directly.
