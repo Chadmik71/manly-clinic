@@ -410,8 +410,8 @@ export function ConfirmForm({
         </Card>
       )}
 
-      {/* 1. Patient details (full intake only) */}
-      {intakeMode === "full" && (<Card>
+      {/* 1. Patient details (hidden for relaxation / safety services) */}
+      {intakeMode !== "safety" && (<Card>
         <SectionHeader
           step={stepNo(1)}
           title="Patient details"
@@ -448,8 +448,8 @@ export function ConfirmForm({
         </CardContent>
       </Card>)}
 
-      {/* 2. GP / referring doctor (full intake only) */}
-      {intakeMode === "full" && (<Card>
+      {/* 2. GP / referring doctor (hidden for relaxation / safety services) */}
+      {intakeMode !== "safety" && (<Card>
         <SectionHeader
           step={stepNo(2)}
           title="General Practitioner (optional)"
