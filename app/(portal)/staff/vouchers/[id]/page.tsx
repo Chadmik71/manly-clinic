@@ -18,6 +18,23 @@ export const dynamic = "force-dynamic";
 type Params = Promise<{ id: string }>;
 type SearchParams = Promise<{ new?: string; emailed?: string; redeemed?: string }>;
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Params;
+}) {
+  const { id } = await params;
+  const voucher = await db.voucher.findUnique({
+    where: { id },
+    select: { code: true },
+  });
+  return {
+    title: voucher
+      ? `Voucher ${voucher.code} | Manly Remedial Thai`
+      : "Voucher | Manly Remedial Thai",
+  };
+}
+
 export default async function VoucherDetailPage({
   params,
   searchParams,
