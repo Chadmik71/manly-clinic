@@ -209,6 +209,9 @@ export function ConfirmForm({
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [depositAmountCents, setDepositAmountCents] = useState(3000);
+  const [depositBaseCents, setDepositBaseCents] = useState<number | undefined>(undefined);
+  const [depositSurchargeCents, setDepositSurchargeCents] = useState<number | undefined>(undefined);
+  const [depositSurchargeBps, setDepositSurchargeBps] = useState<number | undefined>(undefined);
   const [paymentStage, setPaymentStage] = useState<"idle" | "fetching" | "card" | "paying">("idle");
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
@@ -246,6 +249,15 @@ export function ConfirmForm({
       setClientSecret(data.clientSecret);
       setPaymentIntentId(data.paymentIntentId);
       setDepositAmountCents(data.amountCents);
+      setDepositBaseCents(
+        typeof data.baseDepositCents === "number" ? data.baseDepositCents : undefined,
+      );
+      setDepositSurchargeCents(
+        typeof data.surchargeCents === "number" ? data.surchargeCents : undefined,
+      );
+      setDepositSurchargeBps(
+        typeof data.surchargeBps === "number" ? data.surchargeBps : undefined,
+      );
       setPaymentStage("card");
     } catch {
       setPaymentStage("idle");
@@ -1058,6 +1070,9 @@ export function ConfirmForm({
                             <DepositCard
                               clientSecret={clientSecret}
                               amountCents={depositAmountCents}
+                        baseDepositCents={depositBaseCents}
+                        surchargeCents={depositSurchargeCents}
+                        surchargeBps={depositSurchargeBps}
                               onSuccess={handlePaymentSuccess}
                               onError={handlePaymentError}
                             />
