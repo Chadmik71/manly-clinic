@@ -37,12 +37,22 @@ function getStripePromise(): Promise<Stripe | null> | null {
 type DepositCardProps = {
   clientSecret: string;
   amountCents: number;
+  // Optional surcharge breakdown for ACCC-compliant disclosure.
+  // When surchargeCents > 0 and baseDepositCents is defined, the card
+  // renders an itemised "deposit + surcharge" block. Otherwise the
+  // existing single-line "Deposit: $X" header is shown.
+  baseDepositCents?: number;
+  surchargeCents?: number;
+  surchargeBps?: number;
   onSuccess: (paymentIntentId: string) => void;
   onError: (message: string) => void;
 };
 
 function CardForm({
   amountCents,
+  baseDepositCents,
+  surchargeCents,
+  surchargeBps,
   onSuccess,
   onError,
 }: Omit<DepositCardProps, "clientSecret">) {
@@ -82,7 +92,22 @@ function CardForm({
 
   return (
     <div className="space-y-4 rounded-md border bg-card p-4">
-      <div className="text-sm font-medium">
+      {surchargeCents && surchargeCents > 0 && typeof baseDepositCents === "number" ? (
+        <div className="text-xs text-muted-foreground space-y-1 -mb-2">
+          <div className="flex justify-between">
+            <span>Booking deposit</span>
+            <span>${(baseDepositCents / 100).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>
+              Card surcharge{surchargeBps ? ` (${(surchargeBps / 100).toFixed(2)}%)` : ""}
+            </span>
+            <span>${(surchargeCents / 100).toFixed(2)}</span>
+          </div>
+        </div>
+      ) : null}
+      
+<div className="text-sm font-medium">
         Deposit: ${dollars} AUD
       </div>
       <div className="text-xs text-muted-foreground">
