@@ -147,7 +147,11 @@ Booking references:
 Manage / cancel / reschedule: ${CLINIC.domain}/portal/bookings
 
 ${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb}
-${CLINIC.phone}`;
+${CLINIC.phone}
+
+Cancellation policy: please give us at least 1 hour's notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.
+
+${CLINIC.name} · ${CLINIC.address.line1} ${CLINIC.address.line2 ?? ""} ${CLINIC.address.suburb} ${CLINIC.address.state} ${CLINIC.address.postcode} · ${CLINIC.phone}`;
     const htmlC = `<p>Hi ${args.name},</p>
 <p>Your <strong>couple booking</strong> is confirmed for <strong>${fmt(args.startsAt)}</strong>:</p>
 <ul style="margin:8px 0;padding-left:20px">
@@ -156,7 +160,9 @@ ${CLINIC.phone}`;
 </ul>
 <p>Booking references: <code>${args.reference}</code> (yours) &amp; <code>${p.reference}</code> (partner)<br/>
 <a href="${CLINIC.domain}/portal/bookings">Manage your booking</a></p>
-<p style="color:#64748b;font-size:12px">${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}</p>`;
+<p style="color:#64748b;font-size:12px">${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}</p>
+<p style="color:#64748b;font-size:12px;margin:12px 0;">Cancellation policy: please give us at least 1 hour&apos;s notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.</p>
+<p style="color:#64748b;font-size:12px;margin:12px 0 0 0;">${CLINIC.name} · ${CLINIC.address.line1} ${CLINIC.address.line2 ?? ""} ${CLINIC.address.suburb} ${CLINIC.address.state} ${CLINIC.address.postcode} · ${CLINIC.phone}</p>`;
 
     await sendEmail({ to: args.email, subject: subjectC, html: htmlC, text: textC });
     if (args.phone) {
