@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatPrice, therapistInternalName } from "@/lib/utils";
-import { format } from "date-fns";
+import { sydneyDateLong, sydneyTimeShort } from "@/lib/time";
 
 export const metadata = { title: "All bookings" };
 
@@ -98,9 +98,9 @@ export default async function StaffBookingsPage({
                   {bookings.map((b) => (
                     <tr key={b.id} className="border-t">
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {format(b.startsAt, "d MMM yyyy")}
+                        {sydneyDateLong(b.startsAt)}
                         <div className="text-xs text-muted-foreground">
-                          {format(b.startsAt, "h:mm a")} · {b.variant.durationMin}m
+                          {sydneyTimeShort(b.startsAt)} · {b.variant.durationMin}m
                         </div>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs">{b.reference}</td>
