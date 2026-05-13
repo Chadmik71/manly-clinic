@@ -10,11 +10,28 @@ import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Vouchers" };
 
+// PENDING_PAYMENT vouchers need staff action (activate after in-clinic
+// payment). Surface them first so they're not buried under historical rows.
+const STATUS_PRIORITY: Record<string, number> = {
+  PENDING_PAYMENT: 0,
+  ACTIVE: 1,
+  REDEEMED: 2,
+  EXPIRED: 3,
+  CANCELLED: 4,
+};
+
 export default async function VouchersListPage() {
   const session = (await auth())!;
-  const vouchers = await db.voucher.findMany({
+  const vouchersRaw = await db.voucher.findMany({
     orderBy: { createdAt: "desc" },
     take: 200,
+  });
+  const vouchers = [...vouchersRaw].sort((a, b) => {
+    const pa = STATUS_PRIORITY[a.status] ?? 9;
+    const pb = STATUS_PRIORITY[b.status] ?? 9;
+    if (pa !== pb) return pa - pb;
+    // Same status: keep newest first (the original ordering).
+    return b.createdAt.getTime() - a.createdAt.getTime();
   });
 
   return (
@@ -66,12 +83,16 @@ export default async function VouchersListPage() {
                           variant={
                             v.status === "ACTIVE"
                               ? "success"
-                              : v.status === "REDEEMED"
-                                ? "secondary"
-                                : "destructive"
+                              : v.status === "PENDING_PAYMENT"
+                                ? "warning"
+                                : v.status === "REDEEMED"
+                                  ? "secondary"
+                                  : "destructive"
                           }
                         >
-                          {v.status}
+                          {v.status === "PENDING_PAYMENT"
+                            ? "PENDING PAYMENT"
+                            : v.status}
                         </Badge>
                       </td>
                       <td className="px-4 py-3">{format(v.createdAt, "d MMM yyyy")}</td>

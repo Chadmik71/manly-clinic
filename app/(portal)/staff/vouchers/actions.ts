@@ -141,6 +141,86 @@ export async function emailWalkinVoucher(formData: FormData) {
   redirect(`/staff/vouchers/${voucherId}?emailed=1`);
 }
 
+const ActivateSchema = z.object({
+  voucherId: z.string().min(1),
+});
+
+export async function activateVoucher(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Not authenticated");
+  if (session.user.role !== "STAFF" && session.user.role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
+
+  const parsed = ActivateSchema.safeParse({
+    voucherId: formData.get("voucherId"),
+  });
+  if (!parsed.success) throw new Error("Invalid input");
+
+  const { voucherId } = parsed.data;
+  const voucher = await db.voucher.findUnique({ where: { id: voucherId } });
+  if (!voucher) throw new Error("Voucher not found");
+
+  // Only PENDING_PAYMENT can be activated. Re-clicking the button on an
+  // already-active voucher is a no-op, not an error — keeps the UI tolerant
+  // of double-clicks and stale tabs.
+  if (voucher.status === "ACTIVE") {
+    redirect(`/staff/vouchers/${voucherId}?activated=1`);
+  }
+  if (voucher.status !== "PENDING_PAYMENT") {
+    throw new Error(
+      `Cannot activate voucher with status ${voucher.status} — only PENDING_PAYMENT can be activated.`,
+    );
+  }
+
+  await db.voucher.update({
+    where: { id: voucherId },
+    data: {
+      status: "ACTIVE",
+      // Reservation didn't carry a paidCents amount (online payment isn't wired
+      // yet — see app/(public)/vouchers/form.tsx). Now that the in-clinic
+      // payment is settled, mark the full face value as paid so the audit
+      // trail and any future revenue reports stay accurate.
+      paidCents: voucher.amountCents,
+    },
+  });
+
+  // Send the redemption-code email now that the voucher is live. Failure to
+  // send shouldn't roll back activation — staff can resend from the "Email
+  // to recipient" button on the detail page.
+  let emailSent = false;
+  try {
+    await notifyVoucherIssued({
+      code: voucher.code,
+      amountCents: voucher.amountCents,
+      recipientName: voucher.recipientName,
+      recipientEmail: voucher.recipientEmail,
+      message: voucher.message,
+      expiresAt: voucher.expiresAt,
+    });
+    emailSent = true;
+  } catch (err) {
+    console.error("activateVoucher: email send failed", err);
+  }
+
+  await audit({
+    userId: session.user.id,
+    action: "voucher.activate",
+    resource: `Voucher:${voucherId}`,
+    metadata: {
+      previousStatus: "PENDING_PAYMENT",
+      newStatus: "ACTIVE",
+      amountCents: voucher.amountCents,
+      emailSentToRecipient: emailSent,
+      staffId: session.user.id,
+    },
+  });
+
+  revalidatePath(`/staff/vouchers/${voucherId}`);
+  revalidatePath("/staff/vouchers");
+  redirect(`/staff/vouchers/${voucherId}?activated=1`);
+}
+
 const RedeemSchema = z.object({
   voucherId: z.string().min(1),
   note: z.string().trim().max(200).optional().or(z.literal("")),

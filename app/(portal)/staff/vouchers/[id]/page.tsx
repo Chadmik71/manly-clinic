@@ -9,14 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { format } from "date-fns";
 import { PrintButton } from "./print-button";
-import { emailWalkinVoucher, redeemVoucher } from "../actions";
+import { activateVoucher, emailWalkinVoucher, redeemVoucher } from "../actions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ id: string }>;
-type SearchParams = Promise<{ new?: string; emailed?: string; redeemed?: string }>;
+type SearchParams = Promise<{ new?: string; emailed?: string; redeemed?: string; activated?: string }>;
 
 export async function generateMetadata({
   params,
@@ -49,7 +49,7 @@ export default async function VoucherDetailPage({
   }
 
   const { id } = await params;
-  const { new: isNew, emailed: emailedFlag, redeemed: redeemedFlag } = await searchParams;
+  const { new: isNew, emailed: emailedFlag, redeemed: redeemedFlag, activated: activatedFlag } = await searchParams;
 
   const voucher = await db.voucher.findUnique({ where: { id } });
   if (!voucher) notFound();
@@ -57,6 +57,7 @@ export default async function VoucherDetailPage({
   const justCreated = isNew === "1";
   const justEmailed = emailedFlag === "1";
   const justRedeemed = redeemedFlag === "1";
+  const justActivated = activatedFlag === "1";
   const expiresAtLabel = voucher.expiresAt
     ? format(voucher.expiresAt, "d MMM yyyy")
     : "No expiry";
@@ -82,6 +83,11 @@ export default async function VoucherDetailPage({
             ✓ Voucher redeemed — {formatPrice(voucher.amountCents)} applied.
           </div>
         )}
+        {justActivated && (
+          <div className="mb-3 rounded-md border border-green-500/30 bg-green-500/10 p-3 text-sm">
+            ✓ Voucher activated — redemption code emailed to {voucher.recipientEmail}.
+          </div>
+        )}
           <div className="flex items-start justify-between gap-2 flex-wrap">
             <div>
               <div className="text-xs text-muted-foreground mb-1">
@@ -92,8 +98,20 @@ export default async function VoucherDetailPage({
               <h1 className="text-2xl font-bold break-all">{voucher.code}</h1>
               <p className="text-sm text-muted-foreground">Created {createdAtLabel}</p>
             </div>
-            <Badge variant={voucher.status === "ACTIVE" ? "default" : "secondary"}>
-              {voucher.status}
+            <Badge
+              variant={
+                voucher.status === "ACTIVE"
+                  ? "success"
+                  : voucher.status === "PENDING_PAYMENT"
+                    ? "warning"
+                    : voucher.status === "REDEEMED"
+                      ? "secondary"
+                      : "destructive"
+              }
+            >
+              {voucher.status === "PENDING_PAYMENT"
+                ? "PENDING PAYMENT"
+                : voucher.status}
             </Badge>
           </div>
         </div>
@@ -151,6 +169,28 @@ export default async function VoucherDetailPage({
             </div>
           </CardContent>
         </Card>
+
+        {voucher.status === "PENDING_PAYMENT" && (
+          <Card className="mt-4 print:hidden border-amber-500/40 bg-amber-500/5">
+            <CardContent className="p-6 space-y-4">
+              <div>
+                <h3 className="font-semibold">Awaiting in-clinic payment</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  The recipient was emailed a reservation notice (no code).
+                  Once {voucher.recipientName} (or the purchaser) settles the{" "}
+                  <strong>{formatPrice(voucher.amountCents)}</strong> in clinic,
+                  activate the voucher to email them the redemption code.
+                </p>
+              </div>
+              <form action={activateVoucher}>
+                <input type="hidden" name="voucherId" value={voucher.id} />
+                <Button type="submit">
+                  Mark as paid &amp; email code
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
 
         {voucher.status === "ACTIVE" && (
           <Card className="mt-4 print:hidden">
