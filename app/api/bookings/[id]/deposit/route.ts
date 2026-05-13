@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { getStripe, depositCents, stripeEnabled } from "@/lib/stripe";
+import { rateLimit, rateLimitResponse, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 
 // Creates a Stripe Payment Intent for a deposit on the given booking.
 // Returns { clientSecret, amountCents }. If Stripe is not configured,
@@ -11,6 +12,14 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  // Rate limit refund requests to deter abuse.
+  const ip = getClientIp(_req);
+  const rl = rateLimit(
+    `deposit-refund:${ip}`,
+    RATE_LIMITS.depositRefund.limit,
+    RATE_LIMITS.depositRefund.windowMs,
+  );
+  if (!rl.allowed) return rateLimitResponse(rl);
   const session = await auth();
   if (!session?.user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
