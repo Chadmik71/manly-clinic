@@ -37,12 +37,18 @@ function getStripePromise(): Promise<Stripe | null> | null {
 type DepositCardProps = {
   clientSecret: string;
   amountCents: number;
+  baseDepositCents?: number;
+  surchargeCents?: number;
+  surchargeBps?: number;
   onSuccess: (paymentIntentId: string) => void;
   onError: (message: string) => void;
 };
 
 function CardForm({
   amountCents,
+  baseDepositCents,
+  surchargeCents,
+  surchargeBps,
   onSuccess,
   onError,
 }: Omit<DepositCardProps, "clientSecret">) {
@@ -51,6 +57,24 @@ function CardForm({
   const [paying, setPaying] = useState(false);
 
   const dollars = (amountCents / 100).toFixed(2);
+  // Pre-compute surcharge breakdown strings. Doing this outside JSX
+  // sidesteps any TypeScript narrowing issues across child expressions.
+  const hasSurcharge =
+    typeof surchargeCents === "number" &&
+    surchargeCents > 0 &&
+    typeof baseDepositCents === "number";
+  const baseStr =
+    typeof baseDepositCents === "number"
+      ? (baseDepositCents / 100).toFixed(2)
+      : "";
+  const surchargeStr =
+    typeof surchargeCents === "number"
+      ? (surchargeCents / 100).toFixed(2)
+      : "";
+  const surchargePctStr =
+    typeof surchargeBps === "number" && surchargeBps > 0
+      ? (surchargeBps / 100).toFixed(2)
+      : "";
 
   async function handlePay() {
     if (!stripe || !elements) return;
@@ -82,6 +106,22 @@ function CardForm({
 
   return (
     <div className="space-y-4 rounded-md border bg-card p-4">
+      {hasSurcharge ? (
+        <div className="text-xs text-muted-foreground space-y-1 -mb-2">
+          <div className="flex justify-between">
+            <span>Booking deposit</span>
+            <span>{"$" + baseStr}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>
+              {surchargePctStr
+                ? "Card surcharge (" + surchargePctStr + "%)"
+                : "Card surcharge"}
+            </span>
+            <span>{"$" + surchargeStr}</span>
+          </div>
+        </div>
+      ) : null}
       <div className="text-sm font-medium">
         Deposit: ${dollars} AUD
       </div>
