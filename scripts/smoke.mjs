@@ -62,7 +62,7 @@ for (const p of publicRoutes) {
 // --- 2. Home renders the clinic name ---
 {
   const r = await get("/");
-  if (r.text.includes("Manly Remedial Clinic"))
+  if (r.text.includes("Manly Remedial Thai"))
     ok("Home renders clinic name");
   else bad("Home renders clinic name", "string not found in HTML");
 }
