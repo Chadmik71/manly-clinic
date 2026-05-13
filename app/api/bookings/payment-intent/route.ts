@@ -23,6 +23,7 @@ import {
 } from "@/lib/stripe";
 import { audit } from "@/lib/audit";
 import { rateLimit, rateLimitResponse, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
+import { getClinicSettings, computeCardSurchargeCents } from "@/lib/clinic-settings";
 
 export async function POST(req: Request) {
   // Rate limit: prevent card-testing / abuse on this public endpoint.
@@ -59,7 +60,20 @@ export async function POST(req: Request) {
     // Empty/invalid JSON body is fine — we don't strictly need anything.
   }
 
-  const amountCents = depositCents();
+  // Read DB-backed clinic settings. We deliberately do NOT swallow errors here:
+  // if the DB is unreachable we want the request to fail rather than risk
+  // charging the wrong amount.
+  const settings = await getClinicSettings();
+  if (!settings.depositsEnabled) {
+    return NextResponse.json(
+      { error: "Deposits are not currently enabled." },
+      { status: 503 },
+    );
+  }
+
+  const baseDepositCents = depositCents();
+  const surchargeCents = computeCardSurchargeCents(baseDepositCents, settings);
+  const amountCents = baseDepositCents + surchargeCents;
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({
@@ -91,6 +105,9 @@ export async function POST(req: Request) {
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
       amountCents,
+      baseDepositCents,
+      surchargeCents,
+      surchargeBps: settings.cardSurchargeEnabled ? settings.cardSurchargeBps : 0,
     });
   } catch (err) {
     console.error("payment-intent: failed to create", err);
