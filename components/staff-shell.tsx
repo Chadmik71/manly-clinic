@@ -2,7 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ListChecks, Users, Stethoscope, Settings, LogOut, ChevronLeft, ChevronRight, Clock, BarChart3, Gift, UserCircle, LayoutGrid } from "lucide-react";
+import { CalendarDays, ListChecks, Users, Stethoscope, Settings, Wrench, LogOut, ChevronLeft, ChevronRight, Clock, BarChart3, Gift, UserCircle, LayoutGrid } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ const RAIL = [
   { href: "/staff/therapists", label: "Therapists", icon: Stethoscope },
   { href: "/staff/slots", label: "Slots", icon: LayoutGrid },
   { href: "/staff/services", label: "Services", icon: Settings },
+  { href: "/staff/settings", label: "Settings", icon: Wrench },
 ];
 
 export function StaffShell({ user, topbar, children }: { user: { name: string; email: string; role: string }; topbar?: React.ReactNode; children: React.ReactNode; }) {
