@@ -9,7 +9,7 @@ import {
 } from "@/lib/clinic";
 import { revalidatePath } from "next/cache";
 import { notifyBookingRescheduled } from "@/lib/notify";
-import { sydneyDateOf } from "@/lib/time";
+import { sydneyDateOf, sydneyDow } from "@/lib/time";
 
 // Renders a Date in Sydney calendar time, returning minute-of-day (0..1439).
 // Vercel runs in UTC; raw getHours/getMinutes would give UTC values for our
@@ -59,8 +59,10 @@ export async function rescheduleBooking(
   )
     return { error: startMinutes < BOOKING_EARLIEST_START_MIN ? "Sessions must start at or after 9:00 am." : "Sessions must finish by 8:00 pm. Please pick an earlier time." };
 
-  // Find an available therapist (could be same as current, ignoring this booking)
-  const dow = startsAt.getDay();
+  // Find an available therapist (could be same as current, ignoring this booking).
+  // Use Sydney day-of-week — startsAt.getDay() returns UTC on Vercel and is
+  // off-by-one for early-morning Sydney times.
+  const dow = sydneyDow(sydneyDateOf(startsAt));
   const therapists = await db.therapist.findMany({
     where: { active: true },
     include: {

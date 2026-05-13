@@ -11,6 +11,23 @@ import {
   BOOKING_EARLIEST_START_MIN,
 } from "@/lib/clinic";
 import { revalidatePath } from "next/cache";
+import { sydneyDateOf, sydneyDow } from "@/lib/time";
+
+// Sydney minute-of-day for the given UTC instant. Vercel runs UTC but the
+// clinic operates on Sydney calendar time, so raw getHours/getMinutes are
+// off by 10-11 hours and would reject valid bookings (or accept invalid ones).
+const SYD_HM_FMT = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+function sydneyMinuteOfDay(d: Date): number {
+  const parts = SYD_HM_FMT.formatToParts(d);
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return h * 60 + m;
+}
 
 const schema = z.object({
   mode: z.enum(["existing", "walkin"]),
@@ -53,11 +70,9 @@ export async function createStaffBooking(
   if (isNaN(startsAt.getTime())) return { error: "Invalid start time." };
   const endsAt = addMinutes(startsAt, variant.durationMin);
 
-  const startMinutes = startsAt.getHours() * 60 + startsAt.getMinutes();
-  const endMinutes = endsAt.getHours() * 60 + endsAt.getMinutes();
-  const sameDay =
-    endsAt.getDate() === startsAt.getDate() &&
-    endsAt.getMonth() === startsAt.getMonth();
+  const startMinutes = sydneyMinuteOfDay(startsAt);
+  const endMinutes = sydneyMinuteOfDay(endsAt);
+  const sameDay = sydneyDateOf(startsAt) === sydneyDateOf(endsAt);
   if (
     startMinutes < BOOKING_EARLIEST_START_MIN ||
     !sameDay ||
@@ -103,8 +118,10 @@ export async function createStaffBooking(
     }
   }
 
-  // Therapist resolution: explicit pick or auto-assign
-  const dow = startsAt.getDay();
+  // Therapist resolution: explicit pick or auto-assign.
+  // Use Sydney day-of-week — startsAt.getDay() returns UTC on Vercel and is
+  // off-by-one for early-morning Sydney times.
+  const dow = sydneyDow(sydneyDateOf(startsAt));
   const therapists = await db.therapist.findMany({
     where: {
       active: true,
