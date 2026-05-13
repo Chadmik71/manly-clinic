@@ -47,9 +47,36 @@ export function StaffShell({ user, topbar, children }: { user: { name: string; e
       </aside>
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="h-12 border-b bg-card flex items-center px-4 gap-4 text-sm sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-          <span className="text-muted-foreground">{CLINIC.name} <span className="opacity-60">·</span> <span className="capitalize">{pathname.split("/")[2] ?? "today"}</span></span>
-          <div className="flex-1 flex justify-center">{topbar}</div>
+          <span className="text-muted-foreground min-w-0 truncate">{CLINIC.name} <span className="opacity-60">·</span> <span className="capitalize">{pathname.split("/")[2] ?? "today"}</span></span>
+          <div className="flex-1 flex justify-center min-w-0">{topbar}</div>
           <Link href="/staff/account" className="hidden md:inline text-muted-foreground hover:text-foreground">{user.name}</Link>
+          {/* Mobile-only header actions — the desktop sidebar (which carries Account / theme / sign-out) is hidden below sm:, so surface these in the header instead. */}
+          <div className="flex sm:hidden items-center gap-0.5 -mr-2">
+            <Link
+              href="/staff/account"
+              aria-label="My Account"
+              title="My Account"
+              className={cn(
+                "grid h-9 w-9 place-items-center rounded-md transition-colors",
+                pathname.startsWith("/staff/account")
+                  ? "text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              )}
+            >
+              <UserCircle className="h-4.5 w-4.5" />
+            </Link>
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => signOut({ callbackUrl: "/" })}
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </header>
         <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-card flex justify-around py-1.5">
           {RAIL.map((it) => {
