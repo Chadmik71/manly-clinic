@@ -45,7 +45,7 @@ const FAQS = [
   },
   {
     q: "How do I cancel or reschedule?",
-    a: "You can reschedule or cancel through your client portal at manlyremedialthai.com.au, or by replying to your confirmation email. Cancellations more than 24 hours before your appointment are free of charge. Cancellations or no-shows within 24 hours attract a 50% fee, per our published cancellation policy.",
+    a: "You can reschedule or cancel through your client portal at manlyremedialthai.com.au, or by replying to your confirmation email. Cancellations with at least 1 hour notice are free of charge. Cancellations, no-shows, or arriving more than 10 minutes late without calling attract a 50% fee, per our published cancellation policy.",
   },
 ] as const;
 

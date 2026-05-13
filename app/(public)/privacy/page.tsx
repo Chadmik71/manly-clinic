@@ -7,7 +7,7 @@ export default function PrivacyPage() {
     <div className="container py-12 md:py-16 max-w-3xl">
       <h1 className="text-4xl font-bold tracking-tight mb-2">Privacy policy</h1>
       <p className="text-sm text-muted-foreground mb-8">
-        Effective {new Date().getFullYear()}. Reviewed annually.
+        Effective May 2026. Reviewed annually.
       </p>
 
       <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
@@ -68,10 +68,19 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-xl font-semibold">5. Disclosure (APP 6, 8)</h2>
           <p className="text-muted-foreground">
-            We do not disclose your information overseas. We will not share
-            your records with third parties (including health funds, GPs, or
-            insurers) except with your written consent or where required by
-            law.
+            We do not share your treatment records with third parties
+            (including health funds, GPs, or insurers) except with your
+            written consent or where required by law.
+          </p>
+          <p className="text-muted-foreground mt-2">
+            <strong>Cross-border disclosure of limited contact data.</strong>{" "}
+            To deliver booking-confirmation emails and SMS reminders we use
+            third-party processors who may handle your name, email, mobile
+            number and booking reference outside Australia: <em>Resend</em>{" "}
+            (United States) for email and <em>Twilio</em> (United States) for
+            SMS. These processors do <strong>not</strong> receive your health
+            information. Your clinical and intake records are stored
+            exclusively on Australian-based infrastructure (see Section 4).
           </p>
         </section>
 

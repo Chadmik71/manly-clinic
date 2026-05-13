@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatPrice, formatDuration } from "@/lib/utils";
+import { CLINIC } from "@/lib/clinic";
 
 export const metadata = { title: "Booking confirmed" };
 
@@ -141,10 +142,10 @@ export default async function BookingConfirmedPage({
               comfortable clothing. If you need to cancel or reschedule, give
               us a call on{" "}
               <a
-                href="tel:+61412822226"
+                href={`tel:${CLINIC.phoneE164}`}
                 className="text-primary hover:underline"
               >
-                0412 822 226
+                {CLINIC.phone}
               </a>{" "}
               at least 1 hour ahead.
             </p>
