@@ -97,14 +97,12 @@ export default async function ConfirmPage({
   // Compute the public-holiday surcharge breakdown so the customer sees the
   // final price (and any surcharge) on the confirm page, not after submission.
   const pricing = applyHolidaySurcharge(variant.priceCents, starts);
-  // Apply the same public-holiday surcharge to the partner half (couple booking)
-  // so both halves are quoted consistently — same percentage on the same date.
-  const partnerPricing = partnerVariant
-    ? applyHolidaySurcharge(partnerVariant.priceCents, starts)
-    : null;
+  // The 10% public-holiday surcharge is NOT applied online — the clinic
+  // collects it at the appointment. We still call applyHolidaySurcharge()
+  // because pricing.holidayName tells us whether to show the warning banner.
   const partnerVariantSummary =
-    partnerVariant && variant && partnerPricing
-      ? `${partnerVariant.service.name} — ${partnerVariant.durationMin} min ($${(partnerPricing.finalPriceCents / 100).toFixed(2)})`
+    partnerVariant && variant
+      ? `${partnerVariant.service.name} — ${partnerVariant.durationMin} min ($${(partnerVariant.priceCents / 100).toFixed(2)})`
       : null;
 
   // Optional session — we now allow guest checkout.
@@ -157,7 +155,7 @@ export default async function ConfirmPage({
           <CardTitle>{service.name}</CardTitle>
           <CardDescription>
             {formatDuration(variant.durationMin)} ·{" "}
-            {formatPrice(pricing.finalPriceCents)}
+            {formatPrice(pricing.basePriceCents)}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2 text-sm">
@@ -189,31 +187,27 @@ export default async function ConfirmPage({
               {formatPrice(pricing.basePriceCents)}
             </span>
           </div>
-          {pricing.holidayName ? (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                Public holiday surcharge ({pricing.surchargePct}% ·{" "}
-                {pricing.holidayName})
-              </span>
-              <span>
-                +{formatPrice(pricing.surchargeCents)}
-              </span>
-            </div>
-          ) : null}
           {partnerVariant ? (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Partner</span>
               <span className="font-medium">
-                {formatPrice(partnerPricing?.finalPriceCents ?? 0)}
+                {formatPrice(partnerVariant.priceCents)}
               </span>
             </div>
           ) : null}
-          {(pricing.holidayName || partnerVariant) ? (
+          {partnerVariant ? (
             <div className="border-t pt-2 flex justify-between">
               <span className="font-semibold">Total</span>
               <span className="font-semibold">
-                {formatPrice(pricing.finalPriceCents + (partnerPricing?.finalPriceCents ?? 0))}
+                {formatPrice(variant.priceCents + partnerVariant.priceCents)}
               </span>
+            </div>
+          ) : null}
+          {pricing.holidayName ? (
+            <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+              <strong>Public holiday — {pricing.holidayName}.</strong>{" "}
+              A 10% surcharge applies on this day and is collected at the clinic.
+               The deposit you pay online is unaffected.
             </div>
           ) : null}
         </CardContent>
@@ -250,7 +244,7 @@ export default async function ConfirmPage({
         bookingSummary={{
           serviceName: service.name,
           durationLabel: formatDuration(variant.durationMin),
-          priceLabel: formatPrice(pricing.finalPriceCents),
+          priceLabel: formatPrice(pricing.basePriceCents),
           dateLabel: SYD_DATE.format(starts),
           timeLabel: `${SYD_TIME.format(starts)} – ${SYD_TIME.format(ends)} (Sydney)`,
           partnerLabel: partnerVariantSummary,
