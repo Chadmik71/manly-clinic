@@ -11,7 +11,7 @@ import {
   BOOKING_EARLIEST_START_MIN,
 } from "@/lib/clinic";
 import { revalidatePath } from "next/cache";
-import { sydneyDateOf, sydneyDow } from "@/lib/time";
+import { sydneyDateOf, sydneyDow, sydneyLocalToUtc } from "@/lib/time";
 
 // Sydney minute-of-day for the given UTC instant. Vercel runs UTC but the
 // clinic operates on Sydney calendar time, so raw getHours/getMinutes are
@@ -99,8 +99,13 @@ export async function createStaffBooking(
       return { error: "Please describe the reason for treatment." };
   }
 
-  const startsAt = new Date(data.startsAt);
-  if (isNaN(startsAt.getTime())) return { error: "Invalid start time." };
+  // The form's datetime-local input emits "YYYY-MM-DDTHH:mm" which `new Date(...)`
+  // would parse as the server's local TZ (UTC on Vercel) — a 9:00 am Sydney
+  // booking would land at 9:00 UTC = 7:00 pm Sydney, blowing past the 8:00 pm
+  // cap. Parse it as Sydney-local instead, same as the reschedule action.
+  const startsAt = sydneyLocalToUtc(data.startsAt);
+  if (!startsAt || isNaN(startsAt.getTime()))
+    return { error: "Invalid start time." };
   const endsAt = addMinutes(startsAt, variant.durationMin);
 
   const startMinutes = sydneyMinuteOfDay(startsAt);
