@@ -410,8 +410,8 @@ export function ConfirmForm({
         </Card>
       )}
 
-      {/* 1. Patient details */}
-      <Card>
+      {/* 1. Patient details (full intake only) */}
+      {intakeMode === "full" && (<Card>
         <SectionHeader
           step={stepNo(1)}
           title="Patient details"
@@ -446,10 +446,10 @@ export function ConfirmForm({
             </div>
           </FieldGrid>
         </CardContent>
-      </Card>
+      </Card>)}
 
-      {/* 2. GP / referring doctor */}
-      <Card>
+      {/* 2. GP / referring doctor (full intake only) */}
+      {intakeMode === "full" && (<Card>
         <SectionHeader
           step={stepNo(2)}
           title="General Practitioner (optional)"
@@ -485,7 +485,7 @@ export function ConfirmForm({
             </div>
           </FieldGrid>
         </CardContent>
-      </Card>
+      </Card>)}
 
       {/* 3. Medical history checklist (full intake only) */}
       {intakeMode === 'full' && (
