@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { headers } from "next/headers";
+import { rateLimit, rateLimitResponse, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 
 const schema = z.object({
   name: z.string().min(1).max(120),
@@ -14,6 +15,14 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+  // Rate limit: prevent signup spam from a single IP.
+  const ip = getClientIp(req);
+  const rl = rateLimit(
+    `signup:${ip}`,
+    RATE_LIMITS.signup.limit,
+    RATE_LIMITS.signup.windowMs,
+  );
+  if (!rl.allowed) return rateLimitResponse(rl);
   const json = await req.json().catch(() => null);
   const parsed = schema.safeParse(json);
   if (!parsed.success) {
