@@ -15,10 +15,10 @@ const services: Array<{
 }> = [
   {
     slug: "remedial-massage",
-    name: "Remedial Massage",
+    name: "Remedial Massage (Health Fund Rebate)",
     category: "THERAPEUTIC",
     description:
-      "Targeted treatment for muscular pain, tension, postural issues and rehabilitation. Health fund rebates may apply.",
+      "The only treatment at our clinic eligible for HiCAPS health-fund rebates — bring your fund card for on-the-spot claiming. Targeted treatment for muscular pain, tension, postural issues and rehabilitation.",
     healthFundEligible: true,
     variants: [
       { duration: 45, price: 9500 },
