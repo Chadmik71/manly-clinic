@@ -185,23 +185,31 @@ export default async function ConfirmPage({
             </span>
           </div>
           {pricing.holidayName ? (
-            <>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Public holiday surcharge ({pricing.surchargePct}% ·{" "}
-                  {pricing.holidayName})
-                </span>
-                <span className="font-medium">
-                  +{formatPrice(pricing.surchargeCents)}
-                </span>
-              </div>
-              <div className="border-t pt-2 flex justify-between">
-                <span className="font-semibold">Total</span>
-                <span className="font-semibold">
-                  {formatPrice(pricing.finalPriceCents)}
-                </span>
-              </div>
-            </>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                Public holiday surcharge ({pricing.surchargePct}% ·{" "}
+                {pricing.holidayName})
+              </span>
+              <span>
+                +{formatPrice(pricing.surchargeCents)}
+              </span>
+            </div>
+          ) : null}
+          {partnerVariant ? (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Partner</span>
+              <span className="font-medium">
+                {formatPrice(partnerVariant.priceCents)}
+              </span>
+            </div>
+          ) : null}
+          {(pricing.holidayName || partnerVariant) ? (
+            <div className="border-t pt-2 flex justify-between">
+              <span className="font-semibold">Total</span>
+              <span className="font-semibold">
+                {formatPrice(pricing.finalPriceCents + (partnerVariant?.priceCents ?? 0))}
+              </span>
+            </div>
           ) : null}
         </CardContent>
       </Card>
