@@ -16,9 +16,9 @@ const schema = z.object({
 
 export async function POST(req: Request) {
   // Rate limit: prevent signup spam from a single IP.
-  const ip = getClientIp(req);
+  const rlIp = getClientIp(req);
   const rl = rateLimit(
-    `signup:${ip}`,
+    `signup:${rlIp}`,
     RATE_LIMITS.signup.limit,
     RATE_LIMITS.signup.windowMs,
   );
