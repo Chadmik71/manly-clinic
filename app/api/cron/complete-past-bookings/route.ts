@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { withDbRetry } from "@/lib/db-retry";
 
 // Marks past CONFIRMED bookings as COMPLETED.
 //
@@ -34,13 +35,15 @@ export async function GET(req: Request) {
   // Fetch CONFIRMED bookings that started before the cutoff. We still need to
   // verify the END time on the application side because endsAt is computed from
   // variant.durationMin (not stored as a column).
-  const candidates = await db.booking.findMany({
-    where: {
-      status: "CONFIRMED",
-      startsAt: { lt: cutoff },
-    },
-    include: { variant: { select: { durationMin: true } } },
-  });
+  const candidates = await withDbRetry(() =>
+    db.booking.findMany({
+      where: {
+        status: "CONFIRMED",
+        startsAt: { lt: cutoff },
+      },
+      include: { variant: { select: { durationMin: true } } },
+    }),
+  );
 
   const toComplete = candidates.filter((b) => {
     const endsAt = new Date(
@@ -54,10 +57,12 @@ export async function GET(req: Request) {
   }
 
   const ids = toComplete.map((b) => b.id);
-  await db.booking.updateMany({
-    where: { id: { in: ids } },
-    data: { status: "COMPLETED" },
-  });
+  await withDbRetry(() =>
+    db.booking.updateMany({
+      where: { id: { in: ids } },
+      data: { status: "COMPLETED" },
+    }),
+  );
 
   // Audit each transition so staff can see what the cron touched.
   // Best-effort; one failure does not abort the batch.

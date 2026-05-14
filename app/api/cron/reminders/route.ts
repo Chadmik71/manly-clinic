@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { notifyBookingReminder } from "@/lib/notify";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { withDbRetry } from "@/lib/db-retry";
 
 // Sends reminders for bookings starting between [now+23h, now+25h] that
 // haven't already been reminded (we use a metadata flag in AuditLog).
@@ -21,26 +22,30 @@ export async function GET(req: Request) {
   const windowStart = addHours(now, 23);
   const windowEnd = addHours(now, 25);
 
-  const dueBookings = await db.booking.findMany({
-    where: {
-      startsAt: { gte: windowStart, lte: windowEnd },
-      status: { in: ["PENDING", "CONFIRMED"] },
-    },
-    include: {
-      service: { select: { name: true } },
-      variant: { select: { durationMin: true } },
-      client: { select: { name: true, email: true, phone: true } },
-    },
-  });
+  const dueBookings = await withDbRetry(() =>
+    db.booking.findMany({
+      where: {
+        startsAt: { gte: windowStart, lte: windowEnd },
+        status: { in: ["PENDING", "CONFIRMED"] },
+      },
+      include: {
+        service: { select: { name: true } },
+        variant: { select: { durationMin: true } },
+        client: { select: { name: true, email: true, phone: true } },
+      },
+    }),
+  );
 
   // Check which ones already had a REMINDER_SENT audit entry recently
-  const recentlyReminded = await db.auditLog.findMany({
-    where: {
-      action: "REMINDER_SENT",
-      createdAt: { gte: subHours(now, 26) },
-    },
-    select: { resource: true },
-  });
+  const recentlyReminded = await withDbRetry(() =>
+    db.auditLog.findMany({
+      where: {
+        action: "REMINDER_SENT",
+        createdAt: { gte: subHours(now, 26) },
+      },
+      select: { resource: true },
+    }),
+  );
   const sentSet = new Set(
     recentlyReminded
       .map((a) => a.resource)
