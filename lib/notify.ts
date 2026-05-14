@@ -4,7 +4,15 @@
 
 import { CLINIC } from "@/lib/clinic";
 
-type EmailArgs = { to: string; subject: string; html: string; text: string };
+type EmailArgs = {
+  /** Single recipient or array of recipients. Resend's API accepts either,
+   *  but comma-separated strings get treated as one invalid address — pass
+   *  an array when sending to multiple people. */
+  to: string | string[];
+  subject: string;
+  html: string;
+  text: string;
+};
 type SmsArgs = { to: string; body: string };
 
 async function sendEmail({ to, subject, html, text }: EmailArgs): Promise<void> {
@@ -554,7 +562,7 @@ ${anomalies.stalePastConfirmed === 0 && anomalies.upcomingWithoutTherapist === 0
         .join("\n")}
 `;
 
-  // Resend supports multiple recipients on `to`; send one request with the
-  // whole array so each admin sees the others as cc'd siblings.
-  await sendEmail({ to: to.join(", "), subject, html, text });
+  // Resend expects an array for multiple recipients — comma-separated
+  // strings get parsed as one invalid address and the send is dropped.
+  await sendEmail({ to, subject, html, text });
 }
