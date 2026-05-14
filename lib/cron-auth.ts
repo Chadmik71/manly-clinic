@@ -16,7 +16,12 @@ import { NextResponse } from "next/server";
  * customer-facing reminders and audit-flip past bookings.
  */
 export function requireCronAuth(req: Request): NextResponse | null {
-  const expected = process.env.CRON_SECRET;
+  // .trim() defends against the all-too-common trailing-newline bite when
+  // an operator pastes the secret into a dashboard textarea — Vercel,
+  // GitHub Secrets, and most env-var UIs will happily store the \n.
+  // Trimming both the stored value and the request-supplied value keeps
+  // verification working in that case without a redeploy.
+  const expected = (process.env.CRON_SECRET ?? "").trim();
   if (!expected) {
     return NextResponse.json(
       { error: "CRON_SECRET not configured" },
@@ -24,11 +29,12 @@ export function requireCronAuth(req: Request): NextResponse | null {
     );
   }
 
-  const auth = req.headers.get("authorization") ?? "";
-  if (auth === `Bearer ${expected}`) return null;
+  const authHeader = (req.headers.get("authorization") ?? "").trim();
+  if (authHeader === `Bearer ${expected}`) return null;
 
   const url = new URL(req.url);
-  if (url.searchParams.get("secret") === expected) return null;
+  const querySecret = (url.searchParams.get("secret") ?? "").trim();
+  if (querySecret === expected) return null;
 
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
