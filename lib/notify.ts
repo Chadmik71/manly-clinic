@@ -382,3 +382,179 @@ ${CLINIC.phone}
 
   await sendEmail({ to: recipientEmail, subject, html, text });
 }
+
+// ---------------------------------------------------------------------------
+// Daily ops report — sent to admin mailbox(es) by /api/cron/daily-report.
+// Pure presentation: caller queries the data, this function renders + ships.
+// ---------------------------------------------------------------------------
+
+function fmtAud(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export type DailyReportBooking = {
+  time: string;
+  client: string;
+  service: string;
+  therapist: string | null;
+};
+
+export async function notifyDailyReport(args: {
+  to: string[]; // one or more admin recipients
+  todayDateLong: string; // e.g. "Friday 14 May 2026"
+  tomorrowDateLong: string; // e.g. "Saturday 15 May 2026"
+  today: {
+    bookings: number;
+    grossRevenueCents: number;
+    completed: number;
+    noShows: number;
+    cancellations: number;
+  };
+  tomorrow: DailyReportBooking[];
+  hicaps: { count: number; grossClaimedCents: number };
+  newSignups: number;
+  anomalies: {
+    stalePastConfirmed: number;
+    upcomingWithoutTherapist: number;
+  };
+}): Promise<void> {
+  const {
+    to,
+    todayDateLong,
+    tomorrowDateLong,
+    today,
+    tomorrow,
+    hicaps,
+    newSignups,
+    anomalies,
+  } = args;
+
+  const subject = `Daily report — ${todayDateLong} — ${today.bookings} booking${today.bookings === 1 ? "" : "s"}, ${fmtAud(today.grossRevenueCents)}`;
+
+  const tomorrowRowsHtml = tomorrow.length === 0
+    ? `<p style="color:#666;font-style:italic;margin:8px 0;">No bookings tomorrow.</p>`
+    : `<table style="width:100%;border-collapse:collapse;font-size:14px;margin:8px 0;">
+        <thead>
+          <tr style="text-align:left;border-bottom:1px solid #ddd;color:#666;">
+            <th style="padding:6px 8px;">Time</th>
+            <th style="padding:6px 8px;">Client</th>
+            <th style="padding:6px 8px;">Service</th>
+            <th style="padding:6px 8px;">Therapist</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tomorrow
+            .map(
+              (b) => `
+            <tr style="border-bottom:1px solid #f0f0f0;">
+              <td style="padding:6px 8px;">${escHtml(b.time)}</td>
+              <td style="padding:6px 8px;">${escHtml(b.client)}</td>
+              <td style="padding:6px 8px;">${escHtml(b.service)}</td>
+              <td style="padding:6px 8px;">${escHtml(b.therapist ?? "—")}</td>
+            </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>`;
+
+  const anomalyBlockHtml =
+    anomalies.stalePastConfirmed === 0 &&
+    anomalies.upcomingWithoutTherapist === 0
+      ? `<p style="color:#16a34a;margin:8px 0;">✓ Nothing to review.</p>`
+      : `<ul style="margin:8px 0;padding-left:20px;">
+          ${anomalies.stalePastConfirmed > 0
+            ? `<li>Past <code>CONFIRMED</code> bookings not auto-completed: <strong>${anomalies.stalePastConfirmed}</strong></li>`
+            : ""}
+          ${anomalies.upcomingWithoutTherapist > 0
+            ? `<li>Upcoming bookings missing a therapist assignment: <strong>${anomalies.upcomingWithoutTherapist}</strong></li>`
+            : ""}
+        </ul>`;
+
+  const html = `
+<div style="font-family:system-ui,-apple-system,sans-serif;max-width:640px;margin:0 auto;color:#222;padding:24px;">
+  <h1 style="font-size:22px;margin:0 0 4px;">${CLINIC.name}</h1>
+  <p style="font-size:14px;color:#888;margin:0 0 24px;">Daily ops report — ${escHtml(todayDateLong)}</p>
+
+  <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:4px;">Today's snapshot</h2>
+  <table style="font-size:14px;margin:8px 0;border-collapse:collapse;">
+    <tr><td style="padding:2px 12px 2px 0;color:#666;">Bookings</td><td><strong>${today.bookings}</strong></td></tr>
+    <tr><td style="padding:2px 12px 2px 0;color:#666;">Gross revenue</td><td><strong>${fmtAud(today.grossRevenueCents)}</strong></td></tr>
+    <tr><td style="padding:2px 12px 2px 0;color:#666;">Completed</td><td>${today.completed}</td></tr>
+    <tr><td style="padding:2px 12px 2px 0;color:#666;">No-shows</td><td>${today.noShows}</td></tr>
+    <tr><td style="padding:2px 12px 2px 0;color:#666;">Cancellations</td><td>${today.cancellations}</td></tr>
+  </table>
+
+  <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:20px;">Tomorrow's bookings — ${escHtml(tomorrowDateLong)}</h2>
+  ${tomorrowRowsHtml}
+
+  <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:20px;">HiCAPS claims today</h2>
+  <p style="margin:8px 0;font-size:14px;">
+    ${hicaps.count === 0
+      ? `<span style="color:#666;font-style:italic;">No HiCAPS claims today.</span>`
+      : `<strong>${hicaps.count}</strong> claim${hicaps.count === 1 ? "" : "s"} · gross <strong>${fmtAud(hicaps.grossClaimedCents)}</strong>`}
+  </p>
+
+  <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:20px;">New customers today</h2>
+  <p style="margin:8px 0;font-size:14px;"><strong>${newSignups}</strong> sign-up${newSignups === 1 ? "" : "s"}.</p>
+
+  <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:20px;">Things to review</h2>
+  ${anomalyBlockHtml}
+
+  <p style="margin-top:32px;font-size:12px;color:#888;border-top:1px solid #eee;padding-top:12px;">
+    Sent by ${escHtml(CLINIC.name)} automated daily report. Reply to this email if you no longer want it.
+  </p>
+</div>`;
+
+  const text = `${CLINIC.name} — Daily ops report — ${todayDateLong}
+
+TODAY'S SNAPSHOT
+  Bookings:       ${today.bookings}
+  Gross revenue:  ${fmtAud(today.grossRevenueCents)}
+  Completed:      ${today.completed}
+  No-shows:       ${today.noShows}
+  Cancellations:  ${today.cancellations}
+
+TOMORROW'S BOOKINGS — ${tomorrowDateLong}
+${tomorrow.length === 0
+    ? "  (none)"
+    : tomorrow
+        .map(
+          (b) =>
+            `  ${b.time}  ${b.client.padEnd(22)} ${b.service.padEnd(28)} ${b.therapist ?? "—"}`,
+        )
+        .join("\n")}
+
+HICAPS CLAIMS TODAY
+  ${hicaps.count === 0 ? "(none)" : `${hicaps.count} claim${hicaps.count === 1 ? "" : "s"} · gross ${fmtAud(hicaps.grossClaimedCents)}`}
+
+NEW CUSTOMERS TODAY
+  ${newSignups} sign-up${newSignups === 1 ? "" : "s"}.
+
+THINGS TO REVIEW
+${anomalies.stalePastConfirmed === 0 && anomalies.upcomingWithoutTherapist === 0
+    ? "  ✓ Nothing to review."
+    : [
+        anomalies.stalePastConfirmed > 0
+          ? `  - Past CONFIRMED not auto-completed: ${anomalies.stalePastConfirmed}`
+          : null,
+        anomalies.upcomingWithoutTherapist > 0
+          ? `  - Upcoming without therapist: ${anomalies.upcomingWithoutTherapist}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n")}
+`;
+
+  // Resend supports multiple recipients on `to`; send one request with the
+  // whole array so each admin sees the others as cc'd siblings.
+  await sendEmail({ to: to.join(", "), subject, html, text });
+}
