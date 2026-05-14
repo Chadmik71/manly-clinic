@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 // Marks past CONFIRMED bookings as COMPLETED.
 //
@@ -17,20 +18,14 @@ import { audit } from "@/lib/audit";
 //   NO_SHOW    -> not touched (staff must mark these manually)
 //   COMPLETED  -> already done
 //
-// Auth: in production, secure with `?secret=ENV.CRON_SECRET`. Reuses the same
-// pattern as /api/cron/reminders.
+// Auth: shared with /api/cron/reminders via lib/cron-auth. Fails closed
+// when CRON_SECRET is missing. Vercel Cron passes the bearer header
+// automatically; external schedulers can use ?secret=...
 //
-// Trigger: schedule via Vercel Cron, GitHub Actions, or any external cron.
-//   GET /api/cron/complete-past-bookings?secret=YOUR_SECRET
-//
-// Recommended cadence: hourly. Backfills any bookings missed during downtime.
+// Trigger: scheduled via vercel.json crons block (every 30 min).
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const secret = url.searchParams.get("secret");
-  const expected = process.env.CRON_SECRET;
-  if (expected && secret !== expected) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const unauth = requireCronAuth(req);
+  if (unauth) return unauth;
 
   // Cut-off: 30 minutes ago. Any booking whose END time is before this is fair game.
   const now = new Date();

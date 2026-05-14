@@ -3,22 +3,19 @@ import { addHours, subHours } from "date-fns";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { notifyBookingReminder } from "@/lib/notify";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 // Sends reminders for bookings starting between [now+23h, now+25h] that
 // haven't already been reminded (we use a metadata flag in AuditLog).
 //
-// Auth: in production, secure with `?secret=ENV.CRON_SECRET` or an
-// auth header; for dev we accept any caller.
+// Auth: fails closed without CRON_SECRET. Vercel Cron injects
+// `Authorization: Bearer <CRON_SECRET>` automatically; manual / external
+// schedulers can also pass `?secret=<CRON_SECRET>`. See lib/cron-auth.ts.
 //
-// Trigger: schedule via Vercel Cron, GitHub Actions, or any external cron.
-//   GET /api/cron/reminders?secret=YOUR_SECRET
+// Trigger: scheduled via vercel.json crons block (every 15 min).
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const secret = url.searchParams.get("secret");
-  const expected = process.env.CRON_SECRET;
-  if (expected && secret !== expected) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const unauth = requireCronAuth(req);
+  if (unauth) return unauth;
 
   const now = new Date();
   const windowStart = addHours(now, 23);
