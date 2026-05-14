@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { StaffShell, DateNav } from "@/components/staff-shell";
 import { ScheduleGrid } from "@/components/schedule-grid";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import {
@@ -123,6 +124,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
 
   return (
     <StaffShell user={session.user} topbar={<DateNav date={day} basePath="/staff/schedule" />}>
+      <AutoRefresh intervalMs={30000} />
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold">Schedule</h1>
