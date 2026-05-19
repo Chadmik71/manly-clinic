@@ -144,9 +144,17 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             dateStr={dateStr}
             therapists={therapists}
             bookings={bookings}
-            addTimeOffAction={addTimeOff}
-            toggleActiveAction={toggleTherapistActive}
-            removeTimeOffAction={removeTimeOffFromSchedule}
+            // Quick-actions menu (add break, toggle active) and the
+            // click-to-remove-time-off behaviour are admin-only — non-admin
+            // STAFF still see the schedule, just without the mutation UI.
+            // The actions themselves also re-check role server-side.
+            {...(session.user.role === "ADMIN"
+              ? {
+                  addTimeOffAction: addTimeOff,
+                  toggleActiveAction: toggleTherapistActive,
+                  removeTimeOffAction: removeTimeOffFromSchedule,
+                }
+              : {})}
           />
         )}
       </div>

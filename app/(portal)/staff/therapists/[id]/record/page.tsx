@@ -47,7 +47,7 @@ export default async function TherapistRecordPage({
   searchParams: Promise<{ service?: string }>;
 }) {
   const session = (await auth())!;
-  if (session.user.role !== "STAFF" && session.user.role !== "ADMIN") {
+  if (session.user.role !== "ADMIN") {
     notFound();
   }
   const { id } = await params;

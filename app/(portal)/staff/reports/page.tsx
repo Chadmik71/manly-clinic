@@ -322,11 +322,13 @@ export default async function ReportsPage({
                 <Button asChild variant="outline">
                   <a href="/staff/reports">Reset</a>
                 </Button>
-                <Button asChild variant="outline">
-                  <a href={csvUrl} download>
-                    <Download className="h-4 w-4" /> CSV
-                  </a>
-                </Button>
+                {session.user.role === "ADMIN" && (
+                  <Button asChild variant="outline">
+                    <a href={csvUrl} download>
+                      <Download className="h-4 w-4" /> CSV
+                    </a>
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>

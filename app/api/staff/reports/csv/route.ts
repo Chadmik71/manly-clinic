@@ -13,11 +13,12 @@ function csvEscape(v: unknown): string {
 }
 
 export async function GET(req: Request) {
+  // Bulk export of bookings includes client names, emails, phone numbers,
+  // and (when present) health-fund member numbers + reason for treatment.
+  // That's bulk PII at scale and is an admin-only operation — the on-page
+  // /staff/reports view remains STAFF-readable for daily ops.
   const session = await auth();
-  if (
-    !session?.user ||
-    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
-  ) {
+  if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -41,6 +41,7 @@ export default async function TherapistEditPage({
   params: Promise<{ id: string }>;
 }) {
   const session = (await auth())!;
+  if (session.user.role !== "ADMIN") redirect("/staff");
   const { id } = await params;
   const t = await db.therapist.findUnique({
     where: { id },

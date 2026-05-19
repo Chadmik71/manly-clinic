@@ -1,5 +1,7 @@
 "use server";
 
+import { auth } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -28,6 +30,15 @@ async function unguessablePlaceholderHash(): Promise<string> {
 }
 
 export async function addTherapist(formData: FormData) {
+  // Creating a new STAFF User is admin-only. This action was previously
+  // unauthenticated — any caller (signed-in or not) could mint a STAFF
+  // account via direct POST. The /staff/therapists page redirects non-
+  // admins, but actions are reachable independent of the route guard.
+  const session = await auth();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    throw new Error("Forbidden.");
+  }
+
   const name = (formData.get("name") as string | null)?.trim() ?? "";
   const isCasual = formData.get("isCasual") === "on";
 
@@ -85,7 +96,7 @@ export async function addTherapist(formData: FormData) {
     },
   });
 
-  await db.therapist.create({
+  const therapist = await db.therapist.create({
     data: {
       userId: user.id,
       active: true,
@@ -106,6 +117,13 @@ export async function addTherapist(formData: FormData) {
             })),
           },
     },
+  });
+
+  await audit({
+    userId: session.user.id,
+    action: "ADD_THERAPIST",
+    resource: `Therapist:${therapist.id}`,
+    metadata: { name, isCasual, hasLogin: !isCasual },
   });
 
   revalidatePath("/staff/therapists");

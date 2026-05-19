@@ -24,7 +24,7 @@ const RAIL: Array<{
   { href: "/staff/clients", label: "Clients", icon: Users },
   { href: "/staff/reports", label: "Reports", icon: BarChart3 },
   { href: "/staff/vouchers", label: "Vouchers", icon: Gift },
-  { href: "/staff/therapists", label: "Therapists", icon: Stethoscope },
+  { href: "/staff/therapists", label: "Therapists", icon: Stethoscope, adminOnly: true },
   { href: "/staff/slots", label: "Slots", icon: LayoutGrid, adminOnly: true },
   { href: "/staff/services", label: "Services", icon: Settings },
   { href: "/staff/settings", label: "Settings", icon: Wrench, adminOnly: true },

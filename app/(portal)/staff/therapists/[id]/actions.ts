@@ -7,13 +7,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-async function requireStaff() {
+// Therapist CRUD (profile, availability, time-off, active toggle) is an
+// admin concern — front-desk STAFF should not be able to rewrite a
+// colleague's hours or HiCAPS provider number, and the schedule grid
+// already hides the quick-actions UI for non-admin viewers. Defense-in-
+// depth: actions can be POSTed directly, so the check lives here too.
+async function requireAdmin() {
   const session = await auth();
-  if (
-    !session?.user ||
-    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
-  )
-    return null;
+  if (!session?.user || session.user.role !== "ADMIN") return null;
   return session;
 }
 
@@ -31,7 +32,7 @@ const profileSchema = z.object({
 export async function saveProfile(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string }> {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return { error: "Forbidden." };
   const raw: Record<string, string> = {};
   fd.forEach((v, k) => {
@@ -63,7 +64,7 @@ export async function saveProfile(
 export async function saveAvailability(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string }> {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return { error: "Forbidden." };
   const therapistId = String(fd.get("therapistId") ?? "");
   if (!therapistId) return { error: "Missing therapist id." };
@@ -107,7 +108,7 @@ const timeoffSchema = z.object({
 export async function addTimeOff(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string }> {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return { error: "Forbidden." };
   const raw: Record<string, string> = {};
   fd.forEach((v, k) => {
@@ -150,7 +151,7 @@ export async function addTimeOff(
 export async function toggleTherapistActive(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string }> {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return { error: "Forbidden." };
   const id = String(fd.get("id") ?? "");
   if (!id) return { error: "Missing therapist id." };
@@ -181,7 +182,7 @@ export async function removeTimeOffFromSchedule(
   // Variant of removeTimeOff that does NOT redirect, so the schedule grid
   // can stay on /staff/schedule after the click. Returns a result the client
   // can use to show errors and trigger router.refresh() on success.
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return { error: "Forbidden." };
   const id = String(fd.get("id") ?? "");
   if (!id) return { error: "Missing id." };
@@ -200,7 +201,7 @@ export async function removeTimeOffFromSchedule(
 }
 
 export async function removeTimeOff(fd: FormData) {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return;
   const id = String(fd.get("id") ?? "");
   const therapistId = String(fd.get("therapistId") ?? "");

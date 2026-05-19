@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { therapistInternalName } from "@/lib/utils";
@@ -20,6 +21,7 @@ function formatMin(m: number): string {
 
 export default async function TherapistsPage() {
   const session = (await auth())!;
+  if (session.user.role !== "ADMIN") redirect("/staff");
   const therapists = await db.therapist.findMany({
     include: { user: true, availability: { orderBy: { dayOfWeek: "asc" } } },
     orderBy: { user: { name: "asc" } },
