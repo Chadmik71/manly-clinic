@@ -2,7 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ListChecks, Users, Stethoscope, Settings, Wrench, LogOut, ChevronLeft, ChevronRight, Clock, BarChart3, Gift, UserCircle, LayoutGrid } from "lucide-react";
+import { CalendarDays, ListChecks, Users, Stethoscope, Settings, Wrench, LogOut, ChevronLeft, ChevronRight, Clock, BarChart3, Gift, UserCircle, LayoutGrid, Undo2 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ const RAIL: Array<{
   { href: "/staff/schedule", label: "Calendar", icon: CalendarDays },
   { href: "/staff/bookings", label: "Bookings", icon: ListChecks },
   { href: "/staff/clients", label: "Clients", icon: Users },
+  { href: "/staff/refunds", label: "Refunds", icon: Undo2, adminOnly: true },
   { href: "/staff/reports", label: "Reports", icon: BarChart3 },
   { href: "/staff/vouchers", label: "Vouchers", icon: Gift },
   { href: "/staff/therapists", label: "Therapists", icon: Stethoscope, adminOnly: true },

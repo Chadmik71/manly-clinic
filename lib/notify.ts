@@ -255,6 +255,60 @@ ${CLINIC.name}`;
   await sendEmail({ to: args.email, subject, html, text });
 }
 
+export async function notifyRefundDecided(args: {
+  email: string;
+  name: string;
+  reference: string;
+  startsAt: Date;
+  amountCents: number;
+  decision: "APPROVED" | "DECLINED" | "FAILED";
+  declineReason: string | null;
+}): Promise<void> {
+  const amount = `$${(args.amountCents / 100).toFixed(2)}`;
+  if (args.decision === "APPROVED") {
+    const subject = `Refund approved — ${args.reference}`;
+    const text = `Hi ${args.name},
+
+Your refund request for booking ${args.reference} (${fmt(args.startsAt)}) has been approved.
+
+We've refunded ${amount} to the card you paid with. Card refunds usually appear within 5-10 business days depending on your bank. The booking has been cancelled.
+
+${CLINIC.name}
+${CLINIC.phone}`;
+    const html = `<p>Hi ${args.name},</p><p>Your refund request for booking <code>${args.reference}</code> (${fmt(args.startsAt)}) has been <strong>approved</strong>.</p><p>We&rsquo;ve refunded <strong>${amount}</strong> to the card you paid with. Card refunds usually appear within 5&ndash;10 business days depending on your bank. The booking has been cancelled.</p><p style="color:#64748b;font-size:12px">${CLINIC.name} &middot; ${CLINIC.phone}</p>`;
+    await sendEmail({ to: args.email, subject, html, text });
+    return;
+  }
+  if (args.decision === "DECLINED") {
+    const reasonLine = args.declineReason
+      ? `\n\nReason: ${args.declineReason}\n`
+      : "";
+    const subject = `Refund request declined — ${args.reference}`;
+    const text = `Hi ${args.name},
+
+Your refund request for booking ${args.reference} (${fmt(args.startsAt)}) has not been approved.${reasonLine}
+
+If you have questions, please reply to this email or call us on ${CLINIC.phone}.
+
+${CLINIC.name}`;
+    const html = `<p>Hi ${args.name},</p><p>Your refund request for booking <code>${args.reference}</code> (${fmt(args.startsAt)}) has not been approved.</p>${args.declineReason ? `<p><strong>Reason:</strong> ${args.declineReason}</p>` : ""}<p>If you have questions, please reply to this email or call us on ${CLINIC.phone}.</p><p style="color:#64748b;font-size:12px">${CLINIC.name}</p>`;
+    await sendEmail({ to: args.email, subject, html, text });
+    return;
+  }
+  // FAILED: refund was approved but the Stripe call errored. Tell the
+  // client we'll follow up manually — don't leave them in the dark.
+  const subjectF = `Refund delayed — ${args.reference}`;
+  const textF = `Hi ${args.name},
+
+Your refund for booking ${args.reference} was approved but couldn't be processed automatically. We'll process it manually within the next business day and send another email when it's done.
+
+If you don't hear back within 24 hours, please call us on ${CLINIC.phone}.
+
+${CLINIC.name}`;
+  const htmlF = `<p>Hi ${args.name},</p><p>Your refund for booking <code>${args.reference}</code> was approved but couldn&rsquo;t be processed automatically. We&rsquo;ll process it manually within the next business day and send another email when it&rsquo;s done.</p><p>If you don&rsquo;t hear back within 24 hours, please call us on ${CLINIC.phone}.</p><p style="color:#64748b;font-size:12px">${CLINIC.name}</p>`;
+  await sendEmail({ to: args.email, subject: subjectF, html: htmlF, text: textF });
+}
+
 export async function notifyBookingRescheduled(args: {
   email: string;
   phone: string | null;

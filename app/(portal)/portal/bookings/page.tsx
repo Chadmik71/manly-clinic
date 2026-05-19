@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice, therapistPublicName } from "@/lib/utils";
 import { CancelBookingButton } from "./cancel-button";
-import { cancelBooking } from "./actions";
+import { RefundRequestButton } from "./refund-button";
+import { cancelBooking, requestRefund } from "./actions";
 
 // Renders Sydney calendar time, regardless of server runtime TZ (Vercel = UTC).
 // See lib/time.ts for the same pattern; this is duplicated here to avoid an
@@ -33,6 +34,10 @@ export default async function MyBookings() {
       service: true,
       variant: true,
       therapist: { include: { user: true } },
+      refundRequests: {
+        orderBy: { requestedAt: "desc" },
+        take: 1,
+      },
     },
     orderBy: { startsAt: "desc" },
   });
@@ -43,6 +48,23 @@ export default async function MyBookings() {
   const past = bookings.filter(
     (b) => b.startsAt < new Date() || b.status === "CANCELLED",
   );
+
+  const now = Date.now();
+  const REFUND_REQUEST_MIN_HOURS = 1;
+  function refundEligible(b: {
+    startsAt: Date;
+    paymentIntentId: string | null;
+    paidCents: number;
+    refundRequests: { status: string }[];
+  }): boolean {
+    if (!b.paymentIntentId || b.paidCents <= 0) return false;
+    const hoursUntil = (b.startsAt.getTime() - now) / 36e5;
+    if (hoursUntil <= REFUND_REQUEST_MIN_HOURS) return false;
+    const openRequest = b.refundRequests.find(
+      (r) => r.status === "REQUESTED" || r.status === "APPROVED",
+    );
+    return !openRequest;
+  }
 
   return (
     <PortalShell title="My bookings" user={session.user} section="client">
@@ -57,11 +79,15 @@ export default async function MyBookings() {
         <p className="text-sm text-muted-foreground mb-6">No upcoming bookings.</p>
       ) : (
         <div className="space-y-3 mb-8">
-          {upcoming.map((b) => (
+          {upcoming.map((b) => {
+            const openRefund = b.refundRequests.find(
+              (r) => r.status === "REQUESTED" || r.status === "APPROVED",
+            );
+            return (
             <Card key={b.id}>
               <CardContent className="py-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge
                       variant={b.status === "CONFIRMED" ? "success" : "secondary"}
                     >
@@ -70,6 +96,13 @@ export default async function MyBookings() {
                     <span className="font-mono text-xs text-muted-foreground">
                       {b.reference}
                     </span>
+                    {openRefund && (
+                      <Badge variant="warning">
+                        {openRefund.status === "REQUESTED"
+                          ? "Refund pending review"
+                          : "Refund approved"}
+                      </Badge>
+                    )}
                   </div>
                   <div className="font-semibold mt-1">{b.service.name}</div>
                   <div className="text-sm text-muted-foreground">
@@ -78,7 +111,7 @@ export default async function MyBookings() {
                     {b.slotLabel ? ` · ${b.slotLabel}` : b.therapist ? ` · with ${therapistPublicName(b.therapist)}` : ""}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap justify-end">
                   <span className="text-sm font-medium">
                     {formatPrice(b.priceCentsAtBooking)}
                   </span>
@@ -87,6 +120,9 @@ export default async function MyBookings() {
                       Reschedule
                     </Link>
                   </Button>
+                  {refundEligible(b) && (
+                    <RefundRequestButton id={b.id} action={requestRefund} />
+                  )}
                   <CancelBookingButton
                     id={b.id}
                     startsAt={b.startsAt}
@@ -96,7 +132,8 @@ export default async function MyBookings() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 

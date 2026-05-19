@@ -184,6 +184,8 @@ model Booking {
   // them for cancellation prompts and audit views.
   coupleGroupId   String?
 
+  refundRequests  RefundRequest[]
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -192,6 +194,57 @@ model Booking {
   @@index([therapistId])
   @@index([slotId, startsAt])
   @@index([coupleGroupId])
+}
+
+/// Client-submitted request to refund a paid deposit, requiring admin
+/// approval before money moves. One booking can have many rows over its
+/// lifetime (a DECLINED request can be re-submitted later) but only one
+/// open at a time — enforced via check-then-insert in requestRefund,
+/// since Prisma can't express partial unique indexes.
+///
+/// Status machine:
+///   REQUESTED ──► APPROVED ──► PROCESSED   (stripe.refunds.create returned)
+///       │            └────────► FAILED      (stripe call threw — terminal,
+///       │                                    admin must refund manually
+///       │                                    via Stripe dashboard)
+///       └─────────► DECLINED
+///
+/// PROCESSED only means our Stripe API call returned a refund id. The
+/// downstream Booking.paidCents decrement happens through the existing
+/// charge.refunded webhook handler — same path used by every other refund
+/// (manual dashboard, in-policy auto-refund, etc.).
+model RefundRequest {
+  id              String    @id @default(cuid())
+  bookingId       String
+  booking         Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reason          String?
+  status          String    @default("REQUESTED") // REQUESTED | APPROVED | DECLINED | PROCESSED | FAILED
+  /// Snapshot of the refund amount in cents at request time. Today this
+  /// is always the full deposit (no partial refunds), but stored so
+  /// historical rows stay correct if the deposit amount changes later.
+  amountCents     Int
+
+  requestedAt     DateTime  @default(now())
+  decidedAt       DateTime?
+  /// User.id of the admin who approved or declined. Denormalised (no FK)
+  /// to match the DailyCapacityOverride.createdBy pattern.
+  decidedById     String?
+  /// Admin name frozen at decision time so historical rows aren't rewritten
+  /// when a User is later renamed.
+  decidedByName   String?
+  declineReason   String?
+
+  /// Stripe refund id (re_...) — set when the API call succeeds.
+  stripeRefundId  String?
+  /// Last Stripe error message when status=FAILED. For admin diagnosis only.
+  stripeError     String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@index([bookingId])
+  @@index([requestedAt])
 }
 
 // --- Health intake (Privacy Act compliant) ---
