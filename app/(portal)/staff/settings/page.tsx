@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login?from=/staff/settings");
+  if (session.user.role !== "ADMIN") redirect("/staff");
 
   const settings = await getClinicSettings();
 

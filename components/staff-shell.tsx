@@ -9,27 +9,37 @@ import { Button } from "@/components/ui/button";
 import { CLINIC } from "@/lib/clinic";
 import { cn } from "@/lib/utils";
 
-const RAIL = [
+// adminOnly entries are filtered out for STAFF users in the rail render.
+// The server-side route guard is still authoritative (see /staff/slots and
+// /staff/settings) — this just keeps the link out of the UI when it leads
+// nowhere for that role.
+const RAIL: Array<{
+  href: string;
+  label: string;
+  icon: typeof CalendarDays;
+  adminOnly?: boolean;
+}> = [
   { href: "/staff/schedule", label: "Calendar", icon: CalendarDays },
   { href: "/staff/bookings", label: "Bookings", icon: ListChecks },
   { href: "/staff/clients", label: "Clients", icon: Users },
   { href: "/staff/reports", label: "Reports", icon: BarChart3 },
   { href: "/staff/vouchers", label: "Vouchers", icon: Gift },
   { href: "/staff/therapists", label: "Therapists", icon: Stethoscope },
-  { href: "/staff/slots", label: "Slots", icon: LayoutGrid },
+  { href: "/staff/slots", label: "Slots", icon: LayoutGrid, adminOnly: true },
   { href: "/staff/services", label: "Services", icon: Settings },
-  { href: "/staff/settings", label: "Settings", icon: Wrench },
+  { href: "/staff/settings", label: "Settings", icon: Wrench, adminOnly: true },
 ];
 
 export function StaffShell({ user, topbar, children }: { user: { name: string; email: string; role: string }; topbar?: React.ReactNode; children: React.ReactNode; }) {
   const pathname = usePathname();
+  const rail = RAIL.filter((it) => !it.adminOnly || user.role === "ADMIN");
   return (
     <div className="min-h-screen flex bg-background">
       <aside className="hidden sm:flex w-14 flex-col items-center border-r bg-[hsl(var(--rail))] py-3 gap-1 sticky top-0 self-start h-screen">
         <Link href="/staff" className="block h-10 w-10 mb-2 overflow-hidden rounded-md" title={CLINIC.name}>
           <Image src="/logo-icon.png" alt={CLINIC.name} width={80} height={80} className="h-full w-full object-cover" />
         </Link>
-        {RAIL.map((it) => {
+        {rail.map((it) => {
           const active = pathname === it.href || (it.href !== "/staff" && pathname.startsWith(it.href));
           const Icon = it.icon;
           return (
@@ -79,7 +89,7 @@ export function StaffShell({ user, topbar, children }: { user: { name: string; e
           </div>
         </header>
         <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-card flex justify-around py-1.5">
-          {RAIL.map((it) => {
+          {rail.map((it) => {
             const active = pathname === it.href || (it.href !== "/staff" && pathname.startsWith(it.href));
             const Icon = it.icon;
             return (

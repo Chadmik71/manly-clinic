@@ -5,13 +5,13 @@ import { audit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-async function requireStaff() {
+// Slots and per-day capacity overrides drive booking availability across
+// the clinic — they are an admin-only concern, not something rotating
+// front-desk STAFF should change. Defense-in-depth: the /staff/slots page
+// itself enforces the same gate, but actions can be POSTed directly.
+async function requireAdmin() {
   const session = await auth();
-  if (
-    !session?.user ||
-    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
-  )
-    return null;
+  if (!session?.user || session.user.role !== "ADMIN") return null;
   return session;
 }
 
@@ -27,7 +27,7 @@ const labelSchema = z
  * state. Safe to call repeatedly — does nothing once any slot exists.
  */
 export async function seedDefaultSlotsIfEmpty(): Promise<void> {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return;
 
   const count = await db.slot.count();
@@ -53,7 +53,7 @@ export async function seedDefaultSlotsIfEmpty(): Promise<void> {
 export async function createSlot(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string }> {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return { error: "Forbidden." };
 
   const parsed = labelSchema.safeParse(fd.get("label"));
@@ -88,7 +88,7 @@ export async function createSlot(
 export async function renameSlot(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string }> {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return { error: "Forbidden." };
 
   const id = String(fd.get("id") ?? "");
@@ -119,7 +119,7 @@ export async function renameSlot(
 export async function toggleSlotActive(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string }> {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return { error: "Forbidden." };
 
   const id = String(fd.get("id") ?? "");
@@ -147,7 +147,7 @@ export async function toggleSlotActive(
 export async function deleteSlot(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string }> {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return { error: "Forbidden." };
 
   const id = String(fd.get("id") ?? "");
@@ -199,7 +199,7 @@ const overrideSchema = z.object({
 export async function setCapacityOverride(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string }> {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return { error: "Forbidden." };
   const parsed = overrideSchema.safeParse({
     date: fd.get("date"),
@@ -237,7 +237,7 @@ export async function setCapacityOverride(
 export async function deleteCapacityOverride(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string }> {
-  const session = await requireStaff();
+  const session = await requireAdmin();
   if (!session) return { error: "Forbidden." };
   const id = String(fd.get("id") ?? "");
   if (!id) return { error: "Missing id." };

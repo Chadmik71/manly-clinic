@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { StaffShell } from "@/components/staff-shell";
@@ -27,6 +28,7 @@ export const metadata = { title: "Service slots" };
 
 export default async function SlotsPage() {
   const session = (await auth())!;
+  if (session.user.role !== "ADMIN") redirect("/staff");
 
   // First-visit convenience: if no slots exist yet, populate four defaults.
   // Idempotent — does nothing once any slot exists.
