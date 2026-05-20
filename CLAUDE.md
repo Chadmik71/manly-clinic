@@ -175,7 +175,7 @@ Single owner-operator (Mick). Production handles real patient data.
 
 
 
-- **HiCAPS**: customers claiming health-fund rebate must sign at booking. Signature persists on `IntakeForm.signatureDataUrl`, renders on invoice PDF.
+- **Per-visit signature**: every booking captures a fresh signature on `IntakeForm.signatureDataUrl` as the per-visit consent record (enforced client + server, both customer and staff flows). HiCAPS claims additionally embed the signature on the invoice PDF for audit; non-claim signatures stay on the intake row only. A returning customer cannot re-use a prior signature — the pad always renders empty. Smoke section 26 asserts both the customer and staff actions still reject submissions without a fresh PNG.
 
 
 

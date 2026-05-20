@@ -84,6 +84,15 @@ export function NewBookingForm({
   // If the user switches to a non-eligible service after toggling claim on,
   // collapse the claim block silently so stale state isn't shipped to the server.
   const claimActive = claiming && healthFundEligible;
+  // Auto-tick the claim checkbox whenever the selected service is
+  // health-fund-eligible (Remedial Massage today) — customers booking
+  // those services almost always do so *to* claim. Staff can still
+  // untick if a particular client is paying cash this visit. Switching
+  // to a non-eligible service auto-collapses the claim section via
+  // claimActive above.
+  useEffect(() => {
+    setClaiming(healthFundEligible);
+  }, [healthFundEligible]);
 
   // Server-side client search (debounced). The clinic has thousands of
   // imported clients, so an in-browser filter over a preloaded subset
@@ -118,18 +127,16 @@ export function NewBookingForm({
       return;
     }
     fd.set("startsAt", `${dateValue}T${timeValue}`);
+    // Per-visit signature: required for every booking. HiCAPS claims also
+    // require fund + reason. Validate client-side before hitting the
+    // server so staff don't dispatch a half-filled booking.
+    if (!signatureDataUrl) {
+      setError("Please ask the client to sign in the signature pad.");
+      return;
+    }
+    fd.set("signatureDataUrl", signatureDataUrl);
     if (claimActive) {
-      // HiCAPS audit: every health-fund claim must include a fresh signature
-      // captured at the counter. Validate before hitting the server so staff
-      // don't dispatch a half-filled booking and have to start over.
-      if (!signatureDataUrl) {
-        setError(
-          "Please ask the client to sign in the signature pad to authorise the health-fund claim.",
-        );
-        return;
-      }
       fd.set("claimWithHealthFund", "on");
-      fd.set("signatureDataUrl", signatureDataUrl);
     } else {
       // Defensive: ensure no stale claim fields ship if the user toggled the
       // section off after typing something in.
@@ -137,7 +144,6 @@ export function NewBookingForm({
       fd.delete("healthFundName");
       fd.delete("healthFundMemberNumber");
       fd.delete("reasonForTreatment");
-      fd.delete("signatureDataUrl");
     }
     start(async () => {
       const res = await action(fd);
@@ -376,24 +382,24 @@ export function NewBookingForm({
                   placeholder="e.g. lower back pain after long-distance running"
                 />
               </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>
-                  Client signature <span className="text-destructive">*</span>
-                </Label>
-                <SignaturePad
-                  onChange={setSignatureDataUrl}
-                  disabled={pending}
-                />
-                <p className="text-xs text-muted-foreground">
-                  By signing, the client confirms the information above and
-                  authorises us to submit a HICAPS claim on their behalf. A
-                  fresh signature is required for every health-fund visit.
-                </p>
-              </div>
             </div>
           )}
         </div>
       )}
+
+      {/* Client signature — captured on every booking as per-visit consent.
+          HiCAPS claims additionally embed it on the invoice PDF. */}
+      <div className="space-y-2 rounded-md border bg-card p-4">
+        <Label>
+          Client signature <span className="text-destructive">*</span>
+        </Label>
+        <SignaturePad onChange={setSignatureDataUrl} disabled={pending} />
+        <p className="text-xs text-muted-foreground">
+          {claimActive
+            ? "By signing, the client confirms the information above and authorises us to submit a HICAPS claim on their behalf. A fresh signature is required for every health-fund visit."
+            : "By signing, the client confirms today's booking details and consents to treatment. A fresh signature is required for every visit."}
+        </p>
+      </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {success && <p className="text-sm text-emerald-600">{success}</p>}

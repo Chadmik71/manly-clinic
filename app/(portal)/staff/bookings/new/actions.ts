@@ -137,21 +137,21 @@ export async function createStaffBooking(
   });
   if (!variant) return { error: "Service variant not found." };
 
-  // Health-fund claim validation. Mirrors the public confirm flow: the four
-  // HiCAPS audit fields (fund, member#, reason, signature) are all-or-nothing.
+  // Per-visit signature: required for every booking (consent record on the
+  // intake row). HiCAPS claims also require fund + reason; non-claim
+  // bookings stop at the signature.
+  if (
+    !data.signatureDataUrl ||
+    !data.signatureDataUrl.startsWith("data:image/png;base64,")
+  ) {
+    return {
+      error: "Please ask the client to sign in the signature pad.",
+    };
+  }
   const claimWithHealthFund = data.claimWithHealthFund === "on";
   if (claimWithHealthFund) {
     if (!variant.service.healthFundEligible) {
       return { error: "This treatment is not eligible for health fund rebates." };
-    }
-    if (
-      !data.signatureDataUrl ||
-      !data.signatureDataUrl.startsWith("data:image/png;base64,")
-    ) {
-      return {
-        error:
-          "Please ask the client to sign in the signature pad to authorise the health-fund claim.",
-      };
     }
     if (!data.healthFundName || !data.healthFundName.trim())
       return { error: "Please choose the client's health fund." };
@@ -270,26 +270,28 @@ export async function createStaffBooking(
     },
   });
 
-  // When the client is claiming via HiCAPS today, persist the signature +
-  // fund metadata as a fresh IntakeForm row. The walk-in flow doesn't
-  // collect a full clinical intake at the counter; staff captures the
-  // remaining fields on the booking detail page after the session, but the
-  // HiCAPS-required pieces (fund, member#, reason, signature) are locked in
-  // here with consent flags so the audit trail starts at booking time.
-  if (claimWithHealthFund) {
-    await db.intakeForm.create({
-      data: {
-        userId: clientId,
-        healthFundName: data.healthFundName ?? null,
-        healthFundMemberNumber: data.healthFundMemberNumber ?? null,
-        reasonForTreatment: data.reasonForTreatment ?? null,
-        consentToTreat: true,
-        consentToStore: true,
-        signedAt: new Date(),
-        signatureDataUrl: data.signatureDataUrl ?? null,
-      },
-    });
-  }
+  // Every booking persists a fresh IntakeForm row to capture the per-visit
+  // signature + consent flags. HiCAPS claims additionally store fund name,
+  // member number, and reason for treatment on the same row. The walk-in
+  // flow doesn't collect a full clinical intake at the counter; staff
+  // captures the remaining clinical fields on the booking detail page
+  // after the session.
+  await db.intakeForm.create({
+    data: {
+      userId: clientId,
+      healthFundName: claimWithHealthFund ? (data.healthFundName ?? null) : null,
+      healthFundMemberNumber: claimWithHealthFund
+        ? (data.healthFundMemberNumber ?? null)
+        : null,
+      reasonForTreatment: claimWithHealthFund
+        ? (data.reasonForTreatment ?? null)
+        : null,
+      consentToTreat: true,
+      consentToStore: true,
+      signedAt: new Date(),
+      signatureDataUrl: data.signatureDataUrl ?? null,
+    },
+  });
 
   await audit({
     userId: session.user.id,

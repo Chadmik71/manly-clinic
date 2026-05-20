@@ -167,7 +167,11 @@ export function ConfirmForm({
   const [pregnant, setPregnant] = useState<boolean>(
     intakeDefaults?.pregnancy ?? false,
   );
-  const [claiming, setClaiming] = useState<boolean>(false);
+  // Pre-tick the claim checkbox for health-fund-eligible services
+  // (currently Remedial Massage). Customers almost always pick those
+  // services *to* claim — default-on saves a click. They can still
+  // untick if paying cash this visit.
+  const [claiming, setClaiming] = useState<boolean>(serviceHealthFundEligible);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   // Body-diagram selection. Pre-fills from the most recent intake so
   // returning customers do not have to re-mark unchanged areas.
@@ -292,16 +296,15 @@ export function ConfirmForm({
     fd.set("medicalHistory", JSON.stringify([...history]));
     fd.set("painLocationCodes", JSON.stringify(painCodes));
     if (pain != null) fd.set("painScale", String(pain));
-    // Health-fund claims require a per-visit signature for HICAPS audit.
-    if (claiming) {
-      if (!signatureDataUrl) {
-        setError(
-          "Please sign in the signature pad to authorise the health fund claim.",
-        );
-        return;
-      }
-      fd.set("signatureDataUrl", signatureDataUrl);
+    // Per-visit signature: required for every booking (consent record).
+    // HiCAPS claims additionally embed it on the invoice PDF for audit;
+    // non-claim signatures are kept on the IntakeForm row as a consent
+    // trail and don't render on the invoice.
+    if (!signatureDataUrl) {
+      setError("Please sign the signature pad to confirm your booking.");
+      return;
     }
+    fd.set("signatureDataUrl", signatureDataUrl);
     start(async () => {
       if (paymentIntentId) fd.set("paymentIntentId", paymentIntentId);
       const res = await action(fd);
@@ -1070,22 +1073,32 @@ export function ConfirmForm({
         </CardContent>
       </Card>
 
-      {/* Signature — required for health-fund-claim bookings */}
-      {claiming && (
-        <Card>
-          <SectionHeader
-            step="✍"
-            title="Sign to authorise health fund claim"
-            desc="Required for every visit where you claim a rebate. If nothing has changed since your last visit, just sign below — your previous health information is already filled in above."
-          />
-          <CardContent className="pb-5 pt-4 space-y-3">
-            <SignaturePad onChange={setSignatureDataUrl} disabled={pending} />
-            <p className="text-xs text-muted-foreground">
-              By signing, you confirm the clinical information above is accurate as of today and authorise us to submit a HICAPS claim on your behalf.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Signature — required for every booking (consent record). When
+          claiming health-fund, the same signature also renders on the
+          invoice PDF as HiCAPS audit evidence. */}
+      <Card>
+        <SectionHeader
+          step="✍"
+          title={
+            claiming
+              ? "Sign to authorise health fund claim"
+              : "Sign to confirm your booking"
+          }
+          desc={
+            claiming
+              ? "Required for every visit where you claim a rebate. A fresh signature is needed each visit — your previous health information is already filled in above."
+              : "We capture a signature on every visit as your consent to today's treatment. A fresh signature is needed each visit."
+          }
+        />
+        <CardContent className="pb-5 pt-4 space-y-3">
+          <SignaturePad onChange={setSignatureDataUrl} disabled={pending} />
+          <p className="text-xs text-muted-foreground">
+            {claiming
+              ? "By signing, you confirm the clinical information above is accurate as of today and authorise us to submit a HICAPS claim on your behalf."
+              : "By signing, you confirm the information above is accurate and consent to receiving today's treatment."}
+          </p>
+        </CardContent>
+      </Card>
 
       {error && (
         <p className="text-sm text-destructive" role="alert">

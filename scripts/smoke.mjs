@@ -484,16 +484,18 @@ if (bookingId) {
   else bad("Deposit API", `unexpected status ${r.status}`);
 }
 
-// --- 26. Per-visit signature guard on health-fund claim bookings ---
+// --- 26. Per-visit signature guard on every booking ---
 // Static-source check, not an HTTP probe. Asserts both the customer and
-// staff booking-create actions still reject claim submissions without a
-// fresh base64-PNG signature. These guards are what prevent a returning
-// customer from re-using a prior signature — they must sign on every
-// claim visit per HiCAPS audit requirements. Invoking the server action
-// at runtime would require scraping the per-build Next.js Action ID,
-// which is too brittle. A regression in these guards is the realistic
-// failure mode (e.g. someone deletes the check in a refactor), and a
-// source scan catches it reliably.
+// staff booking-create actions still reject submissions without a fresh
+// base64-PNG signature. Signature is now required on every booking
+// (claim and non-claim) as the per-visit consent record — claim
+// bookings also embed it on the invoice PDF for HiCAPS audit. The
+// guards prevent a returning customer (or staff entering a walk-in)
+// from re-using a prior signature: a fresh one is captured each visit.
+// Invoking the server action at runtime would require scraping the
+// per-build Next.js Action ID, which is too brittle. A regression in
+// these guards is the realistic failure mode (e.g. someone deletes the
+// check in a refactor), and a source scan catches it reliably.
 {
   const fs = await import("node:fs/promises");
   const hasGuard = (src) =>
