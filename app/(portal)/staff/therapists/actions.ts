@@ -46,6 +46,18 @@ export async function addTherapist(formData: FormData) {
     throw new Error("Full name is required.");
   }
 
+  // Role is only meaningful for login-capable accounts. Casual users get a
+  // synthetic non-routable email and can't sign in, so their role is fixed
+  // to STAFF — the value just controls audit/data shape, not access.
+  let role: "STAFF" | "ADMIN" = "STAFF";
+  if (!isCasual) {
+    const submittedRole = (formData.get("role") as string | null) ?? "STAFF";
+    if (submittedRole !== "STAFF" && submittedRole !== "ADMIN") {
+      throw new Error("Role must be STAFF or ADMIN.");
+    }
+    role = submittedRole;
+  }
+
   let email: string;
   let passwordHash: string;
 
@@ -91,7 +103,7 @@ export async function addTherapist(formData: FormData) {
       name,
       email,
       phone: phone || null,
-      role: "STAFF",
+      role,
       passwordHash,
     },
   });
@@ -123,7 +135,7 @@ export async function addTherapist(formData: FormData) {
     userId: session.user.id,
     action: "ADD_THERAPIST",
     resource: `Therapist:${therapist.id}`,
-    metadata: { name, isCasual, hasLogin: !isCasual },
+    metadata: { name, role, isCasual, hasLogin: !isCasual },
   });
 
   revalidatePath("/staff/therapists");

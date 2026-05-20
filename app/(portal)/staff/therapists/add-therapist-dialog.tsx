@@ -84,6 +84,18 @@ export function AddTherapistDialog() {
                 <Label>Password * (they can change later)</Label>
                 <Input name="password" type="password" required minLength={6} />
               </div>
+              <div>
+                <Label htmlFor="role">Role *</Label>
+                <select
+                  id="role"
+                  name="role"
+                  defaultValue="STAFF"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="STAFF">Staff &mdash; sees most pages, no admin-only tabs</option>
+                  <option value="ADMIN">Admin &mdash; full access incl. Settings, Slots, Refunds</option>
+                </select>
+              </div>
             </>
           )}
 
