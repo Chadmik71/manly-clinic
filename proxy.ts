@@ -15,6 +15,9 @@ const MAINTENANCE_ALLOW_PREFIXES = [
   "/signup",
   "/api/auth",
   "/api/cron",
+  // Stripe webhook lives at /api/stripe/webhook. The /api/webhooks prefix
+  // is kept for any future webhook routes (Twilio status callbacks, etc.).
+  "/api/stripe/webhook",
   "/api/webhooks",
 ];
 

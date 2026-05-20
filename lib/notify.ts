@@ -223,8 +223,8 @@ ${CLINIC.phone}`;
         ? `\n  Partner: ${args.partner!.partnerName}`
         : "";
       const staffSubject = `New booking: ${services} — ${fmtShort(args.startsAt)}`;
-      const staffText = `A new booking has been made.\n\n  When: ${fmt(args.startsAt)}\n  Services: ${services}\n  Customer: ${args.name}${partnerLine}\n  Email: ${args.email}\n  Phone: ${args.phone || "(not provided)"}\n  Reference: ${args.reference}${isCouple ? `\n  Partner reference: ${args.partner!.reference}` : ""}\n\nManage in the staff portal: https://${CLINIC.domain}/staff/bookings\n`;
-      const staffHtml = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#333;padding:16px;line-height:1.5;"><h2 style="margin:0 0 12px;">New booking</h2><p style="margin:0 0 4px;"><strong>When:</strong> ${fmt(args.startsAt)}</p><p style="margin:0 0 4px;"><strong>Services:</strong> ${services}</p><p style="margin:0 0 4px;"><strong>Customer:</strong> ${args.name}${isCouple && args.partner!.partnerName ? ` (with ${args.partner!.partnerName})` : ""}</p><p style="margin:0 0 4px;"><strong>Email:</strong> <a href="mailto:${args.email}">${args.email}</a></p><p style="margin:0 0 4px;"><strong>Phone:</strong> ${args.phone || "(not provided)"}</p><p style="margin:0 0 4px;"><strong>Reference:</strong> ${args.reference}${isCouple ? ` / ${args.partner!.reference}` : ""}</p><p style="margin:16px 0 0;"><a href="https://${CLINIC.domain}/staff/bookings">Manage in the staff portal</a></p></div>`;
+      const staffText = `A new booking has been made.\n\n  When: ${fmt(args.startsAt)}\n  Services: ${services}\n  Customer: ${args.name}${partnerLine}\n  Email: ${args.email}\n  Phone: ${args.phone || "(not provided)"}\n  Reference: ${args.reference}${isCouple ? `\n  Partner reference: ${args.partner!.reference}` : ""}\n\nManage in the staff portal: ${CLINIC.domain}/staff/bookings\n`;
+      const staffHtml = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#333;padding:16px;line-height:1.5;"><h2 style="margin:0 0 12px;">New booking</h2><p style="margin:0 0 4px;"><strong>When:</strong> ${fmt(args.startsAt)}</p><p style="margin:0 0 4px;"><strong>Services:</strong> ${services}</p><p style="margin:0 0 4px;"><strong>Customer:</strong> ${args.name}${isCouple && args.partner!.partnerName ? ` (with ${args.partner!.partnerName})` : ""}</p><p style="margin:0 0 4px;"><strong>Email:</strong> <a href="mailto:${args.email}">${args.email}</a></p><p style="margin:0 0 4px;"><strong>Phone:</strong> ${args.phone || "(not provided)"}</p><p style="margin:0 0 4px;"><strong>Reference:</strong> ${args.reference}${isCouple ? ` / ${args.partner!.reference}` : ""}</p><p style="margin:16px 0 0;"><a href="${CLINIC.domain}/staff/bookings">Manage in the staff portal</a></p></div>`;
       await sendEmail({ to: staffTo, subject: staffSubject, html: staffHtml, text: staffText });
     }
   } catch (err) {
@@ -399,7 +399,7 @@ export async function notifyVoucherIssued({
 
   const safeName = escapeVoucherHtml(recipientName);
   const safeMessage = message ? escapeVoucherHtml(message) : null;
-  const bookUrl = `https://${CLINIC.domain}/book`;
+  const bookUrl = `${CLINIC.domain}/book`;
 
   const messageBlockHtml = safeMessage
     ? `<p style="margin:24px 0;padding:16px;background:#f7f5f0;border-radius:8px;font-style:italic;color:#555;">&ldquo;${safeMessage}&rdquo;</p>`
