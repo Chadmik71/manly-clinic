@@ -484,7 +484,51 @@ if (bookingId) {
   else bad("Deposit API", `unexpected status ${r.status}`);
 }
 
-// --- 26. Therapist edit page renders for admin ---
+// --- 26. Per-visit signature guard on health-fund claim bookings ---
+// Static-source check, not an HTTP probe. Asserts both the customer and
+// staff booking-create actions still reject claim submissions without a
+// fresh base64-PNG signature. These guards are what prevent a returning
+// customer from re-using a prior signature — they must sign on every
+// claim visit per HiCAPS audit requirements. Invoking the server action
+// at runtime would require scraping the per-build Next.js Action ID,
+// which is too brittle. A regression in these guards is the realistic
+// failure mode (e.g. someone deletes the check in a refactor), and a
+// source scan catches it reliably.
+{
+  const fs = await import("node:fs/promises");
+  const hasGuard = (src) =>
+    /signatureDataUrl/.test(src) &&
+    /data:image\/png;base64/.test(src) &&
+    /claimWithHealthFund/.test(src);
+  try {
+    const customer = await fs.readFile(
+      "app/(public)/book/confirm/actions.ts",
+      "utf8",
+    );
+    const staff = await fs.readFile(
+      "app/(portal)/staff/bookings/new/actions.ts",
+      "utf8",
+    );
+    if (hasGuard(customer))
+      ok("Customer claim flow rejects bookings without a fresh signature");
+    else
+      bad(
+        "Customer signature guard",
+        "app/(public)/book/confirm/actions.ts is missing the PNG header / signatureDataUrl / claimWithHealthFund check",
+      );
+    if (hasGuard(staff))
+      ok("Staff claim flow rejects bookings without a fresh signature");
+    else
+      bad(
+        "Staff signature guard",
+        "app/(portal)/staff/bookings/new/actions.ts is missing the PNG header / signatureDataUrl / claimWithHealthFund check",
+      );
+  } catch (e) {
+    bad("Signature guard scan", `could not read action source: ${e.message}`);
+  }
+}
+
+// --- 27. Therapist edit page renders for admin ---
 {
   const list = await fetch(BASE + "/staff/therapists", {
     headers: { cookie: staffCookieHeader() },
