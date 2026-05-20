@@ -51,12 +51,13 @@ const schema = z.object({
   signatureDataUrl: z.string().max(150_000).optional(),
 });
 
-// Server-side client search for the booking-create form. The page used to
-// preload `take: 500` rows and filter in the browser, but the clinic has
-// ~4,200 imported clients (see lib/phone.ts header) so most of them were
-// unsearchable. This action hits the DB on every (debounced) keystroke so
-// the full client base is reachable. Phone search strips whitespace/dashes
-// from the query so "0412 345" matches the normalised "0412345678".
+// Server-side client search for the booking-create form. Mirrors the
+// /staff/clients page search shape (token-split AND-of-OR over name +
+// email + phone-digits + externalId + suburb + postcode + notes + booking
+// reference + health-fund member number) so the two surfaces feel
+// identical to the admin. The page used to preload `take: 500` rows and
+// filter in the browser, but the clinic has ~4,200 imported clients (see
+// lib/phone.ts header) so most were unreachable.
 export async function searchClients(
   q: string,
 ): Promise<{
@@ -70,7 +71,7 @@ export async function searchClients(
   ) {
     return { error: "Forbidden." };
   }
-  const term = (q ?? "").trim().slice(0, 100);
+  const term = (q ?? "").trim().slice(0, 200);
   if (term === "") {
     const clients = await db.user.findMany({
       where: { role: "CLIENT" },
@@ -80,16 +81,31 @@ export async function searchClients(
     });
     return { clients };
   }
-  const phoneQ = term.replace(/[\s\-]/g, "");
+  const tokens = term
+    .split(/[\s,]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const where = {
+    role: "CLIENT" as const,
+    AND: tokens.map((t) => {
+      const digits = t.replace(/[^\d+]/g, "");
+      return {
+        OR: [
+          { name: { contains: t } },
+          { email: { contains: t } },
+          { phone: { contains: digits || t } },
+          { externalId: { contains: t } },
+          { suburb: { contains: t } },
+          { postcode: { contains: t } },
+          { notes: { contains: t } },
+          { bookings: { some: { reference: { contains: t.toUpperCase() } } } },
+          { intakeForms: { some: { healthFundMemberNumber: { contains: t } } } },
+        ],
+      };
+    }),
+  };
   const clients = await db.user.findMany({
-    where: {
-      role: "CLIENT",
-      OR: [
-        { name: { contains: term, mode: "insensitive" } },
-        { email: { contains: term, mode: "insensitive" } },
-        { phone: { contains: phoneQ } },
-      ],
-    },
+    where,
     select: { id: true, name: true, email: true, phone: true },
     orderBy: { name: "asc" },
     take: 50,
