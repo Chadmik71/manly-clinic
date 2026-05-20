@@ -11,6 +11,7 @@ import {
   toggleTherapistActive,
   removeTimeOffFromSchedule,
 } from "@/app/(portal)/staff/therapists/[id]/actions";
+import { BlockTimeDialog } from "./block-time-dialog";
 
 export const metadata = { title: "Calendar" };
 
@@ -126,13 +127,26 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     <StaffShell user={session.user} topbar={<DateNav date={day} basePath="/staff/schedule" />}>
       <AutoRefresh intervalMs={30000} />
       <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h1 className="text-lg font-semibold">Schedule</h1>
-          <Button asChild>
-            <Link href={`/staff/bookings/new?date=${dateStr}`}>
-              <Plus className="h-4 w-4 mr-1" /> New Booking
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {session.user.role === "ADMIN" && therapists.length > 0 && (
+              <BlockTimeDialog
+                therapists={therapists.map((t) => ({
+                  id: t.id,
+                  name: t.name,
+                  isActive: t.isActive ?? true,
+                }))}
+                dateStr={dateStr}
+                addTimeOffAction={addTimeOff}
+              />
+            )}
+            <Button asChild>
+              <Link href={`/staff/bookings/new?date=${dateStr}`}>
+                <Plus className="h-4 w-4 mr-1" /> New Booking
+              </Link>
+            </Button>
+          </div>
         </div>
         {therapists.length === 0 ? (
           <div className="rounded-md border bg-card p-8 text-sm text-muted-foreground text-center">
