@@ -56,6 +56,8 @@ const EMPTY_USER_DEFAULTS = {
   gpName: "",
   gpClinic: "",
   gpPhone: "",
+  healthFundName: "",
+  healthFundMemberNumber: "",
 };
 
 export default async function ConfirmPage({
@@ -142,6 +144,8 @@ export default async function ConfirmPage({
       gpName: userRow?.gpName ?? "",
       gpClinic: userRow?.gpClinic ?? "",
       gpPhone: userRow?.gpPhone ?? "",
+      healthFundName: userRow?.healthFundName ?? "",
+      healthFundMemberNumber: userRow?.healthFundMemberNumber ?? "",
     };
     bookedUnderName = session.user.name ?? null;
     signedInEmail = session.user.email ?? null;

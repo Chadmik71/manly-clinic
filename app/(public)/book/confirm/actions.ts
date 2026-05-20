@@ -552,6 +552,14 @@ export async function createBooking(
   if (data.gpName) userPatch.gpName = data.gpName;
   if (data.gpClinic) userPatch.gpClinic = data.gpClinic;
   if (data.gpPhone) userPatch.gpPhone = data.gpPhone;
+  // Persist fund details on the User row so they survive non-claim visits
+  // and pre-fill cleanly next time. Only writes on claim submissions to
+  // avoid blanking a previously-stored fund when the customer books a
+  // non-claimable service (relaxation, etc.).
+  if (claimWithHealthFund && data.healthFundName)
+    userPatch.healthFundName = data.healthFundName;
+  if (claimWithHealthFund && data.healthFundMemberNumber)
+    userPatch.healthFundMemberNumber = data.healthFundMemberNumber;
   if (Object.keys(userPatch).length > 0) {
     await db.user.update({
       where: { id: clientUserId },

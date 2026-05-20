@@ -34,6 +34,12 @@ model User {
   gpName        String?
   gpClinic      String?
   gpPhone       String?
+  // Health-fund details persisted at the user level so they pre-fill
+  // across bookings even when the most recent IntakeForm wasn't a claim
+  // visit (which would null these out on the per-booking snapshot).
+  // Updated whenever a customer submits with claimWithHealthFund=true.
+  healthFundName         String?
+  healthFundMemberNumber String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

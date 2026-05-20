@@ -62,6 +62,8 @@ type UserDefaults = {
   gpName: string;
   gpClinic: string;
   gpPhone: string;
+  healthFundName: string;
+  healthFundMemberNumber: string;
 };
 
 function SectionHeader({
@@ -825,7 +827,11 @@ export function ConfirmForm({
                       id="healthFundName"
                       name="healthFundName"
                       required
-                      defaultValue={intakeDefaults?.healthFundName ?? ""}
+                      defaultValue={
+                        userDefaults.healthFundName ||
+                        intakeDefaults?.healthFundName ||
+                        ""
+                      }
                       className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                     >
                       <option value="">Select a fund…</option>
@@ -844,7 +850,11 @@ export function ConfirmForm({
                       id="healthFundMemberNumber"
                       name="healthFundMemberNumber"
                       required
-                      defaultValue={intakeDefaults?.healthFundMemberNumber ?? ""}
+                      defaultValue={
+                        userDefaults.healthFundMemberNumber ||
+                        intakeDefaults?.healthFundMemberNumber ||
+                        ""
+                      }
                       placeholder="e.g. 1234567A"
                     />
                   </div>
