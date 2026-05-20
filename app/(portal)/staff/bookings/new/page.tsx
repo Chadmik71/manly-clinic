@@ -45,11 +45,14 @@ export default async function NewStaffBookingPage({
       include: { user: { select: { name: true } } },
       orderBy: { user: { name: "asc" } },
     }),
+    // Initial "no search" view shows the first 50 alphabetically. The form
+    // hits searchClients() on every keystroke (debounced) so the full
+    // ~4,200-row client base is reachable — see actions.ts:searchClients.
     db.user.findMany({
       where: { role: "CLIENT" },
       select: { id: true, name: true, email: true, phone: true },
       orderBy: { name: "asc" },
-      take: 500,
+      take: 50,
     }),
   ]);
 

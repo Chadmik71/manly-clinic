@@ -51,6 +51,52 @@ const schema = z.object({
   signatureDataUrl: z.string().max(150_000).optional(),
 });
 
+// Server-side client search for the booking-create form. The page used to
+// preload `take: 500` rows and filter in the browser, but the clinic has
+// ~4,200 imported clients (see lib/phone.ts header) so most of them were
+// unsearchable. This action hits the DB on every (debounced) keystroke so
+// the full client base is reachable. Phone search strips whitespace/dashes
+// from the query so "0412 345" matches the normalised "0412345678".
+export async function searchClients(
+  q: string,
+): Promise<{
+  clients?: Array<{ id: string; name: string; email: string; phone: string | null }>;
+  error?: string;
+}> {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
+  ) {
+    return { error: "Forbidden." };
+  }
+  const term = (q ?? "").trim().slice(0, 100);
+  if (term === "") {
+    const clients = await db.user.findMany({
+      where: { role: "CLIENT" },
+      select: { id: true, name: true, email: true, phone: true },
+      orderBy: { name: "asc" },
+      take: 50,
+    });
+    return { clients };
+  }
+  const phoneQ = term.replace(/[\s\-]/g, "");
+  const clients = await db.user.findMany({
+    where: {
+      role: "CLIENT",
+      OR: [
+        { name: { contains: term, mode: "insensitive" } },
+        { email: { contains: term, mode: "insensitive" } },
+        { phone: { contains: phoneQ } },
+      ],
+    },
+    select: { id: true, name: true, email: true, phone: true },
+    orderBy: { name: "asc" },
+    take: 50,
+  });
+  return { clients };
+}
+
 export async function createStaffBooking(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string; reference?: string }> {

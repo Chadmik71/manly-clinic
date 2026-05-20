@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatPrice, formatDuration } from "@/lib/utils";
 import { SignaturePad } from "@/components/signature-pad";
 import { HEALTH_FUNDS } from "@/lib/intake";
+import { searchClients } from "./actions";
 
 type Service = {
   id: string;
@@ -84,18 +85,25 @@ export function NewBookingForm({
   // collapse the claim block silently so stale state isn't shipped to the server.
   const claimActive = claiming && healthFundEligible;
 
-  const filteredClients = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return clients.slice(0, 50);
-    return clients
-      .filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.email.toLowerCase().includes(q) ||
-          (c.phone ?? "").includes(q),
-      )
-      .slice(0, 50);
-  }, [clients, filter]);
+  // Server-side client search (debounced). The clinic has thousands of
+  // imported clients, so an in-browser filter over a preloaded subset
+  // misses most of them. We start with the initial 50-or-so passed from
+  // the page and replace via the searchClients action as the admin types.
+  const [filteredClients, setFilteredClients] = useState<Client[]>(clients);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      const res = await searchClients(filter);
+      if (res.clients) setFilteredClients(res.clients);
+      setSearching(false);
+    }, 250);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [filter]);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -164,7 +172,12 @@ export function NewBookingForm({
 
       {mode === "existing" ? (
         <div className="space-y-2">
-          <Label>Search client</Label>
+          <div className="flex items-center justify-between">
+            <Label>Search client</Label>
+            {searching && (
+              <span className="text-xs text-muted-foreground">Searching…</span>
+            )}
+          </div>
           <Input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -183,6 +196,12 @@ export function NewBookingForm({
               </option>
             ))}
           </select>
+          {filter.trim() !== "" && filteredClients.length === 0 && !searching && (
+            <p className="text-xs text-muted-foreground">
+              No matching clients. Try a different name, email or phone, or use
+              &ldquo;Walk-in / new&rdquo; above.
+            </p>
+          )}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
