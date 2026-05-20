@@ -422,17 +422,27 @@ let bookingId = null;
   }
 }
 
-// --- 22. Invoice PDF for owner ---
+// --- 22. Invoice PDF: customer self-download is disabled (staff-only) ---
 if (bookingId) {
-  const r = await fetch(BASE + `/api/bookings/${bookingId}/invoice`, {
+  // Owner (the seeded client) must be denied.
+  const rClient = await fetch(BASE + `/api/bookings/${bookingId}/invoice`, {
     headers: { cookie: cookieHeader() },
   });
-  const ct = r.headers.get("content-type") || "";
-  const buf = new Uint8Array(await r.arrayBuffer());
+  if (rClient.status === 403)
+    ok("Invoice PDF blocked for booking owner (403)");
+  else
+    bad("Invoice PDF owner-block", `expected 403, got ${rClient.status}`);
+
+  // Staff must still be able to download.
+  const rStaff = await fetch(BASE + `/api/bookings/${bookingId}/invoice`, {
+    headers: { cookie: staffCookieHeader() },
+  });
+  const ct = rStaff.headers.get("content-type") || "";
+  const buf = new Uint8Array(await rStaff.arrayBuffer());
   const isPdf = buf.length > 4 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46;
-  if (r.status === 200 && ct.includes("pdf") && isPdf)
-    ok(`Invoice PDF: ${buf.length} bytes, %PDF header present`);
-  else bad("Invoice PDF", `status=${r.status} ct=${ct} pdf=${isPdf}`);
+  if (rStaff.status === 200 && ct.includes("pdf") && isPdf)
+    ok(`Invoice PDF (staff): ${buf.length} bytes, %PDF header present`);
+  else bad("Invoice PDF (staff)", `status=${rStaff.status} ct=${ct} pdf=${isPdf}`);
 }
 
 // --- 23. Reschedule page renders ---

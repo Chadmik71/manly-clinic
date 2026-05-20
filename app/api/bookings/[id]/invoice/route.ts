@@ -23,10 +23,13 @@ export async function GET(
   });
   if (!b) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const isOwner = b.clientId === session.user.id;
+  // Customer self-download was disabled — fund details, signature, and
+  // treatment info on the PDF make it staff-issued only for now. The
+  // booking owner is intentionally NOT granted access here; if a customer
+  // needs a copy, staff send it manually.
   const isStaff =
     session.user.role === "STAFF" || session.user.role === "ADMIN";
-  if (!isOwner && !isStaff)
+  if (!isStaff)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const intake = b.claimWithHealthFund

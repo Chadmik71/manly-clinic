@@ -177,15 +177,6 @@ export default async function MyBookings() {
                   <span className="text-sm font-medium">
                     {formatPrice(b.priceCentsAtBooking)}
                   </span>
-                  <Button asChild size="sm" variant="ghost">
-                    <a
-                      href={`/api/bookings/${b.id}/invoice`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Receipt
-                    </a>
-                  </Button>
                 </div>
               </CardContent>
             </Card>

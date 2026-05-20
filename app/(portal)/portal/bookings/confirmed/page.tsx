@@ -77,17 +77,6 @@ export default async function ConfirmedPage({
                 </Link>
               </Button>
             )}
-            {booking && (
-              <Button asChild variant="outline">
-                <a
-                  href={`/api/bookings/${booking.id}/invoice`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Download receipt
-                </a>
-              </Button>
-            )}
             <Button asChild variant="ghost">
               <Link href="/">Back to home</Link>
             </Button>
