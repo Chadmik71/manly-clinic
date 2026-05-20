@@ -502,6 +502,33 @@ export function ConfirmForm({
         </CardContent>
       </Card>)}
 
+      {/* Returning customer banner — only when we have prior intake data
+          to pre-fill from. Tells the customer the sections below are
+          already filled in from their last visit, and offers a quick
+          jump to the consent + signature step. Cards below still show
+          and are fully editable; this just lowers friction for the
+          "nothing has changed" case which is the common one. */}
+      {intakeDefaults && intakeMode === "full" && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardContent className="py-4 space-y-2">
+            <p className="text-sm font-medium">Welcome back.</p>
+            <p className="text-sm text-muted-foreground">
+              Your medical history, medications, allergies, emergency contact,
+              and GP details are pre-filled below from your last visit.
+              Scroll through to review and edit only what&rsquo;s changed today.
+              If everything&rsquo;s the same, jump straight to signing.
+            </p>
+            <div className="pt-1">
+              <Button asChild type="button" variant="outline" size="sm">
+                <a href="#consent-and-sign">
+                  Looks good &mdash; skip to signing
+                </a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 3. Medical history checklist (full intake only) */}
       {intakeMode === 'full' && (
       <Card>
@@ -986,13 +1013,36 @@ export function ConfirmForm({
       </Card>
 
       {/* 11 (or 10). Consent */}
-      <Card>
+      <Card id="consent-and-sign">
         <SectionHeader
           step={stepNo(lastClinicalStep)}
           title="Consent"
-          desc="Required by the Privacy Act 1988 (Cth) — Australian Privacy Principle 3."
+          desc="Required by the Privacy Act 1988 (Cth) — Australian Privacy Principles 3 &amp; 5."
         />
         <CardContent className="pb-5 pt-4 space-y-3 text-sm">
+          {/* APP 5 collection notice — what we collect, why, who sees
+              it, what happens if not provided. Sits ABOVE the consent
+              checkboxes so the customer reads the purpose before
+              ticking. */}
+          <div className="rounded-md border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
+            <span className="font-medium text-foreground">How we use this information.</span>{" "}
+            We collect your name, contact details, health information and any
+            health-fund details only to provide your treatment safely and,
+            when you tick the claim option, to submit a HiCAPS rebate to your
+            fund. Without it we can&rsquo;t safely treat you or claim on your
+            behalf. Records stay with this clinic on Australian infrastructure
+            and are not shared with anyone except your health fund for that
+            specific claim. See our{" "}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-foreground"
+            >
+              Privacy Policy
+            </a>{" "}
+            for how to access, correct, or delete your information.
+          </div>
           <label className="flex items-start gap-2">
             <input
               type="checkbox"
