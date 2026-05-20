@@ -347,6 +347,7 @@ for (const p of ["/portal/bookings", "/portal/intake", "/portal/data"]) {
     "/staff/reports",
     "/staff/vouchers",
     "/staff/bookings/new",
+    "/staff/refunds",
   ];
   for (const p of checks) {
     const r = await fetch(BASE + p, {
