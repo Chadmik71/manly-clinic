@@ -35,6 +35,8 @@ export const FRONT_ZONES: Zone[] = [
   { code: "f-knee-r",      label: "Right knee",                   cx: 69,  cy: 178 },
   { code: "f-shin-l",      label: "Left shin",                    cx: 51,  cy: 200 },
   { code: "f-shin-r",      label: "Right shin",                   cx: 69,  cy: 200 },
+  { code: "f-foot-l",      label: "Left foot (top)",              cx: 50,  cy: 222 },
+  { code: "f-foot-r",      label: "Right foot (top)",             cx: 70,  cy: 222 },
 ];
 
 export const BACK_ZONES: Zone[] = [
@@ -57,6 +59,8 @@ export const BACK_ZONES: Zone[] = [
   { code: "b-hamstring-r", label: "Right hamstring",              cx: 69,  cy: 162 },
   { code: "b-calf-l",      label: "Left calf",                    cx: 51,  cy: 195 },
   { code: "b-calf-r",      label: "Right calf",                   cx: 69,  cy: 195 },
+  { code: "b-foot-l",      label: "Left heel / sole",             cx: 50,  cy: 222 },
+  { code: "b-foot-r",      label: "Right heel / sole",            cx: 70,  cy: 222 },
 ];
 
 export const ALL_ZONES: Zone[] = [

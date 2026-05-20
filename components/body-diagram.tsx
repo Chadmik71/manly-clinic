@@ -63,7 +63,7 @@ export function BodyDiagram({ initialCodes, onChange, readOnly }: Props) {
   return (
     <div className="space-y-3">
       <svg
-        viewBox="0 0 240 230"
+        viewBox="0 0 240 240"
         role="img"
         aria-label="Body diagram for marking treatment focus areas"
         className="w-full max-w-md mx-auto h-auto select-none"
@@ -156,6 +156,10 @@ function BodyOutline() {
       <path d="M 50 130 L 47 175 L 45 215 L 56 215 L 57 175 L 60 130 Z" />
       {/* right leg */}
       <path d="M 60 130 L 63 175 L 64 215 L 75 215 L 73 175 L 70 130 Z" />
+      {/* left foot (front view = top of foot, back view = heel/sole — same shape, just labelled differently in the zone metadata) */}
+      <ellipse cx="50" cy="222" rx="6.5" ry="4.5" />
+      {/* right foot */}
+      <ellipse cx="70" cy="222" rx="6.5" ry="4.5" />
     </g>
   );
 }
