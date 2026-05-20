@@ -381,13 +381,22 @@ for (const p of ["/portal/bookings", "/portal/intake", "/portal/data"]) {
   else bad("Home JSON-LD", "MedicalBusiness not found in HTML");
 }
 
-// --- 20. Cron reminders endpoint (no CRON_SECRET set in dev → 200) ---
+// --- 20. Cron reminders endpoint. Fail-closed: requires CRON_SECRET to
+// match between the server's env and SMOKE's env. Mirrors how Vercel Cron
+// hits the endpoint in prod (Authorization: Bearer <CRON_SECRET>).
 {
-  const r = await fetch(BASE + "/api/cron/reminders");
-  const j = await r.json().catch(() => null);
-  if (r.status === 200 && j && typeof j.candidates === "number")
-    ok(`Cron reminders endpoint responds (${j.sent}/${j.candidates} sent)`);
-  else bad("Cron reminders", `status=${r.status}`);
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    skip("Cron reminders", "CRON_SECRET not set in env");
+  } else {
+    const r = await fetch(BASE + "/api/cron/reminders", {
+      headers: { authorization: `Bearer ${secret}` },
+    });
+    const j = await r.json().catch(() => null);
+    if (r.status === 200 && j && typeof j.candidates === "number")
+      ok(`Cron reminders endpoint responds (${j.sent}/${j.candidates} sent)`);
+    else bad("Cron reminders", `status=${r.status}`);
+  }
 }
 
 // --- 21. Find a client booking ID for invoice/deposit/reschedule tests ---
