@@ -321,10 +321,49 @@ After pushing, smoke-test against prod:
 
 - **Auth middleware lives in `proxy.ts`** (renamed for Next.js 16 — the file convention used to be `middleware.ts`).
 
+- **`.env.example` SQLite hint is stale** — the line `DATABASE_URL="file:./dev.db"` predates the Postgres migration. `schema.prisma` is `provider = "postgresql"`, so SQLite won't even start. Use a Neon dev branch.
+
+- **TaskStop doesn't reach `next dev` grandchild processes on Windows** — stopping the bash task that spawned `npm run dev` leaves the actual `node` workers running. They hold port 3000 and the Prisma query-engine DLL, so the next `npm run dev` falls through to :3001 and a follow-up `npx prisma generate` fails with `EPERM … rename query_engine-windows.dll.node.tmp`. Run `Get-Process node | Stop-Process -Force` between dev-server runs (or before `prisma generate`) to clear the orphans.
 
 
 
 
+
+
+
+## Local dev setup
+
+First-time setup on a fresh machine:
+
+1. **Postgres dev DB**: schema is Postgres-only. Easiest path is a Neon branch off prod via the console → Branches → Create branch → name `dev-<who>`, parent `main`, **schema only** (never copy data — patient data must not land in dev). Copy the pooled connection string.
+
+2. **`.env`** (gitignored; loaded by Prisma + Next.js, *not* `.env.local`):
+
+   ```
+   DATABASE_URL="<neon dev-branch pooled url>"
+   AUTH_SECRET="<openssl rand -base64 32>"
+   AUTH_URL="http://localhost:3000"
+   CRON_SECRET="<openssl rand -base64 32>"   # optional; smoke SKIPs the cron check without it
+   ```
+
+3. **Seed**: `npm run db:seed` creates `admin@clinic.local / admin123`, `client@example.com / client123`, `therapist@clinic.local / staff123`, all services with variants, and a therapist with 7-day availability 9:00–20:30.
+
+4. **Seed an upcoming booking** (optional, unlocks the smoke's invoice/reschedule/deposit chain): `npx tsx prisma/seed-test-booking.ts` — idempotent, creates one future CONFIRMED booking for `client@example.com`.
+
+5. **`.env.smoke`** (gitignored; loaded by `scripts/smoke.mjs`):
+
+   ```
+   SMOKE_URL=http://localhost:3000
+   SMOKE_ADMIN_EMAIL=admin@clinic.local
+   SMOKE_ADMIN_PASSWORD=admin123
+   SMOKE_CLIENT_EMAIL=client@example.com
+   SMOKE_CLIENT_PASSWORD=client123
+   CRON_SECRET=<same value as .env>
+   ```
+
+6. **Run**: `npm run dev` (boots on :3000), then `npm run smoke` in another terminal. Fully wired-up = 53/53 PASS.
+
+A run of `POST /api/signup happy path` creates a real signup row on the connected DB each time. Fine against a dev branch; **do not** point `SMOKE_URL` at prod for routine runs (it accumulates fake-user rows). Spot-checks against prod are OK but treat them as a deliberate one-off.
 
 
 ## Testing
@@ -337,9 +376,7 @@ After pushing, smoke-test against prod:
 
 - No CI. Manual smoke after each release-y push.
 
-- `npm run smoke` hits ~50 routes/endpoints against a running server (default `http://localhost:3000`; override with `SMOKE_URL=...`). Run after `npm run build`, before `git push`. Catches the kind of "page renders fine in dev but 500s on first request" bug that bit the staff intake viewer.
-
-- Local dev: `npm run dev` with separate dev DB in `.env`. Prisma CLI auto-loads `.env`, not `.env.local`.
+- `npm run smoke` hits ~50 routes/endpoints against a running server (default `http://localhost:3000`; override with `SMOKE_URL=...`). Run after `npm run build`, before `git push`. Catches the kind of "page renders fine in dev but 500s on first request" bug that bit the staff intake viewer. See **Local dev setup** above for the `.env` / seed / `.env.smoke` prerequisites.
 
 
 
