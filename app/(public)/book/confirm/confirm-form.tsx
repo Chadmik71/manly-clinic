@@ -173,6 +173,12 @@ export function ConfirmForm({
   // untick if paying cash this visit.
   const [claiming, setClaiming] = useState<boolean>(serviceHealthFundEligible);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  // Default-collapsed optional sections. The safety-floor textareas stay
+  // mounted under a `hidden` wrapper so pre-filled allergies/injuries
+  // still submit even if the customer never expands the card.
+  const [safetyFloorOpen, setSafetyFloorOpen] = useState(false);
+  const [voucherOpen, setVoucherOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   // Body-diagram selection. Pre-fills from the most recent intake so
   // returning customers do not have to re-mark unchanged areas.
   const [painCodes, setPainCodes] = useState<string[]>(
@@ -511,15 +517,14 @@ export function ConfirmForm({
           jump to the consent + signature step. Cards below still show
           and are fully editable; this just lowers friction for the
           "nothing has changed" case which is the common one. */}
-      {intakeDefaults && intakeMode === "full" && (
+      {intakeDefaults && (
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="py-4 space-y-2">
             <p className="text-sm font-medium">Welcome back.</p>
             <p className="text-sm text-muted-foreground">
-              Your medical history, medications, allergies, emergency contact,
-              and GP details are pre-filled below from your last visit.
-              Scroll through to review and edit only what&rsquo;s changed today.
-              If everything&rsquo;s the same, jump straight to signing.
+              Your details are pre-filled below from your last visit. Scroll
+              through to review and edit only what&rsquo;s changed today. If
+              everything&rsquo;s the same, jump straight to signing.
             </p>
             <div className="pt-1">
               <Button asChild type="button" variant="outline" size="sm">
@@ -704,35 +709,65 @@ export function ConfirmForm({
       </Card>
       )}
 
-      {/* SAFETY FLOOR — allergies + injuries (relaxation/pregnancy modes) */}
+      {/* SAFETY FLOOR — allergies + injuries (relaxation/pregnancy modes).
+          Default-collapsed; the textareas are kept in the DOM (CSS-hidden)
+          so pre-filled values still submit even when the card is closed. */}
       {intakeMode !== 'full' && (
         <Card>
-          <SectionHeader
-            step={stepNo(0)}
-            title="Anything we should know?"
-            desc="Optional — but please let us know about anything that could affect your treatment."
-          />
-          <CardContent className="pb-5">
-            <FieldGrid>
-              <div className="space-y-1.5">
-                <Label htmlFor="allergies">Allergies</Label>
-                <Textarea
-                  id="allergies"
-                  name="allergies"
-                  defaultValue={intakeDefaults?.allergies ?? ""}
-                  placeholder="oils, latex, nuts… Leave blank if none."
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="injuries">Recent injuries / areas to avoid</Label>
-                <Textarea
-                  id="injuries"
-                  name="injuries"
-                  defaultValue={intakeDefaults?.injuries ?? ""}
-                  placeholder="recent surgery, sprains, scars to avoid. Leave blank if none."
-                />
-              </div>
-            </FieldGrid>
+          <CardContent className="py-4 space-y-3">
+            {!safetyFloorOpen ? (
+              <button
+                type="button"
+                onClick={() => setSafetyFloorOpen(true)}
+                className="w-full text-left flex items-start justify-between gap-3 rounded-md p-1 -m-1 hover:bg-accent/40"
+              >
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Anything we should know?</p>
+                  {intakeDefaults?.allergies || intakeDefaults?.injuries ? (
+                    <p className="text-xs text-muted-foreground">
+                      On file:{" "}
+                      {intakeDefaults?.allergies
+                        ? `allergies — ${intakeDefaults.allergies}`
+                        : "allergies — none"}
+                      {" · "}
+                      {intakeDefaults?.injuries
+                        ? `injuries — ${intakeDefaults.injuries}`
+                        : "injuries — none"}
+                      . Tap to edit.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Optional — allergies, recent injuries, areas to avoid.
+                    </p>
+                  )}
+                </div>
+                <span className="text-primary text-sm shrink-0">+ Edit</span>
+              </button>
+            ) : (
+              <p className="text-sm font-medium">Anything we should know?</p>
+            )}
+            <div className={safetyFloorOpen ? "" : "hidden"}>
+              <FieldGrid>
+                <div className="space-y-1.5">
+                  <Label htmlFor="allergies">Allergies</Label>
+                  <Textarea
+                    id="allergies"
+                    name="allergies"
+                    defaultValue={intakeDefaults?.allergies ?? ""}
+                    placeholder="oils, latex, nuts… Leave blank if none."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="injuries">Recent injuries / areas to avoid</Label>
+                  <Textarea
+                    id="injuries"
+                    name="injuries"
+                    defaultValue={intakeDefaults?.injuries ?? ""}
+                    placeholder="recent surgery, sprains, scars to avoid. Leave blank if none."
+                  />
+                </div>
+              </FieldGrid>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -912,8 +947,25 @@ export function ConfirmForm({
         </Card>
       )}
 
-      {/* 9 (or 8). Voucher */}
+      {/* 9 (or 8). Voucher — default-collapsed. Auto-expands once the
+          customer has applied a voucher (success or error result) so the
+          status stays visible. */}
       <Card>
+        {!voucherOpen && !voucherResult ? (
+          <CardContent className="py-4">
+            <button
+              type="button"
+              onClick={() => setVoucherOpen(true)}
+              className="w-full text-left flex items-center justify-between gap-3 rounded-md p-1 -m-1 hover:bg-accent/40"
+            >
+              <span className="text-sm font-medium">
+                Have a gift voucher?
+              </span>
+              <span className="text-primary text-sm">+ Add voucher</span>
+            </button>
+          </CardContent>
+        ) : (
+          <>
         <SectionHeader
           step={stepNo(serviceHealthFundEligible ? 9 : 8)}
           title="Gift voucher (optional)"
@@ -975,6 +1027,8 @@ export function ConfirmForm({
             </div>
           )}
         </CardContent>
+          </>
+        )}
       </Card>
 
       {partnerVariantId && (
@@ -1001,18 +1055,37 @@ export function ConfirmForm({
         </Card>
       )}
 
-      {/* 10 (or 9). Notes */}
+      {/* 10 (or 9). Notes — default-collapsed; the textarea is left in
+          the DOM (CSS-hidden) so anything typed before a re-collapse is
+          still submitted. */}
       <Card>
-        <SectionHeader
-          step={stepNo(serviceHealthFundEligible ? 10 : 9)}
-          title="Notes for your therapist (optional)"
-        />
-        <CardContent className="pb-5 pt-4">
-          <Textarea
-            name="notes"
-            placeholder="Pressure preferences, focus areas, music/quiet preferences, etc."
-          />
-        </CardContent>
+        {!notesOpen ? (
+          <CardContent className="py-4">
+            <button
+              type="button"
+              onClick={() => setNotesOpen(true)}
+              className="w-full text-left flex items-center justify-between gap-3 rounded-md p-1 -m-1 hover:bg-accent/40"
+            >
+              <span className="text-sm font-medium">
+                Anything else for the therapist?
+              </span>
+              <span className="text-primary text-sm">+ Add notes</span>
+            </button>
+          </CardContent>
+        ) : (
+          <>
+            <SectionHeader
+              step={stepNo(serviceHealthFundEligible ? 10 : 9)}
+              title="Notes for your therapist (optional)"
+            />
+            <CardContent className="pb-5 pt-4">
+              <Textarea
+                name="notes"
+                placeholder="Pressure preferences, focus areas, music/quiet preferences, etc."
+              />
+            </CardContent>
+          </>
+        )}
       </Card>
 
       {/* 11 (or 10). Consent */}
