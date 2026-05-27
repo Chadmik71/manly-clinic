@@ -13,6 +13,7 @@ import {
   removeTimeOffFromSchedule,
 } from "@/app/(portal)/staff/therapists/[id]/actions";
 import { BlockTimeDialog } from "./block-time-dialog";
+import { WalkinFinderDialog } from "./walkin-finder-dialog";
 
 export const metadata = { title: "Calendar" };
 
@@ -168,6 +169,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-lg font-semibold">Schedule</h1>
           <div className="flex items-center gap-2">
+            {therapists.length > 0 && <WalkinFinderDialog />}
             {session.user.role === "ADMIN" && therapists.length > 0 && (
               <BlockTimeDialog
                 therapists={therapists.map((t) => ({
