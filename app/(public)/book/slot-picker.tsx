@@ -62,7 +62,7 @@ export function SlotPicker({
                 ({g.slots.length})
               </span>
             </h3>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+            <div className="flex flex-wrap gap-2">
               {g.slots.map((iso) => {
                 const t = new Date(iso);
                 const url = `/book/confirm?service=${serviceSlug}&variant=${variantId}${partnerSuffix}&starts=${encodeURIComponent(iso)}&date=${date}`;
@@ -70,7 +70,7 @@ export function SlotPicker({
                   <Link
                     key={iso}
                     href={url}
-                    className="rounded-md border px-2 py-2 text-center text-sm hover:bg-accent hover:border-primary transition-colors"
+                    className="rounded-md border px-3 py-2.5 sm:py-2 text-center text-sm hover:bg-accent hover:border-primary transition-colors min-w-[88px]"
                   >
                     {format(t, "h:mm a")}
                   </Link>
