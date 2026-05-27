@@ -6,6 +6,7 @@ import { ScheduleGrid } from "@/components/schedule-grid";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { formatPrice } from "@/lib/utils";
 import {
   addTimeOff,
   toggleTherapistActive,
@@ -101,6 +102,43 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     }),
   ]);
 
+  // First-visit detection: for every client booked today, count their prior
+  // CONFIRMED/COMPLETED bookings. Zero prior → mark this as their first
+  // visit so the schedule grid can render a "NEW" badge. Helps therapists
+  // prep differently (intro chat, intake check) for new clients.
+  const clientIds = [...new Set(bookings.map((b) => b.clientId))];
+  const priorCounts = clientIds.length
+    ? await db.booking.groupBy({
+        by: ["clientId"],
+        where: {
+          clientId: { in: clientIds },
+          startsAt: { lt: dayStart },
+          status: { in: ["CONFIRMED", "COMPLETED"] },
+        },
+        _count: { _all: true },
+      })
+    : [];
+  const priorMap = new Map(
+    priorCounts.map((p) => [p.clientId, p._count._all]),
+  );
+  const bookingsWithBadge = bookings.map((b) => ({
+    ...b,
+    isFirstVisit: (priorMap.get(b.clientId) ?? 0) === 0,
+  }));
+
+  // Today's tally — what's actually happening today, at a glance. Counts
+  // and dollars are computed off the same bookings list the grid is
+  // rendering so they stay in sync.
+  const tallyTotal = bookings.length;
+  const tallyConfirmed = bookings.filter(
+    (b) => b.status === "CONFIRMED" || b.status === "COMPLETED",
+  ).length;
+  const tallyNoShow = bookings.filter((b) => b.status === "NO_SHOW").length;
+  const tallyCancelled = bookings.filter((b) => b.status === "CANCELLED").length;
+  const tallyRevenueCents = bookings
+    .filter((b) => b.status === "CONFIRMED" || b.status === "COMPLETED")
+    .reduce((s, b) => s + b.priceCentsAtBooking, 0);
+
   const therapists = therapistsRaw.map((t) => {
     const slot = t.availability[0];
     const ts = timeOffs.filter((o) => o.therapistId === t.id);
@@ -148,6 +186,24 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             </Button>
           </div>
         </div>
+
+        {/* Today's tally — at-a-glance counts + revenue for the shown day. */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+          <TallyCard label="Bookings" value={`${tallyConfirmed}/${tallyTotal}`} hint="confirmed / total" />
+          <TallyCard label="Revenue" value={formatPrice(tallyRevenueCents)} hint="confirmed only" />
+          <TallyCard
+            label="No-shows"
+            value={tallyNoShow.toString()}
+            hint={tallyNoShow > 0 ? "follow up" : "all good"}
+            tone={tallyNoShow > 0 ? "warning" : "muted"}
+          />
+          <TallyCard
+            label="Cancelled"
+            value={tallyCancelled.toString()}
+            hint="for the day"
+            tone="muted"
+          />
+        </div>
         {therapists.length === 0 ? (
           <div className="rounded-md border bg-card p-8 text-sm text-muted-foreground text-center">
             No active therapists. Add one in Therapists.
@@ -157,7 +213,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             date={day}
             dateStr={dateStr}
             therapists={therapists}
-            bookings={bookings}
+            bookings={bookingsWithBadge}
             // Quick-actions menu (add break, toggle active) and the
             // click-to-remove-time-off behaviour are admin-only — non-admin
             // STAFF still see the schedule, just without the mutation UI.
@@ -173,5 +229,35 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         )}
       </div>
     </StaffShell>
+  );
+}
+
+function TallyCard({
+  label,
+  value,
+  hint,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "default" | "warning" | "muted";
+}) {
+  const toneClasses =
+    tone === "warning"
+      ? "border-amber-500/40 bg-amber-500/5"
+      : tone === "muted"
+        ? "bg-muted/30"
+        : "bg-card";
+  return (
+    <div className={`rounded-md border px-3 py-2 ${toneClasses}`}>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="font-semibold tabular-nums">{value}</div>
+      {hint && (
+        <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>
+      )}
+    </div>
   );
 }

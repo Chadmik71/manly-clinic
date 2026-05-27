@@ -23,6 +23,10 @@ type Booking = {
   variant: { durationMin: number };
   client: { name: string; phone: string | null };
   therapistId: string | null;
+  /** True if the client has no prior CONFIRMED/COMPLETED bookings — this is
+   *  their first visit. Surfaced as a "NEW" badge on the card so therapists
+   *  can prep differently. */
+  isFirstVisit?: boolean;
 };
 
 type Therapist = {
@@ -333,7 +337,14 @@ export function ScheduleGrid({
                       {b.client.phone && (
                         <div className="opacity-75 truncate">{b.client.phone}</div>
                       )}
-                      <div className="font-medium truncate">{b.client.name}</div>
+                      <div className="font-medium truncate flex items-center gap-1">
+                        {b.isFirstVisit && (
+                          <span className="inline-block rounded-sm bg-emerald-500/90 text-white text-[9px] font-bold uppercase px-1 py-px tracking-wider shrink-0">
+                            New
+                          </span>
+                        )}
+                        <span className="truncate">{b.client.name}</span>
+                      </div>
                       <div className="opacity-80 truncate">
                         {b.variant.durationMin} min {b.service.name}
                       </div>
