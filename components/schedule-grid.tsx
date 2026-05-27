@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
 import { formatPrice } from "@/lib/utils";
 import { TherapistQuickActions } from "@/components/therapist-quick-actions";
+import { BookingQuickActions } from "@/app/(portal)/staff/schedule/quick-actions";
 
 const DAY_START_HOUR = 8;
 const DAY_END_HOUR = 21; // exclusive
@@ -21,7 +22,7 @@ type Booking = {
   priceCentsAtBooking: number;
   service: { name: string; category: string };
   variant: { durationMin: number };
-  client: { name: string; phone: string | null };
+  client: { id: string; name: string; phone: string | null };
   therapistId: string | null;
   /** True if the client has no prior CONFIRMED/COMPLETED bookings — this is
    *  their first visit. Surfaced as a "NEW" badge on the card so therapists
@@ -319,39 +320,55 @@ export function ScheduleGrid({
                   const c = paletteFor(b.service.category, b.status);
                   const cancelled = b.status === "CANCELLED" || b.status === "NO_SHOW";
                   return (
-                    <Link
+                    <div
                       key={b.id}
-                      href={`/staff/bookings/${b.id}`}
-                      className={`absolute left-1 right-1 rounded-md p-2 text-[11px] leading-tight overflow-hidden border-l-[6px] shadow-sm hover:shadow-md transition-shadow ${cancelled ? "opacity-60" : ""}`}
+                      className={`absolute left-1 right-1 ${cancelled ? "opacity-60" : ""}`}
                       style={{
                         top: `${top + 1}px`,
                         height: `${height - 2}px`,
-                        background: `hsl(var(--bk-${c}-bg))`,
-                        borderLeftColor: `hsl(var(--bk-${c}-border))`,
-                        color: `hsl(var(--bk-${c}-text))`,
                       }}
                     >
-                      <div className="font-semibold">
-                        {sydneyTimeShort(b.startsAt)} – {sydneyTimeShort(b.endsAt)}
-                      </div>
-                      {b.client.phone && (
-                        <div className="opacity-75 truncate">{b.client.phone}</div>
-                      )}
-                      <div className="font-medium truncate flex items-center gap-1">
-                        {b.isFirstVisit && (
-                          <span className="inline-block rounded-sm bg-emerald-500/90 text-white text-[9px] font-bold uppercase px-1 py-px tracking-wider shrink-0">
-                            New
-                          </span>
+                      <Link
+                        href={`/staff/bookings/${b.id}`}
+                        className="absolute inset-0 rounded-md p-2 text-[11px] leading-tight overflow-hidden border-l-[6px] shadow-sm hover:shadow-md transition-shadow block"
+                        style={{
+                          background: `hsl(var(--bk-${c}-bg))`,
+                          borderLeftColor: `hsl(var(--bk-${c}-border))`,
+                          color: `hsl(var(--bk-${c}-text))`,
+                        }}
+                      >
+                        <div className="font-semibold pr-7">
+                          {sydneyTimeShort(b.startsAt)} – {sydneyTimeShort(b.endsAt)}
+                        </div>
+                        {b.client.phone && (
+                          <div className="opacity-75 truncate">{b.client.phone}</div>
                         )}
-                        <span className="truncate">{b.client.name}</span>
+                        <div className="font-medium truncate flex items-center gap-1">
+                          {b.isFirstVisit && (
+                            <span className="inline-block rounded-sm bg-emerald-500/90 text-white text-[9px] font-bold uppercase px-1 py-px tracking-wider shrink-0">
+                              New
+                            </span>
+                          )}
+                          <span className="truncate">{b.client.name}</span>
+                        </div>
+                        <div className="opacity-80 truncate">
+                          {b.variant.durationMin} min {b.service.name}
+                        </div>
+                        <div className="font-semibold mt-0.5">
+                          {formatPrice(b.priceCentsAtBooking)}
+                        </div>
+                      </Link>
+                      <div
+                        className="absolute top-1 right-1"
+                        style={{ color: `hsl(var(--bk-${c}-text))` }}
+                      >
+                        <BookingQuickActions
+                          bookingId={b.id}
+                          clientId={b.client.id}
+                          status={b.status}
+                        />
                       </div>
-                      <div className="opacity-80 truncate">
-                        {b.variant.durationMin} min {b.service.name}
-                      </div>
-                      <div className="font-semibold mt-0.5">
-                        {formatPrice(b.priceCentsAtBooking)}
-                      </div>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>
