@@ -463,22 +463,28 @@ export function ConfirmForm({
                 defaultValue={userDefaults.dob}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="gender">Gender</Label>
-              <select
-                id="gender"
-                name="gender"
-                defaultValue={userDefaults.gender}
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="">—</option>
-                {GENDER_OPTIONS.map((g) => (
-                  <option key={g.value} value={g.value}>
-                    {g.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {isPregnancyMassage ? (
+              // Pregnancy massage is women-only; skip the gender selector and
+              // submit FEMALE silently so the User record still gets a value.
+              <input type="hidden" name="gender" value="FEMALE" />
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="gender">Gender</Label>
+                <select
+                  id="gender"
+                  name="gender"
+                  defaultValue={userDefaults.gender}
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="">—</option>
+                  {GENDER_OPTIONS.map((g) => (
+                    <option key={g.value} value={g.value}>
+                      {g.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </FieldGrid>
         </CardContent>
       </Card>)}
@@ -783,22 +789,28 @@ export function ConfirmForm({
         </Card>
       )}
 
-      {/* 6. Pregnancy (full intake AND pregnancy massage; hidden for relaxation services) */}
+      {/* 6. Pregnancy (full intake AND pregnancy massage; hidden for relaxation services).
+          For pregnancy massage the "are you pregnant?" checkbox is redundant —
+          we skip it and ask only for weeks. */}
       {intakeMode !== 'safety' && (
       <Card>
         <SectionHeader step={stepNo(6)} title="Pregnancy" />
         <CardContent className="pb-5 pt-4 space-y-3">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="pregnancy"
-              checked={pregnant}
-              onChange={(e) => setPregnant(e.target.checked)}
-            />
-            <span>I am currently pregnant</span>
-          </label>
-          {pregnant && (
-            <div className="ml-6 max-w-xs space-y-1">
+          {isPregnancyMassage ? (
+            <input type="hidden" name="pregnancy" value="on" />
+          ) : (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="pregnancy"
+                checked={pregnant}
+                onChange={(e) => setPregnant(e.target.checked)}
+              />
+              <span>I am currently pregnant</span>
+            </label>
+          )}
+          {(pregnant || isPregnancyMassage) && (
+            <div className={isPregnancyMassage ? "max-w-xs space-y-1" : "ml-6 max-w-xs space-y-1"}>
               <Label htmlFor="pregnancyWeeks" className="text-sm">
                 How many weeks?
               </Label>
