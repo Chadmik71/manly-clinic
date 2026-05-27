@@ -28,7 +28,7 @@ function sydneyMinuteOfDay(d: Date): number {
 }
 
 import { notifyBookingConfirmed } from "@/lib/notify";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { normalisePhone, isAuMobile } from "@/lib/phone";
 import { findOrCreateUserForGuest } from "@/lib/user-merge";
 import { applyHolidaySurcharge } from "@/lib/holidays";
@@ -806,6 +806,32 @@ export async function createBooking(
           }
         : undefined,
   });
+
+  // Drop a 1-year cookie remembering this booking so the next visit to
+  // /book can offer a one-tap "Book {Service} again" path without
+  // requiring sign-in. Stores no PII — just the service slug, variant
+  // ID, display name, and duration. Privacy: lives only on the user's
+  // own device.
+  try {
+    (await cookies()).set(
+      "mrt_last_booking",
+      JSON.stringify({
+        slug: variant.service.slug,
+        variantId: variant.id,
+        name: variant.service.name,
+        durationMin: variant.durationMin,
+      }),
+      {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      },
+    );
+  } catch {
+    // Cookie set is best-effort — if it fails we still complete the booking.
+  }
 
   return { ok: true, reference };
 }

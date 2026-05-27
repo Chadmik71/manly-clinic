@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import {
@@ -62,6 +63,50 @@ export default async function BookPage({
       include: { variants: { orderBy: { durationMin: "asc" } } },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     });
+
+    // Guest fast-path: if a previous booking on this device dropped the
+    // mrt_last_booking cookie, surface a "Book {Service} again" banner so
+    // returning customers don't have to walk the service grid. Validated
+    // against the live catalog so deactivated services / removed variants
+    // fall back to the generic banner.
+    let lastBooking:
+      | { slug: string; variantId: string; name: string; durationMin: number }
+      | null = null;
+    if (!session?.user) {
+      const raw = (await cookies()).get("mrt_last_booking")?.value;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as Partial<{
+            slug: string;
+            variantId: string;
+            name: string;
+            durationMin: number;
+          }>;
+          if (
+            typeof parsed.slug === "string" &&
+            typeof parsed.variantId === "string" &&
+            typeof parsed.name === "string" &&
+            typeof parsed.durationMin === "number"
+          ) {
+            const svc = services.find((s) => s.slug === parsed.slug);
+            const variantStillExists = svc?.variants.some(
+              (v) => v.id === parsed.variantId,
+            );
+            if (svc && variantStillExists) {
+              lastBooking = {
+                slug: parsed.slug,
+                variantId: parsed.variantId,
+                name: parsed.name,
+                durationMin: parsed.durationMin,
+              };
+            }
+          }
+        } catch {
+          // Malformed cookie — ignore and fall through to generic banner.
+        }
+      }
+    }
+
     return (
       <div className="container py-12 max-w-5xl">
         <BookingSteps step={1} />
@@ -69,7 +114,18 @@ export default async function BookPage({
         <p className="text-muted-foreground mb-8">
           Select the modality you&apos;d like to book.
         </p>
-        {!session?.user && (
+        {!session?.user && lastBooking ? (
+          <div className="mb-6 rounded-md border border-primary/40 bg-primary/10 p-4 text-sm flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-medium">Welcome back!</span>
+            <Link
+              href={`/book?service=${lastBooking.slug}&variant=${lastBooking.variantId}`}
+              className="text-primary font-semibold hover:underline"
+            >
+              Book {lastBooking.name} ({formatDuration(lastBooking.durationMin)}) again →
+            </Link>
+            <span className="text-muted-foreground">No sign-in needed.</span>
+          </div>
+        ) : !session?.user ? (
           <div className="mb-6 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>Booked with us before?</span>
             <Link
@@ -82,7 +138,7 @@ export default async function BookPage({
               to skip the form and re-book your last visit in one tap.
             </span>
           </div>
-        )}
+        ) : null}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
             <Card key={s.id} className="flex flex-col">
