@@ -7,8 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice, therapistInternalName } from "@/lib/utils";
-import { Download, Filter } from "lucide-react";
-import { format, subDays } from "date-fns";
+import { Download, Filter, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import {
+  format,
+  subDays,
+  startOfWeek,
+  subWeeks,
+  addWeeks,
+  endOfWeek,
+} from "date-fns";
 import type { Prisma } from "@prisma/client";
 
 // Sydney calendar time for booking.startsAt (UTC in DB; Vercel runs in UTC).
@@ -83,6 +90,48 @@ export default async function ReportsPage({
   toDate.setHours(23, 59, 59, 999);
 
   const where = buildWhere(sp, fromDate, toDate);
+
+  // --- 8-week revenue trend (independent of the filter date range) ---
+  // Always shows the last 8 ISO weeks ending with the current week so the
+  // owner has a quick "are we trending up?" read regardless of what date
+  // range the table below is filtered to.
+  const WEEK_COUNT = 8;
+  const trendStart = startOfWeek(subWeeks(new Date(), WEEK_COUNT - 1), {
+    weekStartsOn: 1,
+  });
+  const trendEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+  const trendBookings = await db.booking.findMany({
+    where: {
+      startsAt: { gte: trendStart, lte: trendEnd },
+      status: { in: ["CONFIRMED", "COMPLETED"] },
+    },
+    select: { startsAt: true, priceCentsAtBooking: true },
+  });
+  const weeks: { start: Date; revenueCents: number; count: number }[] = [];
+  for (let i = 0; i < WEEK_COUNT; i++) {
+    weeks.push({
+      start: addWeeks(trendStart, i),
+      revenueCents: 0,
+      count: 0,
+    });
+  }
+  for (const b of trendBookings) {
+    const idx = Math.floor(
+      (b.startsAt.getTime() - trendStart.getTime()) /
+        (7 * 24 * 60 * 60 * 1000),
+    );
+    if (idx >= 0 && idx < WEEK_COUNT) {
+      weeks[idx].revenueCents += b.priceCentsAtBooking;
+      weeks[idx].count += 1;
+    }
+  }
+  const maxWeekRevenue = Math.max(1, ...weeks.map((w) => w.revenueCents));
+  const thisWeekRevenue = weeks[WEEK_COUNT - 1].revenueCents;
+  const lastWeekRevenue = weeks[WEEK_COUNT - 2].revenueCents;
+  const wowDeltaPct =
+    lastWeekRevenue === 0
+      ? null
+      : ((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100;
 
   const [bookingsRaw, allTherapists, allServices, fundOptions] =
     await Promise.all([
@@ -217,6 +266,56 @@ export default async function ReportsPage({
       topbar={<span className="text-foreground font-medium">Reports</span>}
     >
       <div className="p-4 space-y-4">
+        {/* 8-week trend — always shows the last 8 weeks regardless of the
+            date filter below. Quick "are we up or down?" read. */}
+        <Card>
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-baseline justify-between flex-wrap gap-2">
+              <div>
+                <div className="font-semibold">Last 8 weeks revenue</div>
+                <div className="text-xs text-muted-foreground">
+                  Independent of the filters below. Confirmed + completed only.
+                </div>
+              </div>
+              <WowDelta
+                thisWeek={thisWeekRevenue}
+                lastWeek={lastWeekRevenue}
+                deltaPct={wowDeltaPct}
+              />
+            </div>
+            <div className="flex items-end gap-1 h-32 pt-2">
+              {weeks.map((w, i) => {
+                const h = (w.revenueCents / maxWeekRevenue) * 100;
+                const isCurrent = i === WEEK_COUNT - 1;
+                return (
+                  <div
+                    key={w.start.toISOString()}
+                    className="flex-1 flex flex-col items-center justify-end gap-1 min-w-0"
+                    title={`${format(w.start, "d MMM")}: ${formatPrice(
+                      w.revenueCents,
+                    )} (${w.count} bookings)`}
+                  >
+                    <div className="text-[10px] tabular-nums text-muted-foreground">
+                      {w.revenueCents > 0
+                        ? `$${Math.round(w.revenueCents / 100)}`
+                        : ""}
+                    </div>
+                    <div
+                      className={`w-full rounded-t-sm transition-all ${
+                        isCurrent ? "bg-primary" : "bg-primary/40"
+                      }`}
+                      style={{ height: `${Math.max(h, 2)}%` }}
+                    />
+                    <div className="text-[10px] text-muted-foreground tabular-nums">
+                      {format(w.start, "d MMM")}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Filters */}
         <Card>
           <CardContent className="py-4">
@@ -502,5 +601,44 @@ function Breakdown({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function WowDelta({
+  thisWeek,
+  lastWeek,
+  deltaPct,
+}: {
+  thisWeek: number;
+  lastWeek: number;
+  deltaPct: number | null;
+}) {
+  // "deltaPct null" = last week was zero, so percentage is meaningless.
+  // Show a different hint in that case so we don't render "Infinity %".
+  if (deltaPct === null) {
+    return (
+      <div className="text-xs text-muted-foreground">
+        This wk {formatPrice(thisWeek)} · last wk {formatPrice(lastWeek)}
+      </div>
+    );
+  }
+  const sign = deltaPct > 0 ? "up" : deltaPct < 0 ? "down" : "flat";
+  const Icon =
+    sign === "up" ? TrendingUp : sign === "down" ? TrendingDown : Minus;
+  const colorCls =
+    sign === "up"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : sign === "down"
+        ? "text-destructive"
+        : "text-muted-foreground";
+  return (
+    <div className={`flex items-center gap-1.5 text-sm font-medium ${colorCls}`}>
+      <Icon className="h-4 w-4" />
+      <span className="tabular-nums">
+        {deltaPct > 0 ? "+" : ""}
+        {deltaPct.toFixed(1)}%
+      </span>
+      <span className="text-muted-foreground font-normal">vs last week</span>
+    </div>
   );
 }
