@@ -228,19 +228,19 @@ export default async function BookPage({
   const days = Array.from({ length: 14 }).map((_, i) => addDays(todayDate, i));
 
   return (
-    <div className="container py-12 max-w-5xl">
+    <div className="container py-6 sm:py-12 max-w-5xl">
       <BookingSteps step={2} />
-      <div className="mt-6 mb-8">
+      <div className="mt-4 sm:mt-6 mb-4 sm:mb-8">
         <Link
           href="/book"
           className="text-sm text-muted-foreground hover:text-foreground"
         >
           ← Change treatment
         </Link>
-        <h1 className="text-3xl font-bold mt-2">{service.name}</h1>
-        <p className="text-muted-foreground">{service.description}</p>
+        <h1 className="text-2xl sm:text-3xl font-bold mt-2">{service.name}</h1>
+        <p className="text-sm sm:text-base text-muted-foreground line-clamp-2 sm:line-clamp-none">{service.description}</p>
       </div>
-      <div className="grid gap-8 md:grid-cols-[1fr_2fr]">
+      <div className="grid gap-4 sm:gap-8 md:grid-cols-[1fr_2fr]">
         <Card>
           <CardHeader>
             <CardTitle>Duration</CardTitle>
