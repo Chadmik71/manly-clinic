@@ -9,6 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { CalendarPlus } from "lucide-react";
 import { formatPrice, formatDuration } from "@/lib/utils";
 import { CLINIC } from "@/lib/clinic";
 
@@ -105,6 +107,18 @@ export default async function BookingConfirmedPage({
                 <span className="font-medium">{booking.client.email}</span>
               </div>
             ) : null}
+          </div>
+
+          <div className="flex justify-center pt-1">
+            <Button asChild variant="outline" size="sm">
+              <a
+                href={`/api/bookings/${booking.reference}/ics`}
+                download={`manly-remedial-${booking.reference}.ics`}
+              >
+                <CalendarPlus className="h-4 w-4 mr-1.5" />
+                Add to calendar
+              </a>
+            </Button>
           </div>
 
           {!session?.user ? (
