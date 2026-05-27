@@ -288,18 +288,26 @@ export async function createBooking(
   if (claimWithHealthFund && !variant.service.healthFundEligible) {
     return { error: "This treatment is not eligible for health fund rebates." };
   }
-  // Per-visit signature: required for every booking, claim or not. Captured
-  // as consent record on IntakeForm.signatureDataUrl. For HiCAPS claims it
-  // also embeds on the invoice PDF; non-claim signatures stay on the
-  // intake row only. The signature pad on the confirm form sends a PNG
-  // data URL via FormData.
-  if (
-    !data.signatureDataUrl ||
-    !data.signatureDataUrl.startsWith("data:image/png;base64,")
-  ) {
-    return {
-      error: "Please sign the signature pad to confirm your booking.",
-    };
+  // Signature is required only for two flows:
+  //   - Remedial massage claimed via health fund (HICAPS audit trail)
+  //   - Pregnancy massage (clinical-safety acknowledgement)
+  // For HiCAPS claims it also embeds on the invoice PDF; pregnancy
+  // signatures stay on the IntakeForm row as a safety consent record.
+  const isPregnancyMassage = variant.service.slug === "pregnancy-massage";
+  const isRemedialClaim =
+    claimWithHealthFund && variant.service.slug === "remedial-massage";
+  const signatureRequired = isRemedialClaim || isPregnancyMassage;
+  if (signatureRequired) {
+    if (
+      !data.signatureDataUrl ||
+      !data.signatureDataUrl.startsWith("data:image/png;base64,")
+    ) {
+      return {
+        error: isRemedialClaim
+          ? "Please sign in the signature pad to authorise the health fund claim."
+          : "Please sign in the signature pad to acknowledge the pregnancy-massage safety information.",
+      };
+    }
   }
   if (claimWithHealthFund) {
     if (!nonEmpty(data.healthFundName))

@@ -173,6 +173,14 @@ export function ConfirmForm({
   // untick if paying cash this visit.
   const [claiming, setClaiming] = useState<boolean>(serviceHealthFundEligible);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  // Signature is captured only for two flows:
+  //  - Remedial + health-fund claim (HICAPS audit trail)
+  //  - Pregnancy massage (clinical-safety acknowledgement)
+  // Other services skip the signature pad — even if "claim with health
+  // fund" gets ticked on a non-Remedial eligible service.
+  const isPregnancyMassage = serviceSlug === 'pregnancy-massage';
+  const isRemedialClaim = claiming && serviceSlug === 'remedial-massage';
+  const signatureRequired = isRemedialClaim || isPregnancyMassage;
   // Default-collapsed optional sections. The safety-floor textareas stay
   // mounted under a `hidden` wrapper so pre-filled allergies/injuries
   // still submit even if the customer never expands the card.
@@ -302,15 +310,18 @@ export function ConfirmForm({
     fd.set("medicalHistory", JSON.stringify([...history]));
     fd.set("painLocationCodes", JSON.stringify(painCodes));
     if (pain != null) fd.set("painScale", String(pain));
-    // Per-visit signature: required for every booking (consent record).
-    // HiCAPS claims additionally embed it on the invoice PDF for audit;
-    // non-claim signatures are kept on the IntakeForm row as a consent
-    // trail and don't render on the invoice.
-    if (!signatureDataUrl) {
-      setError("Please sign the signature pad to confirm your booking.");
-      return;
+    // Signature gate: remedial+HF claim (HICAPS audit) or pregnancy (safety ack).
+    if (signatureRequired) {
+      if (!signatureDataUrl) {
+        setError(
+          isRemedialClaim
+            ? "Please sign in the signature pad to authorise the health fund claim."
+            : "Please sign in the signature pad to acknowledge the pregnancy-massage safety information.",
+        );
+        return;
+      }
+      fd.set("signatureDataUrl", signatureDataUrl);
     }
-    fd.set("signatureDataUrl", signatureDataUrl);
     start(async () => {
       if (paymentIntentId) fd.set("paymentIntentId", paymentIntentId);
       const res = await action(fd);
@@ -1146,32 +1157,32 @@ export function ConfirmForm({
         </CardContent>
       </Card>
 
-      {/* Signature — required for every booking (consent record). When
-          claiming health-fund, the same signature also renders on the
-          invoice PDF as HiCAPS audit evidence. */}
-      <Card>
-        <SectionHeader
-          step="✍"
-          title={
-            claiming
-              ? "Sign to authorise health fund claim"
-              : "Sign to confirm your booking"
-          }
-          desc={
-            claiming
-              ? "Required for every visit where you claim a rebate. A fresh signature is needed each visit — your previous health information is already filled in above."
-              : "We capture a signature on every visit as your consent to today's treatment. A fresh signature is needed each visit."
-          }
-        />
-        <CardContent className="pb-5 pt-4 space-y-3">
-          <SignaturePad onChange={setSignatureDataUrl} disabled={pending} />
-          <p className="text-xs text-muted-foreground">
-            {claiming
-              ? "By signing, you confirm the clinical information above is accurate as of today and authorise us to submit a HICAPS claim on your behalf."
-              : "By signing, you confirm the information above is accurate and consent to receiving today's treatment."}
-          </p>
-        </CardContent>
-      </Card>
+      {/* Signature — required only for remedial+HF claim or pregnancy. */}
+      {signatureRequired && (
+        <Card>
+          <SectionHeader
+            step="✍"
+            title={
+              isRemedialClaim
+                ? "Sign to authorise health fund claim"
+                : "Sign to acknowledge pregnancy-massage safety"
+            }
+            desc={
+              isRemedialClaim
+                ? "Required for every visit where you claim a rebate. A fresh signature is needed each visit — your previous health information is already filled in above."
+                : "Required for every pregnancy-massage booking. By signing, you confirm you've read the safety information above and that the clinical details are accurate."
+            }
+          />
+          <CardContent className="pb-5 pt-4 space-y-3">
+            <SignaturePad onChange={setSignatureDataUrl} disabled={pending} />
+            <p className="text-xs text-muted-foreground">
+              {isRemedialClaim
+                ? "By signing, you confirm the clinical information above is accurate as of today and authorise us to submit a HICAPS claim on your behalf."
+                : "By signing, you confirm the clinical information above is accurate as of today."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {error && (
         <p className="text-sm text-destructive" role="alert">
