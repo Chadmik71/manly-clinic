@@ -240,8 +240,8 @@ export default async function BookPage({
         <h1 className="text-2xl sm:text-3xl font-bold mt-2">{service.name}</h1>
         <p className="text-sm sm:text-base text-muted-foreground line-clamp-2 sm:line-clamp-none">{service.description}</p>
       </div>
-      <div className="grid gap-4 sm:gap-8 md:grid-cols-[1fr_2fr]">
-        <Card>
+      <div className="grid grid-cols-1 gap-4 sm:gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Duration</CardTitle>
             <CardDescription>Select session length</CardDescription>
@@ -266,7 +266,7 @@ export default async function BookPage({
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Pick a date &amp; time</CardTitle>
             <CardDescription>
