@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 // Bucket boundaries (local browser TZ — Sydney for the vast majority of
 // our customers). Splitting the flat slot list into Morning / Afternoon /
@@ -15,6 +15,7 @@ export function SlotPicker({
   variantId,
   date,
   partnerVariantId,
+  nextAvailableDate,
 }: {
   slots: string[];
   serviceSlug: string;
@@ -26,11 +27,31 @@ export function SlotPicker({
    * same atomic transaction as the primary half.
    */
   partnerVariantId?: string;
+  /** ISO yyyy-MM-dd of the next day inside the 14-day strip that has at
+   *  least one bookable slot. Null when the chosen day has slots OR when
+   *  no next day was found. Surfaced as a "try this day instead" link in
+   *  the empty state. */
+  nextAvailableDate?: string | null;
 }) {
   if (slots.length === 0) {
+    const partnerSuffix = partnerVariantId
+      ? `&partner=${partnerVariantId}`
+      : "";
     return (
-      <div className="text-sm text-muted-foreground rounded-md border border-dashed p-6 text-center">
-        No slots available on this day. Try another date or call the clinic.
+      <div className="text-sm text-muted-foreground rounded-md border border-dashed p-6 text-center space-y-2">
+        <p>No slots available on this day.</p>
+        {nextAvailableDate ? (
+          <p>
+            <Link
+              href={`/book?service=${serviceSlug}&variant=${variantId}${partnerSuffix}&date=${nextAvailableDate}`}
+              className="text-primary font-medium hover:underline"
+            >
+              Try {format(parseISO(nextAvailableDate), "EEE d MMM")} →
+            </Link>
+          </p>
+        ) : (
+          <p>Try another date or call the clinic.</p>
+        )}
       </div>
     );
   }

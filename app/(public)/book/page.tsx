@@ -223,6 +223,31 @@ export default async function BookPage({
     });
   }
 
+  // If the chosen day has no slots, walk forward one day at a time until
+  // we find one that does (or run out of the 14-day strip). We do this
+  // sequentially with an early exit so a fully-booked clinic doesn't
+  // trigger 14 parallel DB queries every page load — typical case finds
+  // a free day within 1-3 hops. We cap at 14 to match the date strip.
+  let nextAvailableDate: string | null = null;
+  if (variant && slots.length === 0) {
+    const startDay = parseISO(dateISO);
+    for (let i = 1; i <= 14; i++) {
+      const candidate = addDays(startDay, i);
+      const candidateIso = format(candidate, "yyyy-MM-dd");
+      const candidateSlots = await getDistinctSlotTimes({
+        date: candidate,
+        durationMin: variant.durationMin,
+        therapistId: sp.therapist,
+        minTherapists: selectedPartner ? 2 : 1,
+        partnerDurationMin: selectedPartner?.durationMin,
+      });
+      if (candidateSlots.length > 0) {
+        nextAvailableDate = candidateIso;
+        break;
+      }
+    }
+  }
+
   // Build the 14-day picker starting from Sydney today (no past dates).
   const todayDate = parseISO(todayISO);
   const days = Array.from({ length: 14 }).map((_, i) => addDays(todayDate, i));
@@ -306,6 +331,7 @@ export default async function BookPage({
                 variantId={variant.id}
                 date={dateISO}
                 partnerVariantId={selectedPartnerId ?? undefined}
+                nextAvailableDate={nextAvailableDate}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
