@@ -318,7 +318,7 @@ export function ScheduleGrid({
                     <Link
                       key={b.id}
                       href={`/staff/bookings/${b.id}`}
-                      className={`absolute left-1 right-1 rounded-md p-2 text-[11px] leading-tight overflow-hidden border-l-4 hover:shadow-md transition-shadow ${cancelled ? "opacity-60" : ""}`}
+                      className={`absolute left-1 right-1 rounded-md p-2 text-[11px] leading-tight overflow-hidden border-l-[6px] shadow-sm hover:shadow-md transition-shadow ${cancelled ? "opacity-60" : ""}`}
                       style={{
                         top: `${top + 1}px`,
                         height: `${height - 2}px`,

@@ -40,12 +40,15 @@
     /* Calendar gridlines */
     --grid: 215 20% 92%;
 
-    /* Booking card pastels (light mode: bg / border / text) */
-    --bk-1-bg: 178 60% 92%; --bk-1-border: 178 60% 50%; --bk-1-text: 178 60% 22%;
-    --bk-2-bg: 210 60% 92%; --bk-2-border: 210 70% 55%; --bk-2-text: 210 70% 25%;
-    --bk-3-bg: 25  85% 92%; --bk-3-border: 25  80% 55%; --bk-3-text: 25  70% 25%;
-    --bk-4-bg: 280 50% 93%; --bk-4-border: 280 50% 60%; --bk-4-text: 280 50% 30%;
-    --bk-5-bg: 0   0%  93%; --bk-5-border: 215 16% 60%; --bk-5-text: 215 16% 30%;
+    /* Booking card colours (light mode: bg / border / text).
+       Saturated mid-light fills (~78% lightness) so bookings pop off
+       the empty timeline at a glance — previous 92-93% lightness was
+       too washed out to read across the room. */
+    --bk-1-bg: 178 55% 78%; --bk-1-border: 178 70% 35%; --bk-1-text: 178 70% 18%;
+    --bk-2-bg: 210 65% 80%; --bk-2-border: 210 75% 40%; --bk-2-text: 210 75% 22%;
+    --bk-3-bg: 25  80% 80%; --bk-3-border: 25  85% 42%; --bk-3-text: 25  80% 22%;
+    --bk-4-bg: 280 55% 82%; --bk-4-border: 280 60% 45%; --bk-4-text: 280 60% 25%;
+    --bk-5-bg: 0   0%  85%; --bk-5-border: 215 16% 50%; --bk-5-text: 215 16% 28%;
 
     --radius: 0.75rem;
   }
