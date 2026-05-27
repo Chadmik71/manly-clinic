@@ -104,6 +104,7 @@ export function ConfirmForm({
   intakeDefaults,
   userDefaults,
   isGuest,
+  guestDefaults,
   signedInEmail,
   partnerVariantId,
   partnerVariantSummary,
@@ -121,6 +122,11 @@ export function ConfirmForm({
   intakeDefaults: IntakeDefaults;
   userDefaults: UserDefaults;
   isGuest: boolean;
+  /** Pre-fill for the guest contact form, sourced from the
+   *  mrt_last_booking cookie. Empty strings when this is a guest's
+   *  first visit (or the cookie was cleared). Ignored when isGuest is
+   *  false — signed-in users get their details from the session. */
+  guestDefaults: { name: string; email: string; phone: string };
   signedInEmail: string | null;
   /** Set when this booking is the primary half of a couple booking. */
   partnerVariantId?: string | null;
@@ -410,6 +416,7 @@ export function ConfirmForm({
                   required
                   autoComplete="name"
                   placeholder="Jane Doe"
+                  defaultValue={guestDefaults.name}
                 />
               </div>
               <div className="space-y-1.5">
@@ -421,6 +428,7 @@ export function ConfirmForm({
                   required
                   autoComplete="email"
                   placeholder="jane@example.com"
+                  defaultValue={guestDefaults.email}
                 />
               </div>
               <div className="space-y-1.5">
@@ -432,6 +440,7 @@ export function ConfirmForm({
                   required
                   autoComplete="tel"
                   placeholder="0412 345 678"
+                  defaultValue={guestDefaults.phone}
                 />
               </div>
             </FieldGrid>

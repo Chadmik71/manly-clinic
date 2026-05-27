@@ -808,11 +808,14 @@ export async function createBooking(
   });
 
   // Drop a 1-year cookie remembering this booking so the next visit to
-  // /book can offer a one-tap "Book {Service} again" path without
-  // requiring sign-in. Stores no PII — just the service slug, variant
-  // ID, display name, and duration. Privacy: lives only on the user's
-  // own device.
+  // /book can offer a one-tap "Book {Service} again" path. For guest
+  // bookings we also stash the contact details (name / email / mobile)
+  // so the confirm form is pre-filled — the customer just picks a time
+  // and confirms. PII trade-off is intentional and scoped: lives only
+  // on the user's own device and is the customer's own data. Signed-in
+  // bookings skip the guest fields; the User record already has them.
   try {
+    const isGuestBooking = !session?.user;
     (await cookies()).set(
       "mrt_last_booking",
       JSON.stringify({
@@ -820,6 +823,11 @@ export async function createBooking(
         variantId: variant.id,
         name: variant.service.name,
         durationMin: variant.durationMin,
+        ...(isGuestBooking && {
+          guestName: data.guestName ?? "",
+          guestEmail: data.guestEmail ?? "",
+          guestPhone: data.guestPhone ?? "",
+        }),
       }),
       {
         httpOnly: false,

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { addMinutes } from "date-fns";
+import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
@@ -124,6 +125,36 @@ export default async function ConfirmPage({
   let intake: Awaited<ReturnType<typeof db.intakeForm.findFirst>> = null;
   let bookedUnderName: string | null = null;
   let signedInEmail: string | null = null;
+
+  // Guest fast-path pre-fill: pull name/email/mobile from the
+  // mrt_last_booking cookie dropped on their device after a previous
+  // booking. Lets returning guests skip retyping the contact form.
+  // Signed-in users already have the data on User, so we skip the cookie
+  // path for them.
+  let guestDefaults: { name: string; email: string; phone: string } = {
+    name: "",
+    email: "",
+    phone: "",
+  };
+  if (!session?.user) {
+    const raw = (await cookies()).get("mrt_last_booking")?.value;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as Partial<{
+          guestName: string;
+          guestEmail: string;
+          guestPhone: string;
+        }>;
+        guestDefaults = {
+          name: typeof parsed.guestName === "string" ? parsed.guestName : "",
+          email: typeof parsed.guestEmail === "string" ? parsed.guestEmail : "",
+          phone: typeof parsed.guestPhone === "string" ? parsed.guestPhone : "",
+        };
+      } catch {
+        // Malformed cookie — fall through to empty defaults.
+      }
+    }
+  }
 
   if (session?.user) {
     const userRow = await db.user.findUnique({
@@ -249,6 +280,7 @@ export default async function ConfirmPage({
         startsIso={starts.toISOString()}
         serviceHealthFundEligible={service.healthFundEligible}
         isGuest={!session?.user}
+        guestDefaults={guestDefaults}
         partnerVariantId={validPartnerVariantId}
         partnerVariantSummary={partnerVariantSummary}
         signedInEmail={signedInEmail}
