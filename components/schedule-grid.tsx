@@ -8,7 +8,7 @@ import { TherapistQuickActions } from "@/components/therapist-quick-actions";
 
 const DAY_START_HOUR = 8;
 const DAY_END_HOUR = 21; // exclusive
-const HOUR_PX = 80;
+const HOUR_PX = 120;
 const MIN_PX = HOUR_PX / 60;
 const COL_MIN_W = 200;
 
