@@ -2,11 +2,11 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { PortalShell } from "@/components/portal-shell";
-import { Plus } from "lucide-react";
+import { Plus, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, formatDuration } from "@/lib/utils";
 
 // Render Sydney calendar time regardless of the runtime TZ (Vercel = UTC).
 // Raw date-fns format() would show UTC, so a 7pm Sydney slot shows as ~9am.
@@ -35,6 +35,21 @@ export default async function PortalHome() {
     take: 5,
   });
 
+  // "Book again" surfacing — find the most recent visit the client actually
+  // attended (or is confirmed-but-past), so they can re-run that booking in
+  // one tap. Cancelled/no-show bookings are filtered out so they don't get
+  // pushed back into something they bailed on.
+  const lastVisit = await db.booking.findFirst({
+    where: {
+      clientId: session.user.id,
+      startsAt: { lt: new Date() },
+      status: { in: ["CONFIRMED", "COMPLETED"] },
+      service: { active: true },
+    },
+    include: { service: { select: { slug: true, name: true, active: true } }, variant: true },
+    orderBy: { startsAt: "desc" },
+  });
+
   return (
     <PortalShell
       title={`Welcome back, ${session.user.name.split(" ")[0]}`}
@@ -47,7 +62,18 @@ export default async function PortalHome() {
             <CardTitle className="text-base">Quick actions</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Button asChild>
+            {lastVisit && (
+              <Button asChild>
+                <Link
+                  href={`/book?service=${lastVisit.service.slug}&variant=${lastVisit.variant.id}`}
+                  title={`Last booked: ${lastVisit.service.name} · ${formatDuration(lastVisit.variant.durationMin)}`}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Book {lastVisit.service.name} again ({formatDuration(lastVisit.variant.durationMin)})
+                </Link>
+              </Button>
+            )}
+            <Button asChild variant={lastVisit ? "outline" : "default"}>
               <Link href="/book"><Plus className="h-4 w-4" /> New booking</Link>
             </Button>
             <Button asChild variant="outline">

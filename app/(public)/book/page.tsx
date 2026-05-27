@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import {
   Card,
   CardContent,
@@ -55,6 +56,7 @@ export default async function BookPage({
 
   // Step 1: pick a service
   if (!sp.service) {
+    const session = await auth();
     const services = await db.service.findMany({
       where: { active: true },
       include: { variants: { orderBy: { durationMin: "asc" } } },
@@ -67,6 +69,20 @@ export default async function BookPage({
         <p className="text-muted-foreground mb-8">
           Select the modality you&apos;d like to book.
         </p>
+        {!session?.user && (
+          <div className="mb-6 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>Booked with us before?</span>
+            <Link
+              href={`/login?from=${encodeURIComponent("/portal")}`}
+              className="text-primary font-medium hover:underline"
+            >
+              Sign in
+            </Link>
+            <span className="text-muted-foreground">
+              to skip the form and re-book your last visit in one tap.
+            </span>
+          </div>
+        )}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
             <Card key={s.id} className="flex flex-col">
