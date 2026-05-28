@@ -47,8 +47,12 @@ const schema = z.object({
   healthFundMemberNumber: z.string().max(40).optional(),
   reasonForTreatment: z.string().max(2000).optional(),
   // PNG data URL from the in-clinic signature pad. 150 KB ceiling matches the
-  // public confirm action — typical signatures are 5–20 KB.
+  // public confirm action — typical signatures are 5–20 KB. Only required for
+  // health-fund claims now; non-claim bookings use the consent tick-box below.
   signatureDataUrl: z.string().max(150_000).optional(),
+  // Consent tick-box for non-claim bookings — stands in for the drawn
+  // signature at the counter. "on" when staff confirm the client consents.
+  consentToTreat: z.string().optional(),
 });
 
 // Server-side client search for the booking-create form. Mirrors the
@@ -137,19 +141,21 @@ export async function createStaffBooking(
   });
   if (!variant) return { error: "Service variant not found." };
 
-  // Per-visit signature: required for every booking (consent record on the
-  // intake row). HiCAPS claims also require fund + reason; non-claim
-  // bookings stop at the signature.
-  if (
-    !data.signatureDataUrl ||
-    !data.signatureDataUrl.startsWith("data:image/png;base64,")
-  ) {
-    return {
-      error: "Please ask the client to sign in the signature pad.",
-    };
-  }
+  // Per-visit consent. Health-fund (HiCAPS) claims require a fresh drawn
+  // signature — it's embedded on the invoice PDF for the rebate audit — plus
+  // the fund details. Non-claim bookings (e.g. a walk-in relaxation massage)
+  // record consent via a tick-box instead, so staff aren't slowed down at the
+  // counter. Either way the IntakeForm row below stores consentToTreat=true
+  // with a timestamp as the per-visit consent record.
   const claimWithHealthFund = data.claimWithHealthFund === "on";
+  const hasSignature =
+    !!data.signatureDataUrl &&
+    data.signatureDataUrl.startsWith("data:image/png;base64,");
+
   if (claimWithHealthFund) {
+    if (!hasSignature) {
+      return { error: "Please ask the client to sign in the signature pad." };
+    }
     if (!variant.service.healthFundEligible) {
       return { error: "This treatment is not eligible for health fund rebates." };
     }
@@ -159,6 +165,8 @@ export async function createStaffBooking(
       return { error: "Please enter the client's health fund member number." };
     if (!data.reasonForTreatment || !data.reasonForTreatment.trim())
       return { error: "Please describe the reason for treatment." };
+  } else if (data.consentToTreat !== "on") {
+    return { error: "Please confirm the client consents to treatment." };
   }
 
   // The form's datetime-local input emits "YYYY-MM-DDTHH:mm" which `new Date(...)`

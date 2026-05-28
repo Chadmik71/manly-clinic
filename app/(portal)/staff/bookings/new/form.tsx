@@ -49,6 +49,9 @@ export function NewBookingForm({
   const [filter, setFilter] = useState("");
   const [claiming, setClaiming] = useState(false);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  // Non-claim bookings record consent via this tick-box instead of a drawn
+  // signature (faster for walk-ins).
+  const [consentChecked, setConsentChecked] = useState(false);
 
   // Split the single datetime-local control into a date input + a time
   // dropdown — Chrome/desktop only opens the date popup, leaving time as a
@@ -127,19 +130,25 @@ export function NewBookingForm({
       return;
     }
     fd.set("startsAt", `${dateValue}T${timeValue}`);
-    // Per-visit signature: required for every booking. HiCAPS claims also
-    // require fund + reason. Validate client-side before hitting the
-    // server so staff don't dispatch a half-filled booking.
-    if (!signatureDataUrl) {
-      setError("Please ask the client to sign in the signature pad.");
-      return;
-    }
-    fd.set("signatureDataUrl", signatureDataUrl);
+    // Claim bookings need a fresh drawn signature (HiCAPS audit); non-claim
+    // bookings record consent via the tick-box. Validate client-side so staff
+    // don't dispatch a half-filled booking.
     if (claimActive) {
+      if (!signatureDataUrl) {
+        setError("Please ask the client to sign in the signature pad.");
+        return;
+      }
+      fd.set("signatureDataUrl", signatureDataUrl);
       fd.set("claimWithHealthFund", "on");
     } else {
-      // Defensive: ensure no stale claim fields ship if the user toggled the
-      // section off after typing something in.
+      if (!consentChecked) {
+        setError("Please confirm the client consents to treatment.");
+        return;
+      }
+      fd.set("consentToTreat", "on");
+      // Defensive: ensure no stale signature / claim fields ship if the user
+      // toggled the claim section off after filling it in.
+      fd.delete("signatureDataUrl");
       fd.delete("claimWithHealthFund");
       fd.delete("healthFundName");
       fd.delete("healthFundMemberNumber");
@@ -153,6 +162,7 @@ export function NewBookingForm({
         (e.target as HTMLFormElement).reset();
         setClaiming(false);
         setSignatureDataUrl(null);
+        setConsentChecked(false);
       }
     });
   }
@@ -387,19 +397,43 @@ export function NewBookingForm({
         </div>
       )}
 
-      {/* Client signature — captured on every booking as per-visit consent.
-          HiCAPS claims additionally embed it on the invoice PDF. */}
-      <div className="space-y-2 rounded-md border bg-card p-4">
-        <Label>
-          Client signature <span className="text-destructive">*</span>
-        </Label>
-        <SignaturePad onChange={setSignatureDataUrl} disabled={pending} />
-        <p className="text-xs text-muted-foreground">
-          {claimActive
-            ? "By signing, the client confirms the information above and authorises us to submit a HICAPS claim on their behalf. A fresh signature is required for every health-fund visit."
-            : "By signing, the client confirms today's booking details and consents to treatment. A fresh signature is required for every visit."}
-        </p>
-      </div>
+      {/* Per-visit consent. Health-fund claims capture a fresh drawn signature
+          (embedded on the invoice PDF for HiCAPS audit); non-claim bookings
+          use a quick consent tick-box instead. */}
+      {claimActive ? (
+        <div className="space-y-2 rounded-md border bg-card p-4">
+          <Label>
+            Client signature <span className="text-destructive">*</span>
+          </Label>
+          <SignaturePad onChange={setSignatureDataUrl} disabled={pending} />
+          <p className="text-xs text-muted-foreground">
+            By signing, the client confirms the information above and authorises
+            us to submit a HICAPS claim on their behalf. A fresh signature is
+            required for every health-fund visit.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2 rounded-md border bg-card p-4">
+          <Label>
+            Consent to treatment <span className="text-destructive">*</span>
+          </Label>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={consentChecked}
+              onChange={(e) => setConsentChecked(e.target.checked)}
+              className="mt-1"
+            />
+            <span>The client consents to receiving treatment today.</span>
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Recorded as the client&rsquo;s consent for today&rsquo;s visit.
+            {healthFundEligible
+              ? " For a health-fund claim, tick the claim box above to capture a full signature instead."
+              : ""}
+          </p>
+        </div>
+      )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {success && <p className="text-sm text-emerald-600">{success}</p>}
