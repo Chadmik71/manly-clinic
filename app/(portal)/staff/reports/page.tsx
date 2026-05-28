@@ -17,6 +17,13 @@ import {
   endOfWeek,
 } from "date-fns";
 import type { Prisma } from "@prisma/client";
+import {
+  buildHeatmap,
+  hourShort,
+  availableMinutes,
+  DOW_LABELS,
+  DOW_LABELS_LONG,
+} from "./analytics";
 
 // Sydney calendar time for booking.startsAt (UTC in DB; Vercel runs in UTC).
 // date-fns format() is still fine for the date-input defaults and filter chip
@@ -91,6 +98,15 @@ export default async function ReportsPage({
 
   const where = buildWhere(sp, fromDate, toDate);
 
+  const fromISO = format(fromDate, "yyyy-MM-dd");
+  const toISO = format(toDate, "yyyy-MM-dd");
+
+  // Previous period of equal length, immediately before the selected range,
+  // for the plain-English "up/down vs last period" comparison.
+  const rangeMs = toDate.getTime() - fromDate.getTime();
+  const prevTo = new Date(fromDate.getTime() - 1);
+  const prevFrom = new Date(fromDate.getTime() - rangeMs - 1);
+
   // --- 8-week revenue trend (independent of the filter date range) ---
   // Always shows the last 8 ISO weeks ending with the current week so the
   // owner has a quick "are we trending up?" read regardless of what date
@@ -133,8 +149,14 @@ export default async function ReportsPage({
       ? null
       : ((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100;
 
-  const [bookingsRaw, allTherapists, allServices, fundOptions] =
-    await Promise.all([
+  const [
+    bookingsRaw,
+    allTherapists,
+    allServices,
+    fundOptions,
+    utilBookings,
+    prevRevenueAgg,
+  ] = await Promise.all([
       db.booking.findMany({
         where,
         include: {
@@ -145,8 +167,17 @@ export default async function ReportsPage({
         },
         orderBy: { startsAt: "desc" },
       }),
+      // All therapists for the filter dropdown, plus their weekly availability
+      // and any time-off overlapping the range — feeds the utilisation card.
       db.therapist.findMany({
-        include: { user: { select: { name: true } } },
+        include: {
+          user: { select: { name: true } },
+          availability: true,
+          timeOff: {
+            where: { startsAt: { lt: toDate }, endsAt: { gt: fromDate } },
+            select: { startsAt: true, endsAt: true },
+          },
+        },
         orderBy: { user: { name: "asc" } },
       }),
       db.service.findMany({
@@ -163,6 +194,25 @@ export default async function ReportsPage({
         .then((rows) =>
           rows.map((r) => r.healthFundName).filter((s): s is string => !!s),
         ),
+      // Booked minutes per therapist over the range (capacity numerator).
+      // Independent of the service/fund/status filters above so the
+      // utilisation read reflects true chair time, not the filtered view.
+      db.booking.findMany({
+        where: {
+          startsAt: { gte: fromDate, lte: toDate },
+          status: { in: ["CONFIRMED", "COMPLETED"] },
+          therapistId: { not: null },
+        },
+        select: { therapistId: true, variant: { select: { durationMin: true } } },
+      }),
+      // Confirmed/completed revenue in the immediately-preceding period.
+      db.booking.aggregate({
+        where: {
+          startsAt: { gte: prevFrom, lte: prevTo },
+          status: { in: ["CONFIRMED", "COMPLETED"] },
+        },
+        _sum: { priceCentsAtBooking: true },
+      }),
     ]);
 
   // For each booking, fetch the latest intake on or before the booking date
@@ -241,6 +291,133 @@ export default async function ReportsPage({
   );
   const byService = group((b) => ({ key: b.serviceId, label: b.service.name }));
 
+  // --- Busiest-times heatmap (from the filtered bookings) ---
+  const heatmap = buildHeatmap(bookings);
+
+  // --- New vs returning + rebooking ---
+  // "Returning" = had a confirmed/completed booking before this range started.
+  // "Rebooked" = the client has an upcoming appointment (after now) on the books.
+  const periodClientIds = [...new Set(bookings.map((b) => b.clientId))];
+  const [priorCounts, futureClientRows] = periodClientIds.length
+    ? await Promise.all([
+        db.booking.groupBy({
+          by: ["clientId"],
+          where: {
+            clientId: { in: periodClientIds },
+            startsAt: { lt: fromDate },
+            status: { in: ["CONFIRMED", "COMPLETED"] },
+          },
+          _count: { _all: true },
+        }),
+        db.booking.groupBy({
+          by: ["clientId"],
+          where: {
+            clientId: { in: periodClientIds },
+            startsAt: { gt: new Date() },
+            status: { in: ["PENDING", "CONFIRMED"] },
+          },
+          _count: { _all: true },
+        }),
+      ])
+    : [[], []];
+  const returningSet = new Set(priorCounts.map((p) => p.clientId));
+  const rebookedSet = new Set(futureClientRows.map((p) => p.clientId));
+  const newClientCount = periodClientIds.filter((id) => !returningSet.has(id)).length;
+  const returningClientCount = periodClientIds.length - newClientCount;
+  const rebookedCount = periodClientIds.filter((id) => rebookedSet.has(id)).length;
+  const rebookRatePct = periodClientIds.length
+    ? Math.round((rebookedCount / periodClientIds.length) * 100)
+    : 0;
+
+  // --- Therapist utilisation over the range (booked vs available chair time) ---
+  const bookedMinByTherapist = new Map<string, number>();
+  for (const b of utilBookings) {
+    if (!b.therapistId) continue;
+    bookedMinByTherapist.set(
+      b.therapistId,
+      (bookedMinByTherapist.get(b.therapistId) ?? 0) + b.variant.durationMin,
+    );
+  }
+  const utilisation = allTherapists
+    .map((t) => {
+      const minutesByJsDow = new Map<number, number>();
+      for (const a of t.availability) {
+        minutesByJsDow.set(
+          a.dayOfWeek,
+          (minutesByJsDow.get(a.dayOfWeek) ?? 0) + (a.endMin - a.startMin),
+        );
+      }
+      const availMin = availableMinutes(
+        fromISO,
+        toISO,
+        fromDate,
+        toDate,
+        minutesByJsDow,
+        t.timeOff,
+      );
+      const bookedMin = bookedMinByTherapist.get(t.id) ?? 0;
+      return {
+        id: t.id,
+        label: therapistInternalName(t),
+        availMin,
+        bookedMin,
+        pct:
+          availMin > 0
+            ? Math.min(100, Math.round((bookedMin / availMin) * 100))
+            : null,
+      };
+    })
+    .filter((u) => u.availMin > 0 || u.bookedMin > 0)
+    .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
+
+  // --- Plain-English summary ---
+  const prevRevenue = prevRevenueAgg._sum.priceCentsAtBooking ?? 0;
+  const revDeltaPct =
+    prevRevenue > 0
+      ? Math.round(((totalRevenueCents - prevRevenue) / prevRevenue) * 100)
+      : null;
+  const busiestDayLabel =
+    heatmap.busiestDowMon !== null ? DOW_LABELS_LONG[heatmap.busiestDowMon] : null;
+  const daysInRange = Math.round(rangeMs / 86400000) + 1;
+  const rangeLabel = `${format(fromDate, "d MMM")} – ${format(toDate, "d MMM yyyy")}`;
+
+  const summarySentences: string[] = [];
+  if (totalCount === 0) {
+    summarySentences.push(
+      `No bookings in ${rangeLabel} for the current filters.`,
+    );
+  } else {
+    const nConfirmed = completedOrConfirmed.length;
+    let s1 = `You earned ${formatPrice(totalRevenueCents)} from ${nConfirmed} confirmed booking${nConfirmed === 1 ? "" : "s"} between ${rangeLabel}.`;
+    if (revDeltaPct !== null) {
+      if (revDeltaPct === 0) {
+        s1 += ` That's about level with the previous ${daysInRange} days.`;
+      } else {
+        const dir = revDeltaPct > 0 ? "up" : "down";
+        s1 += ` That's ${dir} ${Math.abs(revDeltaPct)}% vs the previous ${daysInRange} days.`;
+      }
+    }
+    summarySentences.push(s1);
+
+    const parts2: string[] = [];
+    if (busiestDayLabel) parts2.push(`Busiest day was ${busiestDayLabel}`);
+    parts2.push(
+      `${newClientCount} new client${newClientCount === 1 ? "" : "s"} and ${returningClientCount} returning`,
+    );
+    summarySentences.push(parts2.join(", ") + ".");
+
+    const actions: string[] = [];
+    if (noShow > 0)
+      actions.push(`${noShow} no-show${noShow === 1 ? "" : "s"} to follow up`);
+    if (cancelled > 0)
+      actions.push(`${cancelled} cancellation${cancelled === 1 ? "" : "s"}`);
+    if (rebookedCount > 0)
+      actions.push(
+        `${rebookedCount} client${rebookedCount === 1 ? "" : "s"} already have an upcoming appointment`,
+      );
+    if (actions.length) summarySentences.push(actions.join("; ") + ".");
+  }
+
   // Build filter URL preserving other params
   function buildSelectName(name: keyof SP) {
     return name as string;
@@ -266,6 +443,24 @@ export default async function ReportsPage({
       topbar={<span className="text-foreground font-medium">Reports</span>}
     >
       <div className="p-4 space-y-4">
+        {/* Plain-English summary — the story in a sentence or two, reflecting
+            whatever filters/date-range are currently applied. */}
+        <Card>
+          <CardContent className="py-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5">
+              At a glance
+            </div>
+            <p className="text-sm leading-relaxed">
+              {summarySentences[0]}
+            </p>
+            {summarySentences.slice(1).map((s, i) => (
+              <p key={i} className="text-sm leading-relaxed text-muted-foreground mt-1">
+                {s}
+              </p>
+            ))}
+          </CardContent>
+        </Card>
+
         {/* 8-week trend — always shows the last 8 weeks regardless of the
             date filter below. Quick "are we up or down?" read. */}
         <Card>
@@ -447,9 +642,21 @@ export default async function ReportsPage({
             value={`${fundClaimCount} (${formatPrice(fundClaimRevenue)})`}
           />
           <Stat
-            label="Range"
-            value={`${format(fromDate, "d MMM")} – ${format(toDate, "d MMM yyyy")}`}
+            label="New / returning"
+            value={`${newClientCount} / ${returningClientCount}`}
+            hint="first-timers vs repeat clients"
           />
+          <Stat
+            label="Rebooked"
+            value={`${rebookRatePct}%`}
+            hint={`${rebookedCount} of ${periodClientIds.length} have an upcoming visit`}
+          />
+        </div>
+
+        {/* Busiest times + utilisation */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <HeatmapCard heatmap={heatmap} />
+          <UtilisationCard rows={utilisation} />
         </div>
 
         {/* Breakdowns */}
@@ -546,7 +753,15 @@ export default async function ReportsPage({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
   return (
     <Card>
       <CardContent className="py-4">
@@ -554,6 +769,9 @@ function Stat({ label, value }: { label: string; value: string }) {
           {label}
         </div>
         <div className="text-xl font-semibold mt-1 tabular-nums">{value}</div>
+        {hint && (
+          <div className="text-[11px] text-muted-foreground mt-0.5">{hint}</div>
+        )}
       </CardContent>
     </Card>
   );
@@ -593,6 +811,134 @@ function Breakdown({
                     style={{
                       width: `${(r.revenueCents / maxRevenue) * 100}%`,
                     }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function HeatmapCard({
+  heatmap,
+}: {
+  heatmap: { grid: number[][]; hours: number[]; maxCount: number };
+}) {
+  const { grid, hours, maxCount } = heatmap;
+  return (
+    <Card>
+      <CardContent className="py-4 space-y-3">
+        <div>
+          <div className="font-semibold">Busiest times</div>
+          <div className="text-xs text-muted-foreground">
+            When bookings land, by day and hour. Darker = busier. Use it to staff
+            up at peaks and run promos to fill the quiet patches.
+          </div>
+        </div>
+        {maxCount === 0 ? (
+          <p className="text-sm text-muted-foreground">No bookings to chart.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="border-separate" style={{ borderSpacing: "2px" }}>
+              <thead>
+                <tr>
+                  <th className="w-8" />
+                  {hours.map((h) => (
+                    <th
+                      key={h}
+                      className="text-[10px] font-normal text-muted-foreground px-0.5"
+                    >
+                      {hourShort(h)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {DOW_LABELS.map((label, d) => (
+                  <tr key={label}>
+                    <td className="text-[10px] text-muted-foreground pr-1 text-right">
+                      {label}
+                    </td>
+                    {hours.map((h, hi) => {
+                      const c = grid[d][hi];
+                      const intensity = c / maxCount;
+                      const bg =
+                        c === 0
+                          ? "hsl(var(--muted))"
+                          : `hsl(var(--primary) / ${0.18 + intensity * 0.82})`;
+                      const fg =
+                        intensity > 0.55
+                          ? "hsl(var(--primary-foreground))"
+                          : "hsl(var(--foreground))";
+                      return (
+                        <td key={h} className="p-0">
+                          <div
+                            title={`${DOW_LABELS_LONG[d]} ${hourShort(h)}: ${c} booking${c === 1 ? "" : "s"}`}
+                            className="h-6 w-7 rounded-sm grid place-items-center text-[10px] tabular-nums"
+                            style={{ backgroundColor: bg, color: fg }}
+                          >
+                            {c > 0 ? c : ""}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function UtilisationCard({
+  rows,
+}: {
+  rows: {
+    id: string;
+    label: string;
+    availMin: number;
+    bookedMin: number;
+    pct: number | null;
+  }[];
+}) {
+  return (
+    <Card>
+      <CardContent className="py-4 space-y-3">
+        <div>
+          <div className="font-semibold">Therapist utilisation</div>
+          <div className="text-xs text-muted-foreground">
+            Booked hours vs available hours over the selected range. A low number
+            means open chair time you could be filling.
+          </div>
+        </div>
+        {rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No availability set for this range.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {rows.map((r) => (
+              <li key={r.id} className="space-y-0.5">
+                <div className="flex items-baseline justify-between gap-2 text-sm">
+                  <span className="truncate">{r.label}</span>
+                  <span className="tabular-nums font-medium">
+                    {r.pct === null ? "—" : `${r.pct}%`}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between text-xs text-muted-foreground">
+                  <span>{Math.round(r.bookedMin / 60)} hr booked</span>
+                  <span>{Math.round(r.availMin / 60)} hr available</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-primary"
+                    style={{ width: `${r.pct ?? 0}%` }}
                   />
                 </div>
               </li>
