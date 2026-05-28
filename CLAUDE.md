@@ -94,6 +94,86 @@ Single owner-operator (Mick). Production handles real patient data.
 
 
 
+## Prod DB access
+
+
+
+
+
+
+
+Claude has direct read/write access to production Postgres. Mick authorized this on 2026-05-09 — full access, no asking, except for the catastrophic-op safety net below.
+
+
+
+
+
+
+
+- Prod connection string lives in `.env.local` as `DATABASE_URL_PROD` (gitignored via `.env*`).
+
+
+
+- To run a one-off Prisma CLI command against prod, use PowerShell:
+
+
+
+  ```powershell
+
+
+
+  $env:DATABASE_URL = (Get-Content .env.local | Select-String '^DATABASE_URL_PROD=' | ForEach-Object { $_ -replace '^DATABASE_URL_PROD=', '' }); npx prisma db push
+
+
+
+  ```
+
+
+
+- For ad-hoc SQL, use a short Node script with `pg` or Prisma client; don't paste the URL into the chat.
+
+
+
+- After any prod schema change, force-redeploy on Vercel if the next deploy doesn't pick up the new client.
+
+
+
+
+
+
+
+**Catastrophic-op safety net (non-negotiable):** Claude still pauses and asks for explicit confirmation before any of:
+
+
+
+- `DROP TABLE`, `DROP DATABASE`, `TRUNCATE`
+
+
+
+- `DELETE` / `UPDATE` without a `WHERE` clause, or affecting > 50 rows
+
+
+
+- Restoring from backup or rolling back a migration
+
+
+
+- Anything that changes auth roles or wipes audit logs
+
+
+
+
+
+
+
+Reads, single-row writes/deletes, and `prisma db push` of additive (non-destructive) schema changes run without confirmation.
+
+
+
+
+
+
+
 ## Key files
 
 
@@ -175,7 +255,7 @@ Single owner-operator (Mick). Production handles real patient data.
 
 
 
-- **Per-visit signature**: every booking captures a fresh signature on `IntakeForm.signatureDataUrl` as the per-visit consent record (enforced client + server, both customer and staff flows). HiCAPS claims additionally embed the signature on the invoice PDF for audit; non-claim signatures stay on the intake row only. A returning customer cannot re-use a prior signature — the pad always renders empty. Smoke section 26 asserts both the customer and staff actions still reject submissions without a fresh PNG.
+- **Per-visit consent**: every booking records consent on a fresh `IntakeForm` row (`consentToTreat`/`consentToStore` + `signedAt`). **Customer flow** (`app/(public)/book/confirm`) captures a fresh drawn signature on every booking. **Staff manual-booking flow** (`app/(portal)/staff/bookings/new`) captures a fresh drawn signature only for **health-fund claims** (the signature is embedded on the invoice PDF for HiCAPS audit); **non-claim** staff bookings — e.g. a walk-in relaxation massage — record consent via a quick tick-box instead, so the counter isn't slowed down. A returning customer cannot re-use a prior signature — the pad always renders empty. Smoke section 26 asserts the claim path in both actions still rejects submissions without a fresh PNG.
 
 
 
@@ -528,7 +608,7 @@ When `prisma/schema.prisma` changes:
 
 
 
-3. Don't run `prisma db push` against prod yourself — the prod connection string isn't in `.env.local`, and it shouldn't be
+3. Run `prisma db push` against prod yourself using `DATABASE_URL_PROD` from `.env.local` (see "Prod DB access" section). For destructive schema changes (column drops, type narrowing, table renames), pause and confirm with Mick first.
 
 
 
