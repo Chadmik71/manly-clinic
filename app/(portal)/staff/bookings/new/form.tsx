@@ -5,14 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice, formatDuration } from "@/lib/utils";
+import { cn, formatPrice, formatDuration } from "@/lib/utils";
 import { SignaturePad } from "@/components/signature-pad";
-import { HEALTH_FUNDS } from "@/lib/intake";
+import { BodyDiagram } from "@/components/body-diagram";
+import {
+  HEALTH_FUNDS,
+  MEDICAL_HISTORY_GROUPS,
+  GENDER_OPTIONS,
+} from "@/lib/intake";
 import { searchClients } from "./actions";
 
 type Service = {
   id: string;
   name: string;
+  slug: string;
   healthFundEligible: boolean;
   variants: { id: string; durationMin: number; priceCents: number }[];
 };
@@ -49,9 +55,14 @@ export function NewBookingForm({
   const [filter, setFilter] = useState("");
   const [claiming, setClaiming] = useState(false);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
-  // Non-claim bookings record consent via this tick-box instead of a drawn
-  // signature (faster for walk-ins).
+  // Plain non-claim bookings record consent via this tick-box instead of a
+  // drawn signature (faster for walk-ins).
   const [consentChecked, setConsentChecked] = useState(false);
+  // Full clinical intake state (health-fund claim or pregnancy bookings).
+  const [pregnantChecked, setPregnantChecked] = useState(false);
+  const [history, setHistory] = useState<Set<string>>(new Set());
+  const [painCodes, setPainCodes] = useState<string[]>([]);
+  const [painScale, setPainScale] = useState<number | null>(null);
 
   // Split the single datetime-local control into a date input + a time
   // dropdown — Chrome/desktop only opens the date popup, leaving time as a
@@ -87,6 +98,13 @@ export function NewBookingForm({
   // If the user switches to a non-eligible service after toggling claim on,
   // collapse the claim block silently so stale state isn't shipped to the server.
   const claimActive = claiming && healthFundEligible;
+  // Pregnancy: the Pregnancy Massage service is always treated as pregnant;
+  // for any other service, staff can tick "client is pregnant".
+  const isPregnancyService = selectedService?.slug === "pregnancy-massage";
+  const isPregnant = isPregnancyService || pregnantChecked;
+  // Health-fund claims and pregnancy bookings need the full clinical intake
+  // plus a fresh drawn signature; everything else uses the consent tick-box.
+  const requireFullIntake = claimActive || isPregnant;
   // Auto-tick the claim checkbox whenever the selected service is
   // health-fund-eligible (Remedial Massage today) — customers booking
   // those services almost always do so *to* claim. Staff can still
@@ -130,29 +148,44 @@ export function NewBookingForm({
       return;
     }
     fd.set("startsAt", `${dateValue}T${timeValue}`);
-    // Claim bookings need a fresh drawn signature (HiCAPS audit); non-claim
-    // bookings record consent via the tick-box. Validate client-side so staff
-    // don't dispatch a half-filled booking.
-    if (claimActive) {
+    if (claimActive) fd.set("claimWithHealthFund", "on");
+    else {
+      fd.delete("claimWithHealthFund");
+      fd.delete("healthFundName");
+      fd.delete("healthFundMemberNumber");
+      fd.delete("reasonForTreatment");
+    }
+    // Health-fund claims and pregnancy bookings need the full clinical intake
+    // plus a fresh drawn signature; plain non-claim bookings record consent
+    // via the tick-box. Validate client-side so staff don't dispatch a
+    // half-filled booking.
+    if (requireFullIntake) {
       if (!signatureDataUrl) {
-        setError("Please ask the client to sign in the signature pad.");
+        setError(
+          claimActive
+            ? "Please ask the client to sign to authorise the health fund claim."
+            : "Please ask the client to sign to acknowledge the pregnancy-massage safety information.",
+        );
         return;
       }
       fd.set("signatureDataUrl", signatureDataUrl);
-      fd.set("claimWithHealthFund", "on");
+      fd.delete("consentToTreat");
+      if (isPregnant) fd.set("pregnancy", "on");
+      else fd.delete("pregnancy");
+      fd.set("medicalHistory", JSON.stringify([...history]));
+      fd.set("painLocationCodes", JSON.stringify(painCodes));
+      if (painScale != null) fd.set("painScale", String(painScale));
+      else fd.delete("painScale");
     } else {
       if (!consentChecked) {
         setError("Please confirm the client consents to treatment.");
         return;
       }
       fd.set("consentToTreat", "on");
-      // Defensive: ensure no stale signature / claim fields ship if the user
-      // toggled the claim section off after filling it in.
+      // Defensive: drop any stale intake/signature fields if the staff member
+      // toggled claim/pregnancy off after filling them in.
       fd.delete("signatureDataUrl");
-      fd.delete("claimWithHealthFund");
-      fd.delete("healthFundName");
-      fd.delete("healthFundMemberNumber");
-      fd.delete("reasonForTreatment");
+      fd.delete("pregnancy");
     }
     start(async () => {
       const res = await action(fd);
@@ -163,7 +196,20 @@ export function NewBookingForm({
         setClaiming(false);
         setSignatureDataUrl(null);
         setConsentChecked(false);
+        setPregnantChecked(false);
+        setHistory(new Set());
+        setPainCodes([]);
+        setPainScale(null);
       }
+    });
+  }
+
+  function toggleHistory(code: string, on: boolean) {
+    setHistory((s) => {
+      const next = new Set(s);
+      if (on) next.add(code);
+      else next.delete(code);
+      return next;
     });
   }
 
@@ -329,6 +375,26 @@ export function NewBookingForm({
         <Textarea id="notes" name="notes" placeholder="Internal notes…" />
       </div>
 
+      {/* Pregnancy flag — the Pregnancy Massage service implies it (no need to
+          ask); for any other service staff can tick it to trigger the full
+          intake + safety acknowledgement. */}
+      {!isPregnancyService && (
+        <label className="flex items-start gap-2 text-sm rounded-md border bg-card p-4">
+          <input
+            type="checkbox"
+            checked={pregnantChecked}
+            onChange={(e) => setPregnantChecked(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            Client is currently pregnant
+            <span className="block text-xs text-muted-foreground">
+              Requires a short safety intake + signature before booking.
+            </span>
+          </span>
+        </label>
+      )}
+
       {healthFundEligible && (
         <div className="rounded-md border bg-card p-4 space-y-3">
           <div className="flex items-center gap-2">
@@ -397,19 +463,272 @@ export function NewBookingForm({
         </div>
       )}
 
-      {/* Per-visit consent. Health-fund claims capture a fresh drawn signature
-          (embedded on the invoice PDF for HiCAPS audit); non-claim bookings
-          use a quick consent tick-box instead. */}
-      {claimActive ? (
+      {/* Full clinical intake — required for health-fund claims and pregnancy
+          bookings. Mirrors the customer online intake. Hidden (and not
+          submitted) for plain non-claim bookings. */}
+      {requireFullIntake && (
+        <div className="rounded-md border border-primary/30 bg-primary/[0.03] p-4 space-y-5">
+          <div>
+            <h2 className="text-sm font-semibold">Clinical intake</h2>
+            <p className="text-xs text-muted-foreground">
+              {claimActive
+                ? "Required for the health-fund record. Fields marked * are mandatory."
+                : "Required for pregnancy safety screening. Fields marked * are mandatory."}
+            </p>
+          </div>
+
+          {/* Patient details */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="dob">Date of birth</Label>
+              <Input id="dob" name="dob" type="date" />
+            </div>
+            {isPregnancyService ? (
+              <input type="hidden" name="gender" value="FEMALE" />
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="gender">Gender</Label>
+                <select
+                  id="gender"
+                  name="gender"
+                  defaultValue=""
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="">—</option>
+                  {GENDER_OPTIONS.map((g) => (
+                    <option key={g.value} value={g.value}>
+                      {g.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* GP (optional) */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="gpName">GP name (optional)</Label>
+              <Input id="gpName" name="gpName" placeholder="Dr Jane Smith" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gpClinic">GP clinic (optional)</Label>
+              <Input id="gpClinic" name="gpClinic" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gpPhone">GP phone (optional)</Label>
+              <Input id="gpPhone" name="gpPhone" type="tel" />
+            </div>
+          </div>
+
+          {/* Medical history checklist */}
+          <div className="space-y-3">
+            <Label>Medical history — tick anything that applies</Label>
+            {MEDICAL_HISTORY_GROUPS.map((group) => (
+              <div key={group.label}>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5">
+                  {group.label}
+                </div>
+                <div className="grid sm:grid-cols-2 gap-y-1.5 gap-x-4">
+                  {group.items.map((it) => (
+                    <label key={it.code} className="flex items-start gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={history.has(it.code)}
+                        onChange={(e) => toggleHistory(it.code, e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span>{it.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div className="space-y-1.5">
+              <Label htmlFor="medicalConditions">
+                Other conditions or detail{" "}
+                <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="medicalConditions"
+                name="medicalConditions"
+                required
+                placeholder="Anything else we should know? Write 'none' if not applicable."
+              />
+            </div>
+          </div>
+
+          {/* Medications + allergies */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="medications">
+                Current medications <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="medications"
+                name="medications"
+                required
+                placeholder="e.g. blood thinners. Write 'none' if none."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="allergies">
+                Allergies <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="allergies"
+                name="allergies"
+                required
+                placeholder="oils, latex, nuts… Write 'none' if none."
+              />
+            </div>
+          </div>
+
+          {/* Presenting complaint */}
+          <div className="space-y-3">
+            <Label>Areas of concern</Label>
+            <BodyDiagram initialCodes={[]} onChange={setPainCodes} />
+            <div className="space-y-2">
+              <Label className="text-sm">
+                Pain intensity (0 = none, 10 = worst)
+              </Label>
+              <div className="flex flex-wrap gap-1">
+                {Array.from({ length: 11 }).map((_, n) => {
+                  const active = painScale === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setPainScale(active ? null : n)}
+                      className={cn(
+                        "h-9 w-9 rounded-md border text-sm tabular-nums transition-colors",
+                        active
+                          ? "border-primary bg-primary text-primary-foreground font-semibold"
+                          : "hover:bg-accent",
+                      )}
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="painOnset">When did it start?</Label>
+                <Input
+                  id="painOnset"
+                  name="painOnset"
+                  placeholder="e.g. 2 weeks ago, after a fall"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="injuries">
+                  Recent injuries / areas to avoid{" "}
+                  <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="injuries"
+                  name="injuries"
+                  required
+                  placeholder="recent surgery, sprains, scars to avoid. 'none' if none."
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="painHistory">
+                  Aggravating / relieving factors &amp; previous treatment
+                </Label>
+                <Textarea
+                  id="painHistory"
+                  name="painHistory"
+                  placeholder="What makes it worse / better? Seen a GP, physio, chiro?"
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="treatmentGoals">Goals for this session</Label>
+                <Textarea
+                  id="treatmentGoals"
+                  name="treatmentGoals"
+                  placeholder="e.g. reduce lower back pain, improve mobility"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Pregnancy weeks */}
+          {isPregnant && (
+            <div className="space-y-1.5 max-w-xs">
+              <Label htmlFor="pregnancyWeeks">
+                Weeks pregnant <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="pregnancyWeeks"
+                name="pregnancyWeeks"
+                type="number"
+                min={1}
+                max={45}
+                required
+                placeholder="e.g. 24"
+              />
+              <p className="text-xs text-muted-foreground">
+                Pregnancy massage is generally suitable from ~13 weeks with
+                obstetrician clearance.
+              </p>
+            </div>
+          )}
+
+          {/* Emergency contact */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="emergencyContactName">
+                Emergency contact name{" "}
+                <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="emergencyContactName"
+                name="emergencyContactName"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="emergencyContactRelationship">
+                Relationship
+              </Label>
+              <Input
+                id="emergencyContactRelationship"
+                name="emergencyContactRelationship"
+                placeholder="e.g. partner, parent"
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="emergencyContactPhone">
+                Emergency contact phone{" "}
+                <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="emergencyContactPhone"
+                name="emergencyContactPhone"
+                type="tel"
+                required
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Per-visit consent. Health-fund claims and pregnancy bookings capture a
+          fresh drawn signature (HiCAPS audit / pregnancy safety ack); plain
+          non-claim bookings use a quick consent tick-box instead. */}
+      {requireFullIntake ? (
         <div className="space-y-2 rounded-md border bg-card p-4">
           <Label>
             Client signature <span className="text-destructive">*</span>
           </Label>
           <SignaturePad onChange={setSignatureDataUrl} disabled={pending} />
           <p className="text-xs text-muted-foreground">
-            By signing, the client confirms the information above and authorises
-            us to submit a HICAPS claim on their behalf. A fresh signature is
-            required for every health-fund visit.
+            {claimActive
+              ? "By signing, the client confirms the information above and authorises us to submit a HICAPS claim on their behalf. A fresh signature is required for every health-fund visit."
+              : "By signing, the client confirms the clinical information above is accurate and acknowledges the pregnancy-massage safety information."}
           </p>
         </div>
       ) : (

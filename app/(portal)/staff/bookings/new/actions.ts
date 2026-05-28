@@ -47,12 +47,37 @@ const schema = z.object({
   healthFundMemberNumber: z.string().max(40).optional(),
   reasonForTreatment: z.string().max(2000).optional(),
   // PNG data URL from the in-clinic signature pad. 150 KB ceiling matches the
-  // public confirm action — typical signatures are 5–20 KB. Only required for
-  // health-fund claims now; non-claim bookings use the consent tick-box below.
+  // public confirm action — typical signatures are 5–20 KB. Required for
+  // health-fund claims and pregnancy bookings (full intake); plain non-claim
+  // bookings use the consent tick-box below instead.
   signatureDataUrl: z.string().max(150_000).optional(),
-  // Consent tick-box for non-claim bookings — stands in for the drawn
+  // Consent tick-box for plain non-claim bookings — stands in for the drawn
   // signature at the counter. "on" when staff confirm the client consents.
   consentToTreat: z.string().optional(),
+  // --- Full clinical intake (captured for health-fund claims & pregnancy) ---
+  // Mirrors the customer confirm-flow intake. Most are optional at the schema
+  // level; the action enforces the required subset when full intake applies.
+  medicalHistory: z.string().max(2000).optional(), // JSON array of condition codes
+  medicalConditions: z.string().max(2000).optional(),
+  medications: z.string().max(2000).optional(),
+  allergies: z.string().max(2000).optional(),
+  injuries: z.string().max(2000).optional(),
+  painLocationCodes: z.string().max(2000).optional(), // JSON array of body-diagram codes
+  painScale: z.string().optional(),
+  painOnset: z.string().max(500).optional(),
+  painHistory: z.string().max(2000).optional(),
+  treatmentGoals: z.string().max(2000).optional(),
+  pregnancy: z.string().optional(),
+  pregnancyWeeks: z.string().optional(),
+  emergencyContactName: z.string().max(200).optional(),
+  emergencyContactRelationship: z.string().max(80).optional(),
+  emergencyContactPhone: z.string().max(40).optional(),
+  // Patient demographics saved on the User record.
+  dob: z.string().optional(),
+  gender: z.string().max(40).optional(),
+  gpName: z.string().max(120).optional(),
+  gpClinic: z.string().max(200).optional(),
+  gpPhone: z.string().max(40).optional(),
 });
 
 // Server-side client search for the booking-create form. Mirrors the
@@ -141,30 +166,64 @@ export async function createStaffBooking(
   });
   if (!variant) return { error: "Service variant not found." };
 
-  // Per-visit consent. Health-fund (HiCAPS) claims require a fresh drawn
-  // signature — it's embedded on the invoice PDF for the rebate audit — plus
-  // the fund details. Non-claim bookings (e.g. a walk-in relaxation massage)
-  // record consent via a tick-box instead, so staff aren't slowed down at the
-  // counter. Either way the IntakeForm row below stores consentToTreat=true
-  // with a timestamp as the per-visit consent record.
+  // Per-visit consent + intake. Two high-risk cases need the full clinical
+  // intake plus a fresh drawn signature:
+  //   - Health-fund (HiCAPS) claims — signature embedded on the invoice PDF
+  //     for the rebate audit, plus fund details.
+  //   - Pregnancy (the Pregnancy Massage service, or a client flagged pregnant
+  //     on any service) — safety screening + signed acknowledgement.
+  // Plain non-claim bookings (e.g. a walk-in relaxation massage) just record
+  // consent via a tick-box so staff aren't slowed down at the counter. Either
+  // way the IntakeForm row below stores consentToTreat=true with a timestamp.
   const claimWithHealthFund = data.claimWithHealthFund === "on";
+  const isPregnancyService = variant.service.slug === "pregnancy-massage";
+  const isPregnant = data.pregnancy === "on" || isPregnancyService;
+  const requireFullIntake = claimWithHealthFund || isPregnant;
   const hasSignature =
     !!data.signatureDataUrl &&
     data.signatureDataUrl.startsWith("data:image/png;base64,");
 
-  if (claimWithHealthFund) {
+  if (requireFullIntake) {
     if (!hasSignature) {
-      return { error: "Please ask the client to sign in the signature pad." };
+      return {
+        error: claimWithHealthFund
+          ? "Please ask the client to sign to authorise the health fund claim."
+          : "Please ask the client to sign to acknowledge the pregnancy-massage safety information.",
+      };
     }
-    if (!variant.service.healthFundEligible) {
-      return { error: "This treatment is not eligible for health fund rebates." };
+    // Safety-critical intake fields, required for both claim and pregnancy.
+    const requiredIntake: Array<[string | undefined, string]> = [
+      [data.medicalConditions, "medical conditions (write 'none' if none)"],
+      [data.medications, "current medications (write 'none' if none)"],
+      [data.allergies, "allergies (write 'none' if none)"],
+      [data.injuries, "recent injuries / areas to avoid"],
+      [data.emergencyContactName, "emergency contact name"],
+      [data.emergencyContactPhone, "emergency contact phone"],
+    ];
+    for (const [val, label] of requiredIntake) {
+      if (!val || !val.trim()) {
+        return { error: `Please complete the intake: ${label}.` };
+      }
     }
-    if (!data.healthFundName || !data.healthFundName.trim())
-      return { error: "Please choose the client's health fund." };
-    if (!data.healthFundMemberNumber || !data.healthFundMemberNumber.trim())
-      return { error: "Please enter the client's health fund member number." };
-    if (!data.reasonForTreatment || !data.reasonForTreatment.trim())
-      return { error: "Please describe the reason for treatment." };
+    if (isPregnant) {
+      const weeks = data.pregnancyWeeks
+        ? parseInt(data.pregnancyWeeks, 10)
+        : NaN;
+      if (!Number.isFinite(weeks) || weeks < 1 || weeks > 45) {
+        return { error: "Please enter how many weeks pregnant the client is." };
+      }
+    }
+    if (claimWithHealthFund) {
+      if (!variant.service.healthFundEligible) {
+        return { error: "This treatment is not eligible for health fund rebates." };
+      }
+      if (!data.healthFundName || !data.healthFundName.trim())
+        return { error: "Please choose the client's health fund." };
+      if (!data.healthFundMemberNumber || !data.healthFundMemberNumber.trim())
+        return { error: "Please enter the client's health fund member number." };
+      if (!data.reasonForTreatment || !data.reasonForTreatment.trim())
+        return { error: "Please describe the reason for treatment." };
+    }
   } else if (data.consentToTreat !== "on") {
     return { error: "Please confirm the client consents to treatment." };
   }
@@ -226,6 +285,25 @@ export async function createStaffBooking(
     }
   }
 
+  // When the full intake applies, fold the patient demographics the staff
+  // entered into the client's User record (only the fields they actually
+  // filled — never blank out existing data).
+  if (requireFullIntake) {
+    const dobDate =
+      data.dob && /^\d{4}-\d{2}-\d{2}$/.test(data.dob)
+        ? new Date(data.dob)
+        : null;
+    const userPatch: Record<string, unknown> = {};
+    if (dobDate && !isNaN(dobDate.getTime())) userPatch.dob = dobDate;
+    if (data.gender) userPatch.gender = data.gender;
+    if (data.gpName) userPatch.gpName = data.gpName;
+    if (data.gpClinic) userPatch.gpClinic = data.gpClinic;
+    if (data.gpPhone) userPatch.gpPhone = data.gpPhone;
+    if (Object.keys(userPatch).length > 0) {
+      await db.user.update({ where: { id: clientId }, data: userPatch });
+    }
+  }
+
   // Therapist resolution: explicit pick or auto-assign.
   // Use Sydney day-of-week — startsAt.getDay() returns UTC on Vercel and is
   // off-by-one for early-morning Sydney times.
@@ -278,15 +356,47 @@ export async function createStaffBooking(
     },
   });
 
-  // Every booking persists a fresh IntakeForm row to capture the per-visit
-  // signature + consent flags. HiCAPS claims additionally store fund name,
-  // member number, and reason for treatment on the same row. The walk-in
-  // flow doesn't collect a full clinical intake at the counter; staff
-  // captures the remaining clinical fields on the booking detail page
-  // after the session.
+  // Every booking persists a fresh IntakeForm row for the per-visit consent.
+  // Plain non-claim bookings stop at the consent flags (the rest of the
+  // clinical record is captured on the booking detail page after the session).
+  // Health-fund claims and pregnancy bookings carry the full clinical intake
+  // collected in the form above, mirroring the customer confirm flow.
+  let painScale: number | null = null;
+  if (requireFullIntake && data.painScale) {
+    const n = parseInt(data.painScale, 10);
+    if (Number.isFinite(n) && n >= 0 && n <= 10) painScale = n;
+  }
+  const pregnancyWeeks =
+    isPregnant && data.pregnancyWeeks
+      ? (() => {
+          const n = parseInt(data.pregnancyWeeks, 10);
+          return Number.isFinite(n) && n >= 1 && n <= 45 ? n : null;
+        })()
+      : null;
+
   await db.intakeForm.create({
     data: {
       userId: clientId,
+      ...(requireFullIntake
+        ? {
+            medicalHistory: data.medicalHistory ?? null,
+            medicalConditions: data.medicalConditions ?? null,
+            medications: data.medications ?? null,
+            allergies: data.allergies ?? null,
+            injuries: data.injuries ?? null,
+            painLocationCodes: data.painLocationCodes ?? null,
+            painScale,
+            painOnset: data.painOnset ?? null,
+            painHistory: data.painHistory ?? null,
+            treatmentGoals: data.treatmentGoals ?? null,
+            pregnancy: isPregnant,
+            pregnancyWeeks,
+            emergencyContactName: data.emergencyContactName ?? null,
+            emergencyContactRelationship:
+              data.emergencyContactRelationship ?? null,
+            emergencyContactPhone: data.emergencyContactPhone ?? null,
+          }
+        : {}),
       healthFundName: claimWithHealthFund ? (data.healthFundName ?? null) : null,
       healthFundMemberNumber: claimWithHealthFund
         ? (data.healthFundMemberNumber ?? null)
@@ -309,6 +419,8 @@ export async function createStaffBooking(
       reference,
       isWalkIn,
       claimWithHealthFund,
+      isPregnant,
+      fullIntake: requireFullIntake,
       ...(claimWithHealthFund
         ? { healthFundName: data.healthFundName ?? null }
         : {}),
