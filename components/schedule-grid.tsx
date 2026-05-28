@@ -115,6 +115,62 @@ export function ScheduleGrid({
   const dayStartMin = DAY_START_HOUR * 60;
   const dayEndMin = DAY_END_HOUR * 60;
 
+  // Per-therapist day stats: how booked they are (utilisation %) and where the
+  // open bookable gaps are. Computed once and shared by the header (badge) and
+  // the body columns (gap markers). Cancelled/no-show bookings don't occupy
+  // the chair, so they don't count toward "booked" or block a gap.
+  type DayStats = { utilPct: number | null; gaps: [number, number][] };
+  function computeDayStats(t: Therapist): DayStats | null {
+    if (!t.isWorking || t.startMin == null || t.endMin == null) return null;
+    const ws = t.startMin;
+    const we = t.endMin;
+    const intervals: [number, number][] = [];
+    let bookedMin = 0;
+    for (const b of bookings) {
+      if (b.therapistId !== t.id) continue;
+      if (b.status === "CANCELLED" || b.status === "NO_SHOW") continue;
+      const s = minutesFromMidnight(b.startsAt);
+      const e = s + b.variant.durationMin;
+      const cs = Math.max(s, ws);
+      const ce = Math.min(e, we);
+      if (ce > cs) {
+        intervals.push([cs, ce]);
+        bookedMin += ce - cs;
+      }
+    }
+    let offMin = 0;
+    const dayStartUTC = date.getTime();
+    const dayEndUTC = dayStartUTC + 24 * 3600 * 1000 - 1;
+    for (const o of t.timeOff ?? []) {
+      const startTs = Math.max(o.startsAt.getTime(), dayStartUTC);
+      const endTs = Math.min(o.endsAt.getTime(), dayEndUTC);
+      if (endTs <= startTs) continue;
+      const sMin = minutesFromMidnight(new Date(startTs));
+      const eMin = minutesFromMidnight(new Date(endTs));
+      const cs = Math.max(sMin, ws);
+      const ce = Math.min(eMin, we);
+      if (ce > cs) {
+        intervals.push([cs, ce]);
+        offMin += ce - cs;
+      }
+    }
+    const availMin = Math.max(0, we - ws - offMin);
+    const utilPct =
+      availMin > 0 ? Math.min(100, Math.round((bookedMin / availMin) * 100)) : null;
+    // Free gaps = working window minus the union of occupied intervals.
+    intervals.sort((a, b) => a[0] - b[0]);
+    const gaps: [number, number][] = [];
+    let cursor = ws;
+    for (const [s, e] of intervals) {
+      if (s > cursor) gaps.push([cursor, s]);
+      cursor = Math.max(cursor, e);
+    }
+    if (cursor < we) gaps.push([cursor, we]);
+    // Only surface gaps long enough to actually slot a booking into.
+    return { utilPct, gaps: gaps.filter(([s, e]) => e - s >= 30) };
+  }
+  const dayStats = new Map(therapists.map((t) => [t.id, computeDayStats(t)]));
+
   function handleColumnClick(
     e: React.MouseEvent<HTMLDivElement>,
     t: Therapist,
@@ -167,7 +223,17 @@ export function ScheduleGrid({
         >
           {/* Header row */}
           <div className="border-b border-r bg-muted/30 h-12" />
-          {therapists.map((t) => (
+          {therapists.map((t) => {
+            const util = dayStats.get(t.id)?.utilPct ?? null;
+            const utilTone =
+              util == null
+                ? ""
+                : util >= 75
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : util <= 40
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-muted-foreground";
+            return (
             <div
               key={t.id}
               className="border-b border-r last:border-r-0 bg-muted/30 h-12 px-3 flex items-center gap-2"
@@ -178,8 +244,16 @@ export function ScheduleGrid({
               <div className="text-sm flex-1 min-w-0">
                 <div className="font-medium leading-none truncate">{t.name}</div>
                 {t.isWorking && t.startMin != null && t.endMin != null ? (
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                  <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
                     {minToLabel(t.startMin)} – {minToLabel(t.endMin)}
+                    {util != null && (
+                      <>
+                        {" · "}
+                        <span className={`font-medium ${utilTone}`}>
+                          {util}% booked
+                        </span>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="text-[11px] text-muted-foreground mt-0.5">
@@ -198,7 +272,8 @@ export function ScheduleGrid({
                 />
               )}
             </div>
-          ))}
+            );
+          })}
 
           {/* Body: time gutter + per-therapist column */}
           <div
@@ -227,6 +302,7 @@ export function ScheduleGrid({
 
           {therapists.map((t) => {
             const ts = bookings.filter((b) => b.therapistId === t.id);
+            const gaps = dayStats.get(t.id)?.gaps ?? [];
             return (
               <div
                 key={t.id}
@@ -311,6 +387,29 @@ export function ScheduleGrid({
                       }}
                     />
                   )}
+
+                {/* Open bookable gaps — clicking falls through to the column's
+                    book-here handler. Only gaps >= 30 min are shown. */}
+                {gaps.map(([s, e]) => {
+                  const top = (s - dayStartMin) * MIN_PX;
+                  const mins = e - s;
+                  const height = mins * MIN_PX;
+                  const gapLabel =
+                    mins >= 60
+                      ? `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}`
+                      : `${mins} min`;
+                  return (
+                    <div
+                      key={`gap-${s}`}
+                      className="absolute left-1 right-1 rounded-md border border-dashed border-emerald-500/40 bg-emerald-500/[0.06] pointer-events-none flex items-center justify-center"
+                      style={{ top: `${top}px`, height: `${height}px` }}
+                    >
+                      <span className="text-[10px] font-medium text-emerald-700/70 dark:text-emerald-400/70 uppercase tracking-wide">
+                        Open · {gapLabel}
+                      </span>
+                    </div>
+                  );
+                })}
 
                 {ts.map((b) => {
                   const startMin = minutesFromMidnight(b.startsAt);
