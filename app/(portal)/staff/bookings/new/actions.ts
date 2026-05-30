@@ -217,8 +217,14 @@ export async function getClientPrefill(clientId: string): Promise<{
         healthFundMemberNumber: true,
       },
     }),
+    // Find the most recent intake row that carried full clinical data, NOT
+    // just a consent stub. Plain non-claim staff bookings create an intake
+    // row with consentToTreat=true but every clinical field null, so a naive
+    // "latest intake" lookup would silently overwrite a real prior intake
+    // with blanks. medicalConditions is required for every full intake, so
+    // its presence is a reliable proxy for "this row had the medical data".
     db.intakeForm.findFirst({
-      where: { userId: clientId },
+      where: { userId: clientId, medicalConditions: { not: null } },
       orderBy: { updatedAt: "desc" },
       select: {
         medicalConditions: true,
