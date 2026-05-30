@@ -388,11 +388,13 @@ export function ScheduleGrid({
                     />
                   )}
 
-                {/* Open bookable gaps — clicking opens the new-booking form
-                    pre-filled with this therapist and the gap's start minute.
-                    Only gaps >= 30 min are shown. Renders as a Link so the
-                    gap's exact start time is in the URL, not derived from a
-                    pixel Y-coordinate. */}
+                {/* Open bookable gaps. Each gap is one visual block ("Open ·
+                    Xh Ym") with a stack of invisible 30-min Link cells inside
+                    — so hovering a cell highlights just that strip and the
+                    tooltip + URL reflect the cell's exact start time. A long
+                    open day (e.g. no bookings at all) would otherwise render
+                    as a single Link pegged to the gap's start, which silently
+                    booked everything at 9 am. Only gaps >= 30 min are shown. */}
                 {dateStr &&
                   gaps.map(([s, e]) => {
                     const top = (s - dayStartMin) * MIN_PX;
@@ -402,22 +404,38 @@ export function ScheduleGrid({
                       mins >= 60
                         ? `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}`
                         : `${mins} min`;
-                    const startH = Math.floor(s / 60);
-                    const startM = s % 60;
-                    const timeStr = `${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`;
+                    // 30-min cells covering [s, e). Truncate any trailing
+                    // partial cell so we don't offer a 15-min stub.
+                    const cells: number[] = [];
+                    for (let c = s; c + 30 <= e; c += 30) cells.push(c);
                     return (
-                      <Link
+                      <div
                         key={`gap-${s}`}
-                        href={`/staff/bookings/new?date=${encodeURIComponent(dateStr)}&therapistId=${encodeURIComponent(t.id)}&time=${encodeURIComponent(timeStr)}`}
-                        className="absolute left-1 right-1 rounded-md border border-dashed border-emerald-500/40 bg-emerald-500/[0.06] hover:bg-emerald-500/[0.12] hover:border-emerald-500/60 transition-colors flex items-center justify-center"
+                        className="absolute left-1 right-1 rounded-md border border-dashed border-emerald-500/40 bg-emerald-500/[0.06] flex items-center justify-center"
                         style={{ top: `${top}px`, height: `${height}px` }}
                         onClick={(ev) => ev.stopPropagation()}
-                        title={`Book at ${minToLabel(s)} with ${t.name}`}
                       >
-                        <span className="text-[10px] font-medium text-emerald-700/70 dark:text-emerald-400/70 uppercase tracking-wide">
+                        <span className="text-[10px] font-medium text-emerald-700/70 dark:text-emerald-400/70 uppercase tracking-wide pointer-events-none select-none">
                           Open · {gapLabel}
                         </span>
-                      </Link>
+                        {cells.map((cellMin) => {
+                          const cellH = Math.floor(cellMin / 60);
+                          const cellM = cellMin % 60;
+                          const timeStr = `${String(cellH).padStart(2, "0")}:${String(cellM).padStart(2, "0")}`;
+                          return (
+                            <Link
+                              key={cellMin}
+                              href={`/staff/bookings/new?date=${encodeURIComponent(dateStr)}&therapistId=${encodeURIComponent(t.id)}&time=${encodeURIComponent(timeStr)}`}
+                              className="absolute left-0 right-0 hover:bg-emerald-500/[0.14] transition-colors"
+                              style={{
+                                top: `${(cellMin - s) * MIN_PX}px`,
+                                height: `${30 * MIN_PX}px`,
+                              }}
+                              title={`Book at ${minToLabel(cellMin)} with ${t.name}`}
+                            />
+                          );
+                        })}
+                      </div>
                     );
                   })}
 
