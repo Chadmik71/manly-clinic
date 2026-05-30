@@ -160,8 +160,19 @@ export default async function ConfirmPage({
     const userRow = await db.user.findUnique({
       where: { id: session.user.id },
     });
+    // Pull the most recent intake row that carried the full clinical data.
+    // The customer flow's safety-tier intake (everything except Remedial &
+    // Pregnancy) saves an intake row with consentToTreat=true but every
+    // clinical field null, so a naive "latest intake" lookup would silently
+    // overwrite a real prior full intake with blanks the next time the
+    // customer books a full-intake service. medicalConditions is required
+    // on every full-intake submission, so its presence is a reliable proxy.
+    // Same filter as getClientPrefill on the staff side.
     intake = await db.intakeForm.findFirst({
-      where: { userId: session.user.id },
+      where: {
+        userId: session.user.id,
+        medicalConditions: { not: null },
+      },
       orderBy: { updatedAt: "desc" },
     });
     const dobIso = userRow?.dob ? userRow.dob.toISOString().slice(0, 10) : "";
