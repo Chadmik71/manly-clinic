@@ -142,6 +142,152 @@ export async function searchClients(
   return { clients };
 }
 
+function parseStringArrayJson(s: string | null): string[] {
+  if (!s) return [];
+  try {
+    const arr = JSON.parse(s);
+    return Array.isArray(arr)
+      ? arr.filter((x): x is string => typeof x === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+// Fetch a returning client's most recent intake + the User-row demographics
+// the staff full-intake form pre-fills from. Called from the form whenever a
+// client is selected while the full intake (claim or pregnancy) is showing,
+// so staff don't re-key unchanged medical history every visit. Signature is
+// deliberately excluded — every visit needs a fresh drawn signature per the
+// per-visit consent rule.
+export async function getClientPrefill(clientId: string): Promise<{
+  prefill?: {
+    user: {
+      dob: string;
+      gender: string;
+      gpName: string;
+      gpClinic: string;
+      gpPhone: string;
+      healthFundName: string;
+      healthFundMemberNumber: string;
+    };
+    intake: {
+      medicalConditions: string;
+      medications: string;
+      allergies: string;
+      injuries: string;
+      medicalHistory: string[];
+      painLocationCodes: string[];
+      painScale: number | null;
+      painOnset: string;
+      painHistory: string;
+      treatmentGoals: string;
+      pregnancy: boolean;
+      pregnancyWeeks: number | null;
+      emergencyContactName: string;
+      emergencyContactRelationship: string;
+      emergencyContactPhone: string;
+      reasonForTreatment: string;
+    } | null;
+  };
+  error?: string;
+}> {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
+  ) {
+    return { error: "Forbidden." };
+  }
+  if (typeof clientId !== "string" || clientId.trim() === "") {
+    return { error: "Missing client." };
+  }
+
+  const [user, intake] = await Promise.all([
+    db.user.findUnique({
+      where: { id: clientId },
+      select: {
+        role: true,
+        dob: true,
+        gender: true,
+        gpName: true,
+        gpClinic: true,
+        gpPhone: true,
+        healthFundName: true,
+        healthFundMemberNumber: true,
+      },
+    }),
+    db.intakeForm.findFirst({
+      where: { userId: clientId },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        medicalConditions: true,
+        medications: true,
+        allergies: true,
+        injuries: true,
+        medicalHistory: true,
+        painLocationCodes: true,
+        painScale: true,
+        painOnset: true,
+        painHistory: true,
+        treatmentGoals: true,
+        pregnancy: true,
+        pregnancyWeeks: true,
+        emergencyContactName: true,
+        emergencyContactRelationship: true,
+        emergencyContactPhone: true,
+        reasonForTreatment: true,
+      },
+    }),
+  ]);
+
+  if (!user || user.role !== "CLIENT") {
+    return { error: "Client not found." };
+  }
+
+  await audit({
+    userId: session.user.id,
+    action: "VIEW_CLIENT_INTAKE_FOR_BOOKING",
+    resource: `User:${clientId}`,
+    metadata: { hasIntake: !!intake },
+  });
+
+  return {
+    prefill: {
+      user: {
+        dob: user.dob ? user.dob.toISOString().slice(0, 10) : "",
+        gender: user.gender ?? "",
+        gpName: user.gpName ?? "",
+        gpClinic: user.gpClinic ?? "",
+        gpPhone: user.gpPhone ?? "",
+        healthFundName: user.healthFundName ?? "",
+        healthFundMemberNumber: user.healthFundMemberNumber ?? "",
+      },
+      intake: intake
+        ? {
+            medicalConditions: intake.medicalConditions ?? "",
+            medications: intake.medications ?? "",
+            allergies: intake.allergies ?? "",
+            injuries: intake.injuries ?? "",
+            medicalHistory: parseStringArrayJson(intake.medicalHistory),
+            painLocationCodes: parseStringArrayJson(intake.painLocationCodes),
+            painScale: intake.painScale,
+            painOnset: intake.painOnset ?? "",
+            painHistory: intake.painHistory ?? "",
+            treatmentGoals: intake.treatmentGoals ?? "",
+            pregnancy: intake.pregnancy ?? false,
+            pregnancyWeeks: intake.pregnancyWeeks ?? null,
+            emergencyContactName: intake.emergencyContactName ?? "",
+            emergencyContactRelationship:
+              intake.emergencyContactRelationship ?? "",
+            emergencyContactPhone: intake.emergencyContactPhone ?? "",
+            reasonForTreatment: intake.reasonForTreatment ?? "",
+          }
+        : null,
+    },
+  };
+}
+
 export async function createStaffBooking(
   fd: FormData,
 ): Promise<{ ok?: boolean; error?: string; reference?: string }> {

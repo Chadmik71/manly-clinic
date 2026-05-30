@@ -13,7 +13,11 @@ import {
   MEDICAL_HISTORY_GROUPS,
   GENDER_OPTIONS,
 } from "@/lib/intake";
-import { searchClients } from "./actions";
+import { searchClients, getClientPrefill } from "./actions";
+
+type Prefill = NonNullable<
+  Awaited<ReturnType<typeof getClientPrefill>>["prefill"]
+>;
 
 type Service = {
   id: string;
@@ -53,6 +57,14 @@ export function NewBookingForm({
     services[0]?.variants[0]?.id ?? "",
   );
   const [filter, setFilter] = useState("");
+  const [clientId, setClientId] = useState("");
+  // Pre-fill from the selected client's most recent intake + User
+  // demographics. Fetched whenever a returning client is picked; the full
+  // intake block uses prefillVersion as its key so a fresh fetch remounts
+  // it with the new defaults rather than keeping stale values.
+  const [prefill, setPrefill] = useState<Prefill | null>(null);
+  const [prefillVersion, setPrefillVersion] = useState(0);
+  const [prefilling, setPrefilling] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   // Plain non-claim bookings record consent via this tick-box instead of a
@@ -114,6 +126,51 @@ export function NewBookingForm({
   useEffect(() => {
     setClaiming(healthFundEligible);
   }, [healthFundEligible]);
+
+  // When a client is picked (or switched), pull their last intake + User
+  // demographics so the full-intake block can pre-fill on mount. The
+  // signature pad is deliberately NOT pre-filled — every visit needs a
+  // fresh drawn signature per the per-visit consent rule. Walk-in mode
+  // leaves clientId empty so this is a no-op there.
+  useEffect(() => {
+    if (!clientId) {
+      setPrefill(null);
+      return;
+    }
+    let cancelled = false;
+    setPrefilling(true);
+    (async () => {
+      const res = await getClientPrefill(clientId);
+      if (cancelled) return;
+      setPrefilling(false);
+      if (res.prefill) {
+        setPrefill(res.prefill);
+        // Push the controlled-state fields (Set / number / array) now so the
+        // checkboxes, pain-scale buttons and body-diagram reflect the new
+        // client immediately. The text fields are unmounted/remounted via
+        // prefillVersion below.
+        if (res.prefill.intake) {
+          setHistory(new Set(res.prefill.intake.medicalHistory));
+          setPainCodes(res.prefill.intake.painLocationCodes);
+          setPainScale(res.prefill.intake.painScale);
+          if (!isPregnancyService) {
+            setPregnantChecked(res.prefill.intake.pregnancy);
+          }
+        } else {
+          setHistory(new Set());
+          setPainCodes([]);
+          setPainScale(null);
+        }
+        setPrefillVersion((v) => v + 1);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // isPregnancyService is intentionally NOT a dep — we only sync the
+    // pregnant tick-box on a fresh client load, not when the service changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   // Server-side client search (debounced). The clinic has thousands of
   // imported clients, so an in-browser filter over a preloaded subset
@@ -200,6 +257,8 @@ export function NewBookingForm({
         setHistory(new Set());
         setPainCodes([]);
         setPainScale(null);
+        setClientId("");
+        setPrefill(null);
       }
     });
   }
@@ -225,7 +284,12 @@ export function NewBookingForm({
         </button>
         <button
           type="button"
-          onClick={() => setMode("walkin")}
+          onClick={() => {
+            setMode("walkin");
+            // No client selected in walk-in mode — drop any cached prefill
+            // so we don't ship stale defaults if staff switch back.
+            setClientId("");
+          }}
           className={`rounded-md border px-3 py-1.5 ${mode === "walkin" ? "border-primary bg-primary/5 text-primary" : ""}`}
         >
           Walk-in / new
@@ -248,6 +312,8 @@ export function NewBookingForm({
           <select
             name="clientId"
             required
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
             className="h-10 w-full rounded-md border bg-background px-3 text-sm"
           >
             <option value="">— select client —</option>
@@ -416,7 +482,7 @@ export function NewBookingForm({
             <span>Client is claiming this session with their health fund.</span>
           </label>
           {claimActive && (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div key={`claim-${prefillVersion}`} className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="healthFundName">
                   Health fund <span className="text-destructive">*</span>
@@ -425,7 +491,7 @@ export function NewBookingForm({
                   id="healthFundName"
                   name="healthFundName"
                   required
-                  defaultValue=""
+                  defaultValue={prefill?.user.healthFundName ?? ""}
                   className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                 >
                   <option value="">Select a fund…</option>
@@ -444,6 +510,7 @@ export function NewBookingForm({
                   id="healthFundMemberNumber"
                   name="healthFundMemberNumber"
                   required
+                  defaultValue={prefill?.user.healthFundMemberNumber ?? ""}
                   placeholder="e.g. 1234567A"
                 />
               </div>
@@ -455,6 +522,7 @@ export function NewBookingForm({
                   id="reasonForTreatment"
                   name="reasonForTreatment"
                   required
+                  defaultValue={prefill?.intake?.reasonForTreatment ?? ""}
                   placeholder="e.g. lower back pain after long-distance running"
                 />
               </div>
@@ -467,9 +535,24 @@ export function NewBookingForm({
           bookings. Mirrors the customer online intake. Hidden (and not
           submitted) for plain non-claim bookings. */}
       {requireFullIntake && (
-        <div className="rounded-md border border-primary/30 bg-primary/[0.03] p-4 space-y-5">
+        <div
+          key={`intake-${prefillVersion}`}
+          className="rounded-md border border-primary/30 bg-primary/[0.03] p-4 space-y-5"
+        >
           <div>
-            <h2 className="text-sm font-semibold">Clinical intake</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">Clinical intake</h2>
+              {prefilling && (
+                <span className="text-xs text-muted-foreground">
+                  Loading client history…
+                </span>
+              )}
+              {!prefilling && prefill?.intake && (
+                <span className="text-xs text-emerald-700 dark:text-emerald-400">
+                  Pre-filled from last visit · double-check before submitting
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {claimActive
                 ? "Required for the health-fund record. Fields marked * are mandatory."
@@ -481,7 +564,12 @@ export function NewBookingForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="dob">Date of birth</Label>
-              <Input id="dob" name="dob" type="date" />
+              <Input
+                id="dob"
+                name="dob"
+                type="date"
+                defaultValue={prefill?.user.dob ?? ""}
+              />
             </div>
             {isPregnancyService ? (
               <input type="hidden" name="gender" value="FEMALE" />
@@ -491,7 +579,7 @@ export function NewBookingForm({
                 <select
                   id="gender"
                   name="gender"
-                  defaultValue=""
+                  defaultValue={prefill?.user.gender ?? ""}
                   className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                 >
                   <option value="">—</option>
@@ -509,15 +597,29 @@ export function NewBookingForm({
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="gpName">GP name (optional)</Label>
-              <Input id="gpName" name="gpName" placeholder="Dr Jane Smith" />
+              <Input
+                id="gpName"
+                name="gpName"
+                defaultValue={prefill?.user.gpName ?? ""}
+                placeholder="Dr Jane Smith"
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="gpClinic">GP clinic (optional)</Label>
-              <Input id="gpClinic" name="gpClinic" />
+              <Input
+                id="gpClinic"
+                name="gpClinic"
+                defaultValue={prefill?.user.gpClinic ?? ""}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="gpPhone">GP phone (optional)</Label>
-              <Input id="gpPhone" name="gpPhone" type="tel" />
+              <Input
+                id="gpPhone"
+                name="gpPhone"
+                type="tel"
+                defaultValue={prefill?.user.gpPhone ?? ""}
+              />
             </div>
           </div>
 
@@ -553,6 +655,7 @@ export function NewBookingForm({
                 id="medicalConditions"
                 name="medicalConditions"
                 required
+                defaultValue={prefill?.intake?.medicalConditions ?? ""}
                 placeholder="Anything else we should know? Write 'none' if not applicable."
               />
             </div>
@@ -568,6 +671,7 @@ export function NewBookingForm({
                 id="medications"
                 name="medications"
                 required
+                defaultValue={prefill?.intake?.medications ?? ""}
                 placeholder="e.g. blood thinners. Write 'none' if none."
               />
             </div>
@@ -579,6 +683,7 @@ export function NewBookingForm({
                 id="allergies"
                 name="allergies"
                 required
+                defaultValue={prefill?.intake?.allergies ?? ""}
                 placeholder="oils, latex, nuts… Write 'none' if none."
               />
             </div>
@@ -587,7 +692,10 @@ export function NewBookingForm({
           {/* Presenting complaint */}
           <div className="space-y-3">
             <Label>Areas of concern</Label>
-            <BodyDiagram initialCodes={[]} onChange={setPainCodes} />
+            <BodyDiagram
+              initialCodes={prefill?.intake?.painLocationCodes ?? []}
+              onChange={setPainCodes}
+            />
             <div className="space-y-2">
               <Label className="text-sm">
                 Pain intensity (0 = none, 10 = worst)
@@ -619,6 +727,7 @@ export function NewBookingForm({
                 <Input
                   id="painOnset"
                   name="painOnset"
+                  defaultValue={prefill?.intake?.painOnset ?? ""}
                   placeholder="e.g. 2 weeks ago, after a fall"
                 />
               </div>
@@ -631,6 +740,7 @@ export function NewBookingForm({
                   id="injuries"
                   name="injuries"
                   required
+                  defaultValue={prefill?.intake?.injuries ?? ""}
                   placeholder="recent surgery, sprains, scars to avoid. 'none' if none."
                 />
               </div>
@@ -641,6 +751,7 @@ export function NewBookingForm({
                 <Textarea
                   id="painHistory"
                   name="painHistory"
+                  defaultValue={prefill?.intake?.painHistory ?? ""}
                   placeholder="What makes it worse / better? Seen a GP, physio, chiro?"
                 />
               </div>
@@ -649,6 +760,7 @@ export function NewBookingForm({
                 <Textarea
                   id="treatmentGoals"
                   name="treatmentGoals"
+                  defaultValue={prefill?.intake?.treatmentGoals ?? ""}
                   placeholder="e.g. reduce lower back pain, improve mobility"
                 />
               </div>
@@ -668,6 +780,7 @@ export function NewBookingForm({
                 min={1}
                 max={45}
                 required
+                defaultValue={prefill?.intake?.pregnancyWeeks ?? ""}
                 placeholder="e.g. 24"
               />
               <p className="text-xs text-muted-foreground">
@@ -688,6 +801,7 @@ export function NewBookingForm({
                 id="emergencyContactName"
                 name="emergencyContactName"
                 required
+                defaultValue={prefill?.intake?.emergencyContactName ?? ""}
               />
             </div>
             <div className="space-y-1.5">
@@ -697,6 +811,9 @@ export function NewBookingForm({
               <Input
                 id="emergencyContactRelationship"
                 name="emergencyContactRelationship"
+                defaultValue={
+                  prefill?.intake?.emergencyContactRelationship ?? ""
+                }
                 placeholder="e.g. partner, parent"
               />
             </div>
@@ -710,6 +827,7 @@ export function NewBookingForm({
                 name="emergencyContactPhone"
                 type="tel"
                 required
+                defaultValue={prefill?.intake?.emergencyContactPhone ?? ""}
               />
             </div>
           </div>
