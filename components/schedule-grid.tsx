@@ -388,28 +388,38 @@ export function ScheduleGrid({
                     />
                   )}
 
-                {/* Open bookable gaps — clicking falls through to the column's
-                    book-here handler. Only gaps >= 30 min are shown. */}
-                {gaps.map(([s, e]) => {
-                  const top = (s - dayStartMin) * MIN_PX;
-                  const mins = e - s;
-                  const height = mins * MIN_PX;
-                  const gapLabel =
-                    mins >= 60
-                      ? `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}`
-                      : `${mins} min`;
-                  return (
-                    <div
-                      key={`gap-${s}`}
-                      className="absolute left-1 right-1 rounded-md border border-dashed border-emerald-500/40 bg-emerald-500/[0.06] pointer-events-none flex items-center justify-center"
-                      style={{ top: `${top}px`, height: `${height}px` }}
-                    >
-                      <span className="text-[10px] font-medium text-emerald-700/70 dark:text-emerald-400/70 uppercase tracking-wide">
-                        Open · {gapLabel}
-                      </span>
-                    </div>
-                  );
-                })}
+                {/* Open bookable gaps — clicking opens the new-booking form
+                    pre-filled with this therapist and the gap's start minute.
+                    Only gaps >= 30 min are shown. Renders as a Link so the
+                    gap's exact start time is in the URL, not derived from a
+                    pixel Y-coordinate. */}
+                {dateStr &&
+                  gaps.map(([s, e]) => {
+                    const top = (s - dayStartMin) * MIN_PX;
+                    const mins = e - s;
+                    const height = mins * MIN_PX;
+                    const gapLabel =
+                      mins >= 60
+                        ? `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}`
+                        : `${mins} min`;
+                    const startH = Math.floor(s / 60);
+                    const startM = s % 60;
+                    const timeStr = `${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`;
+                    return (
+                      <Link
+                        key={`gap-${s}`}
+                        href={`/staff/bookings/new?date=${encodeURIComponent(dateStr)}&therapistId=${encodeURIComponent(t.id)}&time=${encodeURIComponent(timeStr)}`}
+                        className="absolute left-1 right-1 rounded-md border border-dashed border-emerald-500/40 bg-emerald-500/[0.06] hover:bg-emerald-500/[0.12] hover:border-emerald-500/60 transition-colors flex items-center justify-center"
+                        style={{ top: `${top}px`, height: `${height}px` }}
+                        onClick={(ev) => ev.stopPropagation()}
+                        title={`Book at ${minToLabel(s)} with ${t.name}`}
+                      >
+                        <span className="text-[10px] font-medium text-emerald-700/70 dark:text-emerald-400/70 uppercase tracking-wide">
+                          Open · {gapLabel}
+                        </span>
+                      </Link>
+                    );
+                  })}
 
                 {ts.map((b) => {
                   const startMin = minutesFromMidnight(b.startsAt);
