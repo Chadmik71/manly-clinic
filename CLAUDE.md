@@ -303,47 +303,11 @@ Couple-booking flow, signature capture, body-diagram intake, per-client intake h
 
 
 
-## ⚠️ Pending action — REQUIRED before next customer booking
+## Smoke after schema changes
 
 
 
-
-
-
-
-The three columns above are in `schema.prisma` but **not yet pushed to production Postgres**. Until pushed, every booking submit returns 500 (Prisma "column does not exist") because `IntakeForm.create` and `Booking.update` now reference columns the DB doesn't have.
-
-
-
-
-
-
-
-```bash
-
-
-
-DATABASE_URL="<prod connection string>" npx prisma db push
-
-
-
-```
-
-
-
-
-
-
-
-Grab the prod `DATABASE_URL` from Vercel → Project → Settings → Environment Variables.
-
-
-
-
-
-
-
-After pushing, smoke-test against prod:
+The 3 columns above were pushed to production on 2026-05-30 (`prisma db push` reported the DB already in sync — likely applied by a prior session). After any future schema push to prod, hand-smoke:
 
 
 
