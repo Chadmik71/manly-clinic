@@ -167,9 +167,6 @@ export function ConfirmForm({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [confirmOpen, pending]);
-  const [guestSuccess, setGuestSuccess] = useState<{
-    reference: string;
-  } | null>(null);
   const [pregnant, setPregnant] = useState<boolean>(
     intakeDefaults?.pregnancy ?? false,
   );
@@ -333,13 +330,13 @@ export function ConfirmForm({
       const res = await action(fd);
       if (res?.error) setError(res.error);
       else if (res?.reference) {
-        if (isGuest) {
-          setGuestSuccess({ reference: res.reference });
-          window.scrollTo({ top: 0, behavior: "smooth" });
-          setConfirmOpen(false);
-        } else {
-          window.location.href = `/portal/bookings/confirmed?ref=${res.reference}`;
-        }
+        // Both guests and signed-in users get a full page redirect so the
+        // outcome is unambiguous — previously guests saw an inline success
+        // card with the form still rendered below, which left customers
+        // unsure whether the booking had actually gone through.
+        window.location.href = isGuest
+          ? `/book/confirmed?ref=${res.reference}`
+          : `/portal/bookings/confirmed?ref=${res.reference}`;
       }
     });
   }
@@ -364,39 +361,10 @@ export function ConfirmForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="space-y-5">
-      {depositsActive && !guestSuccess && (
+      {depositsActive && (
         <div className="rounded-md border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
           <span className="font-medium">$30 deposit required to confirm booking</span> — refundable if you cancel with at least 1 hour notice per our cancellation policy.
         </div>
-      )}
-      {guestSuccess && (
-        <Card className="border-emerald-500/40 bg-emerald-500/5">
-          <CardHeader>
-            <CardTitle className="text-emerald-700 dark:text-emerald-400">
-              Booking confirmed 🎉
-            </CardTitle>
-            <CardDescription>
-              Reference{" "}
-              <code className="font-mono">{guestSuccess.reference}</code> — a
-              confirmation email is on its way. We&apos;ve also linked this
-              booking to your customer record.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm space-y-2">
-            <p>
-              Want to manage your bookings online next time? Set a password
-              for your account:
-            </p>
-            <p>
-              <a
-                href="/forgot-password"
-                className="text-primary font-medium hover:underline"
-              >
-                Set a password →
-              </a>
-            </p>
-          </CardContent>
-        </Card>
       )}
       {/* 0. Your contact details (guest only) */}
       {isGuest && (
