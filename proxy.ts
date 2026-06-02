@@ -106,7 +106,14 @@ export default auth((req) => {
     process.env.MAINTENANCE_MODE === "true" &&
     !isMaintenanceAllowed(pathname)
   ) {
-    return maintenanceResponse();
+    // Logged-in staff/admin bypass maintenance so they can preview the live
+    // public site on the real domain while the public sees the "temporarily
+    // offline" page. The /login route itself is already allow-listed above.
+    const role = session?.user?.role;
+    const staffPreview = role === "STAFF" || role === "ADMIN";
+    if (!staffPreview) {
+      return maintenanceResponse();
+    }
   }
 
   // Existing auth logic for /portal and /staff.
