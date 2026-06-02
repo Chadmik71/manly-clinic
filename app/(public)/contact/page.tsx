@@ -1,14 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Phone, Mail, MapPin, Clock } from "lucide-react";
 import { CLINIC } from "@/lib/clinic";
+import { Blob, LeafSprig } from "@/components/decor";
 
 export const metadata = { title: "Contact" };
 
 export default function ContactPage() {
   return (
-    <div className="container py-12 md:py-16">
-      <h1 className="text-4xl font-bold tracking-tight mb-8">Contact us</h1>
-      <div className="grid gap-6 md:grid-cols-2">
+    <div className="relative overflow-hidden container py-12 md:py-16">
+      <Blob className="pointer-events-none absolute -top-32 -right-40 h-[26rem] w-[26rem] text-accent/30 dark:text-accent/15" />
+      <div className="relative flex items-center gap-2 mb-8">
+        <LeafSprig className="h-7 w-7 text-primary/70" />
+        <h1 className="text-4xl font-bold tracking-tight">Contact us</h1>
+      </div>
+      <div className="relative grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Get in touch</CardTitle></CardHeader>
           <CardContent className="space-y-4">

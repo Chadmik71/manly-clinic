@@ -9,13 +9,15 @@ import { GiftIcon } from "lucide-react";
 import { CLINIC } from "@/lib/clinic";
 import { VoucherForm } from "./form";
 import { purchaseVoucher } from "./actions";
+import { Blob } from "@/components/decor";
 
 export const metadata = { title: "Gift vouchers" };
 
 export default function VouchersPage() {
   return (
-    <div className="container py-12 max-w-3xl">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="relative overflow-hidden container py-12 max-w-3xl">
+      <Blob className="pointer-events-none absolute -top-28 -right-32 h-80 w-80 text-accent/30 dark:text-accent/15" />
+      <div className="relative flex items-center gap-3 mb-6">
         <span className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
           <GiftIcon className="h-6 w-6" />
         </span>
@@ -27,7 +29,7 @@ export default function VouchersPage() {
         </div>
       </div>
 
-      <Card>
+      <Card className="relative">
         <CardHeader>
           <CardTitle>Reserve a voucher</CardTitle>
           <CardDescription>
@@ -42,7 +44,7 @@ export default function VouchersPage() {
         </CardContent>
       </Card>
 
-      <p className="text-sm text-muted-foreground mt-6">
+      <p className="relative text-sm text-muted-foreground mt-6">
         Vouchers are single-use and applied in full at booking confirmation.
         Choose a treatment of equal or greater value to redeem.
       </p>

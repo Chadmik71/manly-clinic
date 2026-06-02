@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
+import { Blob, LeafSprig } from "@/components/decor";
 
 export const metadata = { title: "Services & pricing" };
 
@@ -28,11 +29,15 @@ export default async function ServicesPage() {
   const order = ["THERAPEUTIC", "RELAXATION", "SPECIALTY", "ADD_ON"];
 
   return (
-    <div className="container py-12 md:py-16">
-      <div className="mb-10 max-w-2xl">
-        <h1 className="text-4xl font-bold tracking-tight mb-3">
-          Services &amp; pricing
-        </h1>
+    <div className="relative overflow-hidden container py-12 md:py-16">
+      <Blob className="pointer-events-none absolute -top-32 -right-40 h-[26rem] w-[26rem] text-accent/30 dark:text-accent/15" />
+      <div className="relative mb-10 max-w-2xl">
+        <div className="flex items-center gap-2 mb-3">
+          <LeafSprig className="h-7 w-7 text-primary/70" />
+          <h1 className="text-4xl font-bold tracking-tight">
+            Services &amp; pricing
+          </h1>
+        </div>
         <p className="text-muted-foreground">
           All treatments delivered by qualified remedial therapists. Health
           fund rebates may apply for remedial sessions — please check with

@@ -1,16 +1,21 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { ShieldCheck, GraduationCap, HeartPulse, Lock } from "lucide-react";
 import { CLINIC } from "@/lib/clinic";
+import { Blob, LeafSprig } from "@/components/decor";
 
 export const metadata = { title: "About the clinic" };
 
 export default function AboutPage() {
   return (
-    <div className="container py-12 md:py-16">
-      <div className="max-w-3xl">
-        <h1 className="text-4xl font-bold tracking-tight mb-4">
-          About {CLINIC.name}
-        </h1>
+    <div className="relative overflow-hidden container py-12 md:py-16">
+      <Blob className="pointer-events-none absolute -top-32 -right-40 h-[26rem] w-[26rem] text-accent/30 dark:text-accent/15" />
+      <div className="relative max-w-3xl">
+        <div className="flex items-center gap-2 mb-4">
+          <LeafSprig className="h-7 w-7 text-primary/70" />
+          <h1 className="text-4xl font-bold tracking-tight">
+            About {CLINIC.name}
+          </h1>
+        </div>
         <p className="text-lg text-muted-foreground mb-6">
           A clinical remedial therapy practice in {CLINIC.address.suburb}.
           Our therapists combine assessment-led treatment plans with the relief

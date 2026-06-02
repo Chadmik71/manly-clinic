@@ -21,6 +21,7 @@ import { CLINIC } from "@/lib/clinic";
 import { db } from "@/lib/db";
 import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 import { GoogleReviews } from "@/components/google-reviews";
+import { Blob, LeafSprig, DotField, WaveDivider } from "@/components/decor";
 
 const FAQS = [
   {
@@ -117,6 +118,10 @@ export default async function HomePage() {
       {/* Hero */}
       <section className="relative overflow-hidden border-b">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/30 dark:from-primary/10 dark:via-background dark:to-accent/10" />
+        {/* Decorative vectors — purely cosmetic, sit behind content */}
+        <Blob className="pointer-events-none absolute -top-24 -right-24 h-[28rem] w-[28rem] text-primary/10 dark:text-primary/15" />
+        <Blob className="pointer-events-none absolute -bottom-32 -left-32 h-[26rem] w-[26rem] text-accent/40 dark:text-accent/20" />
+        <DotField className="pointer-events-none absolute top-10 left-6 hidden h-24 w-32 text-primary/20 md:block" />
         <div className="container relative py-20 md:py-28 grid gap-12 md:grid-cols-2 items-center">
           <div className="space-y-6">
             <Badge variant="outline" className="gap-1.5">
@@ -192,7 +197,7 @@ export default async function HomePage() {
       </section>
 
       {/* Trust strip */}
-      <section className="border-b bg-muted/30">
+      <section className="relative bg-muted/30">
         <div className="container py-8 grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
           <div className="flex items-start gap-3">
             <Stethoscope className="h-5 w-5 text-primary mt-0.5" />
@@ -222,13 +227,18 @@ export default async function HomePage() {
             </div>
           </div>
         </div>
+        {/* Wave flows the muted strip down into the Treatments section */}
+        <WaveDivider className="pointer-events-none absolute -bottom-px left-0 h-8 w-full text-background" />
       </section>
 
       {/* All services */}
       <section className="container py-16 md:py-20">
         <div className="flex items-end justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Treatments</h2>
+            <div className="flex items-center gap-2">
+              <LeafSprig className="h-6 w-6 text-primary/70" />
+              <h2 className="text-3xl font-bold tracking-tight">Treatments</h2>
+            </div>
             <p className="text-muted-foreground mt-1">
               Clinical and relaxation modalities, all delivered by qualified
               therapists.
@@ -307,8 +317,10 @@ export default async function HomePage() {
 
       {/* CTA */}
       <section className="container pb-20">
-        <div className="rounded-2xl border bg-gradient-to-br from-primary to-primary/70 text-primary-foreground p-8 md:p-12 grid md:grid-cols-2 gap-6 items-center">
-          <div>
+        <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-primary to-primary/70 text-primary-foreground p-8 md:p-12 grid md:grid-cols-2 gap-6 items-center">
+          <Blob className="pointer-events-none absolute -top-20 -right-16 h-72 w-72 text-primary-foreground/10" />
+          <Blob className="pointer-events-none absolute -bottom-24 -left-20 h-64 w-64 text-primary-foreground/10" />
+          <div className="relative">
             <h2 className="text-2xl md:text-3xl font-bold mb-2">
               Ready to book?
             </h2>
@@ -317,7 +329,7 @@ export default async function HomePage() {
               handled securely before your first visit.
             </p>
           </div>
-          <div className="flex sm:justify-end">
+          <div className="relative flex sm:justify-end">
             <Button asChild size="lg" variant="secondary">
               <Link href="/book">Book appointment</Link>
             </Button>
