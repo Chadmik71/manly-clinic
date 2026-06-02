@@ -21,6 +21,7 @@ import { CLINIC } from "@/lib/clinic";
 import { db } from "@/lib/db";
 import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 import { GoogleReviews } from "@/components/google-reviews";
+import { getGoogleReviews, type GoogleReviewsData } from "@/lib/google-reviews";
 import { Blob, LeafSprig, DotField, WaveDivider } from "@/components/decor";
 
 const FAQS = [
@@ -68,8 +69,8 @@ function FaqJsonLd() {
   );
 }
 
-function LocalBusinessJsonLd() {
-  const data = {
+function LocalBusinessJsonLd({ reviews }: { reviews: GoogleReviewsData | null }) {
+  const data: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "MedicalBusiness",
     name: CLINIC.name,
@@ -91,6 +92,20 @@ function LocalBusinessJsonLd() {
     openingHours: "Mo-Su 09:00-20:00",
     priceRange: "$$",
   };
+
+  // Only advertise an aggregate rating when we actually have real Google
+  // reviews to back it (and they're displayed on-page via <GoogleReviews/>).
+  // Fabricating or showing a rating with no on-site reviews violates
+  // Google's structured-data guidelines.
+  if (reviews && reviews.totalRatings > 0 && reviews.rating > 0) {
+    data.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: reviews.rating,
+      reviewCount: reviews.totalRatings,
+      bestRating: 5,
+      worstRating: 1,
+    };
+  }
   return (
     <script
       type="application/ld+json"
@@ -111,9 +126,14 @@ export default async function HomePage() {
     orderBy: [{ category: "asc" }, { name: "asc" }],
   });
 
+  // Reused for both the JSON-LD aggregateRating and the <GoogleReviews/>
+  // section below. getGoogleReviews caches for 6h, so this and the call
+  // inside <GoogleReviews/> hit the same cached fetch — no double API cost.
+  const reviews = await getGoogleReviews();
+
   return (
     <>
-      <LocalBusinessJsonLd />
+      <LocalBusinessJsonLd reviews={reviews} />
       <FaqJsonLd />
       {/* Hero */}
       <section className="relative overflow-hidden border-b">

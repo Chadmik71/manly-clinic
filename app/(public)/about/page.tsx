@@ -3,7 +3,11 @@ import { ShieldCheck, GraduationCap, HeartPulse, Lock } from "lucide-react";
 import { CLINIC } from "@/lib/clinic";
 import { Blob, LeafSprig } from "@/components/decor";
 
-export const metadata = { title: "About the clinic" };
+export const metadata = {
+  title: "About the clinic",
+  description:
+    "Manly Remedial Thai is a clinical remedial massage practice in Manly on Sydney's Northern Beaches — qualified therapists, assessment-led treatment, and health records protected under the Australian Privacy Act.",
+};
 
 export default function AboutPage() {
   return (

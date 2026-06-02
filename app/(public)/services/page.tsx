@@ -12,7 +12,11 @@ import {
 import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 import { Blob, LeafSprig } from "@/components/decor";
 
-export const metadata = { title: "Services & pricing" };
+export const metadata = {
+  title: "Services & pricing",
+  description:
+    "Remedial, Thai, pregnancy and relaxation massage in Manly on Sydney's Northern Beaches. View treatments, durations and pricing. Health-fund rebates available for remedial sessions.",
+};
 
 export default async function ServicesPage() {
   const services = await db.service.findMany({

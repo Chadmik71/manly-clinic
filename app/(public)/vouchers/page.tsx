@@ -11,7 +11,11 @@ import { VoucherForm } from "./form";
 import { purchaseVoucher } from "./actions";
 import { Blob } from "@/components/decor";
 
-export const metadata = { title: "Gift vouchers" };
+export const metadata = {
+  title: "Gift vouchers",
+  description:
+    "Buy a gift voucher for Manly Remedial Thai — redeemable on any massage treatment in Manly. Valid 12 months from activation.",
+};
 
 export default function VouchersPage() {
   return (

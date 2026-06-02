@@ -3,7 +3,11 @@ import { Phone, Mail, MapPin, Clock } from "lucide-react";
 import { CLINIC } from "@/lib/clinic";
 import { Blob, LeafSprig } from "@/components/decor";
 
-export const metadata = { title: "Contact" };
+export const metadata = {
+  title: "Contact",
+  description:
+    "Contact Manly Remedial Thai in Manly NSW — phone, email, clinic address and opening hours. Open 7 days, 9am–8pm on Sydney's Northern Beaches.",
+};
 
 export default function ContactPage() {
   return (

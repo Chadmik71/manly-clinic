@@ -21,8 +21,9 @@ export const metadata: Metadata = {
     type: "website",
     siteName: CLINIC.name,
     locale: "en_AU",
+    images: ["/og.png"],
   },
-  twitter: { card: "summary_large_image" },
+  twitter: { card: "summary_large_image", images: ["/og.png"] },
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
 };

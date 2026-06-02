@@ -20,7 +20,11 @@ import { getDistinctSlotTimes } from "@/lib/booking";
 import { addDays, format, parseISO, isValid } from "date-fns";
 import { sydneyTodayISO } from "@/lib/time";
 
-export const metadata = { title: "Book an appointment" };
+export const metadata = {
+  title: "Book an appointment",
+  description:
+    "Book remedial, Thai, pregnancy or relaxation massage online at Manly Remedial Thai in Manly. Real-time availability, 7 days a week, 9am–8pm.",
+};
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_FORWARD_DAYS = 90;
