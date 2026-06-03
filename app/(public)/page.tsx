@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,7 +23,7 @@ import { db } from "@/lib/db";
 import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 import { GoogleReviews } from "@/components/google-reviews";
 import { getGoogleReviews, type GoogleReviewsData } from "@/lib/google-reviews";
-import { Blob, LeafSprig, DotField, WaveDivider } from "@/components/decor";
+import { Blob, LeafSprig, WaveDivider } from "@/components/decor";
 
 const FAQS = [
   {
@@ -137,11 +138,25 @@ export default async function HomePage() {
       <FaqJsonLd />
       {/* Hero */}
       <section className="relative overflow-hidden border-b">
+        {/* Themed gradient stays underneath as a graceful fallback if the
+            photo is slow to load or blocked. */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/30 dark:from-primary/10 dark:via-background dark:to-accent/10" />
-        {/* Decorative vectors — purely cosmetic, sit behind content */}
-        <Blob className="pointer-events-none absolute -top-24 -right-24 h-[28rem] w-[28rem] text-primary/10 dark:text-primary/15" />
-        <Blob className="pointer-events-none absolute -bottom-32 -left-32 h-[26rem] w-[26rem] text-accent/40 dark:text-accent/20" />
-        <DotField className="pointer-events-none absolute top-10 left-6 hidden h-24 w-32 text-primary/20 md:block" />
+        {/* Calming treatment photo (Unsplash — free commercial license, no
+            attribution required). Decorative, so empty alt would be valid, but
+            a short descriptive alt helps SEO/screen readers. */}
+        <Image
+          src="/hero-massage.jpg"
+          alt="Relaxing hot stone massage treatment"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center"
+        />
+        {/* Readability scrim: a stronger wash on mobile (text overlays the whole
+            photo) that lightens on desktop, plus a left-weighted gradient so the
+            headline stays crisp while the photo shows through on the right. */}
+        <div className="absolute inset-0 bg-background/80 md:bg-background/45" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
         <div className="container relative py-20 md:py-28 grid gap-12 md:grid-cols-2 items-center">
           <div className="space-y-6">
             <Badge variant="outline" className="gap-1.5">
