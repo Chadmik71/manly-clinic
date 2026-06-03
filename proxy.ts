@@ -21,6 +21,10 @@ const MAINTENANCE_ALLOW_PREFIXES = [
   "/api/webhooks",
 ];
 
+// Cookie set on a browser that opened a valid ?preview=<token> link, so it can
+// keep browsing the maintenance-gated public site without re-passing the token.
+const MAINTENANCE_PREVIEW_COOKIE = "mrt_preview";
+
 const MAINTENANCE_ALLOW_FILES = new Set([
   "/favicon.ico",
   "/favicon.png",
@@ -111,7 +115,35 @@ export default auth((req) => {
     // offline" page. The /login route itself is already allow-listed above.
     const role = session?.user?.role;
     const staffPreview = role === "STAFF" || role === "ADMIN";
-    if (!staffPreview) {
+
+    // Shareable preview link: visiting any page with ?preview=<token> (matching
+    // MAINTENANCE_PREVIEW_TOKEN) unlocks this browser via a cookie, then we
+    // redirect to strip the token from the URL so it doesn't linger in the
+    // address bar / analytics / re-shares. The cookie lasts 30 days, so testers
+    // browse normally afterwards without the query param. Rotating the env var
+    // (or clearing it) instantly invalidates every previously-issued link,
+    // since the cookie value must equal the *current* token.
+    const previewToken = process.env.MAINTENANCE_PREVIEW_TOKEN;
+    let previewUnlocked = false;
+    if (previewToken) {
+      const qpToken = req.nextUrl.searchParams.get("preview");
+      if (qpToken && qpToken === previewToken) {
+        const cleanUrl = new URL(req.url);
+        cleanUrl.searchParams.delete("preview");
+        const res = NextResponse.redirect(cleanUrl);
+        res.cookies.set(MAINTENANCE_PREVIEW_COOKIE, previewToken, {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24 * 30,
+        });
+        return res;
+      }
+      const cookieToken = req.cookies.get(MAINTENANCE_PREVIEW_COOKIE)?.value;
+      previewUnlocked = !!cookieToken && cookieToken === previewToken;
+    }
+
+    if (!staffPreview && !previewUnlocked) {
       return maintenanceResponse();
     }
   }
