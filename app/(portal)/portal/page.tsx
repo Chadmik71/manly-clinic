@@ -6,7 +6,7 @@ import { Plus, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice, formatDuration } from "@/lib/utils";
+import { formatPrice, formatDuration, therapistPublicName } from "@/lib/utils";
 
 // Render Sydney calendar time regardless of the runtime TZ (Vercel = UTC).
 // Raw date-fns format() would show UTC, so a 7pm Sydney slot shows as ~9am.
@@ -121,7 +121,7 @@ export default async function PortalHome() {
                   <div className="text-sm text-muted-foreground">
                     {SYD_DATE_TIME.format(b.startsAt)} ·{" "}
                     {b.variant.durationMin} min
-                    {b.slotLabel ? ` · ${b.slotLabel}` : b.therapist?.user.name ? ` · with ${b.therapist.user.name}` : ""}
+                    {b.slotLabel ? ` · ${b.slotLabel}` : b.therapist ? ` · with ${therapistPublicName(b.therapist)}` : ""}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

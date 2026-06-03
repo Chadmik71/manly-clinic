@@ -6,7 +6,7 @@ import { ScheduleGrid } from "@/components/schedule-grid";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, therapistPublicName } from "@/lib/utils";
 import {
   addTimeOff,
   toggleTherapistActive,
@@ -143,10 +143,14 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const therapists = therapistsRaw.map((t) => {
     const slot = t.availability[0];
     const ts = timeOffs.filter((o) => o.therapistId === t.id);
+    // Calendar shows the anonymised public label ("Staff 1", etc.) — never the
+    // real name. The real therapist who performed a session is recorded
+    // separately on the booking (assignedTherapist) for health-fund audit.
+    const publicName = therapistPublicName(t);
     return {
       id: t.id,
-      name: t.user.name,
-      initials: initials(t.user.name),
+      name: publicName,
+      initials: initials(publicName),
       // Inactive therapists are always rendered as off, even if they have a
       // weekly-availability record for this day-of-week.
       isWorking: t.active && !!slot,
