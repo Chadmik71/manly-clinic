@@ -4,22 +4,25 @@
 
 @layer base {
   :root {
-    --background: 30 25% 99%;
+    /* Warm cream base — dropped from 99% to 96% lightness and nudged toward a
+       warmer hue so light mode reads soft/relaxing instead of glary white.
+       Cards sit a touch brighter than the page so they still lift off it. */
+    --background: 36 33% 96%;
     --foreground: 222 47% 11%;
 
-    --card: 0 0% 100%;
+    --card: 40 40% 99%;
     --card-foreground: 222 47% 11%;
 
-    --popover: 0 0% 100%;
+    --popover: 40 40% 99%;
     --popover-foreground: 222 47% 11%;
 
     --primary: 178 78% 36%;        /* Receptioner-style teal */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 30 30% 92%;
+    --secondary: 35 32% 90%;
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 30 20% 96%;
+    --muted: 36 30% 93%;
     --muted-foreground: 215 16% 47%;
 
     --accent: 178 78% 92%;
@@ -28,8 +31,8 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 20% 88%;
-    --input: 215 20% 88%;
+    --border: 32 18% 86%;
+    --input: 32 18% 86%;
     --ring: 178 78% 40%;
 
     /* Sidebar / app chrome */
