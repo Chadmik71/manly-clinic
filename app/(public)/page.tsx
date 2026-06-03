@@ -124,7 +124,7 @@ export default async function HomePage() {
     include: {
       variants: { orderBy: { durationMin: "asc" } },
     },
-    orderBy: [{ category: "asc" }, { name: "asc" }],
+    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
   });
 
   // Reused for both the JSON-LD aggregateRating and the <GoogleReviews/>

@@ -63,6 +63,10 @@ model Service {
   description String?
   active      Boolean    @default(true)
   healthFundEligible Boolean @default(false)
+  // Manual sort position for customer-facing lists (lower = first). Set via
+  // the up/down reorder controls on the staff Services page. Ties broken by
+  // name. Additive/non-destructive column.
+  displayOrder Int       @default(0)
   createdAt   DateTime   @default(now())
   variants    ServiceVariant[]
   bookings    Booking[]

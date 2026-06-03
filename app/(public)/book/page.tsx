@@ -65,7 +65,7 @@ export default async function BookPage({
     const services = await db.service.findMany({
       where: { active: true },
       include: { variants: { orderBy: { durationMin: "asc" } } },
-      orderBy: [{ category: "asc" }, { name: "asc" }],
+      orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
     });
 
     // Guest fast-path: if a previous booking on this device dropped the

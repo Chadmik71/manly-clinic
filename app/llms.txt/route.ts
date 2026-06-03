@@ -18,7 +18,7 @@ export async function GET() {
   try {
     const services = await db.service.findMany({
       where: { active: true },
-      orderBy: [{ category: "asc" }, { name: "asc" }],
+      orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
       select: { name: true, category: true, description: true },
     });
     serviceLines = services

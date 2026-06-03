@@ -22,7 +22,7 @@ export default async function ServicesPage() {
   const services = await db.service.findMany({
     where: { active: true },
     include: { variants: { orderBy: { durationMin: "asc" } } },
-    orderBy: [{ category: "asc" }, { name: "asc" }],
+    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
   });
 
   const grouped = services.reduce<Record<string, typeof services>>((acc, s) => {
