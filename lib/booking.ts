@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { addMinutes } from "date-fns";
+import { addMinutes, addDays } from "date-fns";
 import {
   BOOKING_LATEST_END_MIN,
   BOOKING_EARLIEST_START_MIN,
@@ -177,4 +177,33 @@ export async function getDistinctSlotTimes(params: {
     }
   }
   return out;
+}
+
+/**
+ * Find the single earliest bookable slot start across all therapists, scanning
+ * forward day-by-day from now. Used by the home-page hero to reassure visitors
+ * with a live "next available" time. Returns null if nothing is open within the
+ * lookahead window.
+ *
+ * `durationMin` defaults to 60 — the typical first-visit booking — so the
+ * advertised time is realistic for what most people book. Returns on the first
+ * day that has any slot, so the common case is a single DB round-trip.
+ */
+export async function getNextAvailableSlot(params?: {
+  durationMin?: number;
+  maxDaysAhead?: number;
+}): Promise<Date | null> {
+  const durationMin = params?.durationMin ?? 60;
+  const maxDays = params?.maxDaysAhead ?? 14;
+  const today = new Date();
+  for (let i = 0; i < maxDays; i++) {
+    // Any instant on the desired day; getAvailableSlots derives the Sydney
+    // calendar date from it and hides slots that have already started.
+    const times = await getDistinctSlotTimes({
+      date: addDays(today, i),
+      durationMin,
+    });
+    if (times.length > 0) return times[0];
+  }
+  return null;
 }

@@ -24,6 +24,39 @@ import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 import { GoogleReviews } from "@/components/google-reviews";
 import { getGoogleReviews, type GoogleReviewsData } from "@/lib/google-reviews";
 import { Blob, LeafSprig, WaveDivider } from "@/components/decor";
+import { getNextAvailableSlot } from "@/lib/booking";
+import {
+  sydneyDateOf,
+  sydneyTodayISO,
+  sydneyDateMedium,
+  sydneyTimeShort,
+} from "@/lib/time";
+import { addDays } from "date-fns";
+
+// What a new client should expect, start to finish. Static content; icons
+// reuse the lucide imports already pulled in above so no new import surface.
+const FIRST_VISIT_STEPS = [
+  {
+    icon: CalendarCheck,
+    title: "Book & complete intake online",
+    body: "Choose your treatment and time, then fill in a short, secure health form so your therapist is ready before you arrive.",
+  },
+  {
+    icon: Clock,
+    title: "Arrive a few minutes early",
+    body: "Come about 5 minutes before your appointment. We’ll say hello, confirm what you’d like to focus on, and answer any questions.",
+  },
+  {
+    icon: HeartPulse,
+    title: "Your treatment",
+    body: "Underwear stays on and you’re draped with towels throughout (or stay fully clothed for Thai). Your therapist checks the pressure is right as they go.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Aftercare & rebates",
+    body: "We’ll share simple post-care advice and process your private health-fund rebate on the spot via HiCAPS where eligible.",
+  },
+] as const;
 
 const FAQS = [
   {
@@ -132,6 +165,24 @@ export default async function HomePage() {
   // inside <GoogleReviews/> hit the same cached fetch — no double API cost.
   const reviews = await getGoogleReviews();
 
+  // Live "next available appointment" for the hero — reassures a visitor that
+  // they can be seen soon without clicking through. Phrase as Today / Tomorrow
+  // / weekday + date in Sydney time.
+  const nextSlot = await getNextAvailableSlot();
+  let nextAvailableLabel: string | null = null;
+  if (nextSlot) {
+    const slotISO = sydneyDateOf(nextSlot);
+    const todayISO = sydneyTodayISO();
+    const tomorrowISO = sydneyDateOf(addDays(new Date(), 1));
+    const dayWord =
+      slotISO === todayISO
+        ? "Today"
+        : slotISO === tomorrowISO
+          ? "Tomorrow"
+          : sydneyDateMedium(nextSlot);
+    nextAvailableLabel = `${dayWord} at ${sydneyTimeShort(nextSlot)}`;
+  }
+
   return (
     <>
       <LocalBusinessJsonLd reviews={reviews} />
@@ -179,6 +230,15 @@ export default async function HomePage() {
                 <Link href="/services">View all services</Link>
               </Button>
             </div>
+            {nextAvailableLabel && (
+              <p className="flex items-center gap-2 text-sm font-medium text-primary">
+                <span className="relative flex h-2.5 w-2.5" aria-hidden>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
+                </span>
+                Next available appointment: {nextAvailableLabel}
+              </p>
+            )}
             <div className="flex flex-wrap gap-x-6 gap-y-2 pt-2 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Clock className="h-4 w-4" />
@@ -310,6 +370,39 @@ export default async function HomePage() {
               </Card>
             );
           })}
+        </div>
+      </section>
+
+      {/* First-visit walkthrough — lowers booking anxiety for new clients by
+          spelling out the ritual (intake, draping, aftercare) before they
+          have to ask. */}
+      <section className="relative border-y bg-muted/30">
+        <div className="container py-16 md:py-20">
+          <div className="mx-auto mb-10 max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight">
+              Your first visit, step by step
+            </h2>
+            <p className="mt-2 text-muted-foreground">
+              New to the clinic? Here’s exactly what to expect — no surprises.
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {FIRST_VISIT_STEPS.map((step, i) => {
+              const StepIcon = step.icon;
+              return (
+                <div key={i} className="rounded-xl border bg-card p-5">
+                  <div className="mb-3 flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
+                      {i + 1}
+                    </span>
+                    <StepIcon className="h-5 w-5 text-primary" aria-hidden />
+                  </div>
+                  <h3 className="mb-1 font-medium">{step.title}</h3>
+                  <p className="text-sm text-muted-foreground">{step.body}</p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 

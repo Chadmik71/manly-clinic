@@ -90,6 +90,19 @@ export function sydneyDateLong(at: Date): string {
 }
 
 /**
+ * Short Sydney weekday + date for human display, no year.
+ * e.g. "Tue 28 Apr"
+ */
+export function sydneyDateMedium(at: Date): string {
+  return new Intl.DateTimeFormat("en-AU", {
+    timeZone: SYDNEY_TZ,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(at);
+}
+
+/**
  * Short Sydney clock time for human display.
  * e.g. "5:00 PM" (matches date-fns "h:mm a" but always Sydney-local).
  */

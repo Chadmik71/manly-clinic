@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import Image from "next/image";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Phone } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { CLINIC } from "@/lib/clinic";
@@ -45,6 +45,14 @@ export function SiteHeader({ user }: { user?: { name: string; role: string } | n
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          {/* Click-to-call — shown on every size, but its real job is mobile:
+              most "massage near me" visitors are on a phone and want to call,
+              not fill a form. Sits left of the booking actions. */}
+          <Button asChild variant="ghost" size="icon" aria-label={`Call ${CLINIC.name}`}>
+            <a href={`tel:${CLINIC.phoneE164}`}>
+              <Phone className="h-5 w-5" />
+            </a>
+          </Button>
           <ThemeToggle />
           {user ? (
             <Button asChild variant="outline" size="sm">
@@ -86,6 +94,14 @@ export function SiteHeader({ user }: { user?: { name: string; role: string } | n
                 {n.label}
               </Link>
             ))}
+            <a
+              href={`tel:${CLINIC.phoneE164}`}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-accent"
+            >
+              <Phone className="h-4 w-4" />
+              Call {CLINIC.phone}
+            </a>
             <div className="flex gap-2 pt-2">
               {user ? (
                 <Button asChild variant="outline" className="flex-1">
