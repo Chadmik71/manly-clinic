@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { assertNotProdDb } from "./seed-guard";
 
 const db = new PrismaClient();
 
@@ -204,6 +205,7 @@ const services: Array<{
 ];
 
 async function main() {
+  assertNotProdDb("db:seed");
   console.log("Seeding services...");
   for (const s of services) {
     const created = await db.service.upsert({

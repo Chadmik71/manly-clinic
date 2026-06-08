@@ -3,10 +3,12 @@
 // reschedule, deposit). Idempotent.
 import { PrismaClient } from "@prisma/client";
 import { bookingReference } from "../lib/utils";
+import { assertNotProdDb } from "./seed-guard";
 
 const db = new PrismaClient();
 
 async function main() {
+  assertNotProdDb("seed-test-booking");
   const client = await db.user.findUnique({
     where: { email: "client@example.com" },
   });

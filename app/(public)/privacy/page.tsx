@@ -57,11 +57,12 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-xl font-semibold">4. Storage &amp; security (APP 11)</h2>
           <p className="text-muted-foreground">
-            Records are stored encrypted on Australian-based infrastructure.
-            Access is role-restricted; every access to a health record is
-            audit-logged. We retain treatment records for at least seven (7)
-            years from the date of last service, in line with healthcare
-            record-keeping standards in NSW.
+            Records are stored on Australian-based infrastructure (Sydney) with
+            encryption at rest at the storage layer. Access is restricted to
+            authorised staff by individual login and role, and every access to a
+            health record is audit-logged. We retain treatment records for at
+            least seven (7) years from the date of last service, in line with
+            healthcare record-keeping standards in NSW.
           </p>
         </section>
 

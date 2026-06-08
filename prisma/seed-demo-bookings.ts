@@ -3,6 +3,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { bookingReference } from "../lib/utils.js";
+import { assertNotProdDb } from "./seed-guard.js";
 
 const db = new PrismaClient();
 
@@ -14,6 +15,7 @@ const STAFF = [
 ];
 
 async function main() {
+  assertNotProdDb("seed-demo-bookings");
   const pw = await bcrypt.hash("staff123", 10);
   const therapistIds: string[] = [];
   for (const s of STAFF) {

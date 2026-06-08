@@ -125,4 +125,8 @@ export const RATE_LIMITS = {
   depositRefund: { limit: 20, windowMs: 60_000 }, // 20/min per IP
   // Signup: prevent account-creation spam.
   signup: { limit: 5, windowMs: 60_000 }, // 5/min per IP
+  // Login: blunt credential brute-force / stuffing. Keyed on IP only, so
+  // trying many usernames from one source still trips it. 10/min is far above
+  // any legitimate human login rate even on a shared clinic NAT IP.
+  login: { limit: 10, windowMs: 60_000 }, // 10/min per IP
 } as const;
