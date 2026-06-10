@@ -328,10 +328,10 @@ export default async function HomePage() {
           <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5">
             <Image
               src="/hicaps.png"
-              alt="HICAPS — fast claims on the spot"
-              width={659}
-              height={210}
-              className="h-auto w-[170px] sm:w-[200px]"
+              alt="HICAPS"
+              width={1240}
+              height={209}
+              className="h-auto w-[190px] sm:w-[220px]"
             />
           </div>
           <p className="max-w-md text-sm text-muted-foreground">

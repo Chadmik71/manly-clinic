@@ -55,10 +55,10 @@ export default async function ServicesPage() {
           <div className="shrink-0 rounded-lg bg-white p-3 shadow-sm ring-1 ring-black/5">
             <Image
               src="/hicaps.png"
-              alt="HICAPS — fast claims on the spot"
-              width={659}
-              height={210}
-              className="h-auto w-[150px]"
+              alt="HICAPS"
+              width={1240}
+              height={209}
+              className="h-auto w-[170px]"
             />
           </div>
           <p className="text-sm text-muted-foreground">
