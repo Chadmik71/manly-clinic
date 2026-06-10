@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,23 @@ export default async function ServicesPage() {
           your fund prior to booking. A 10% surcharge applies on public
           holidays.
         </p>
+        {/* HICAPS badge — on-the-spot claims. White tile keeps the navy/gold
+            logo legible on both the cream and dark themes. */}
+        <div className="mt-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+          <div className="shrink-0 rounded-lg bg-white p-3 shadow-sm ring-1 ring-black/5">
+            <Image
+              src="/hicaps.png"
+              alt="HICAPS — fast claims on the spot"
+              width={659}
+              height={210}
+              className="h-auto w-[150px]"
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            HICAPS-enabled — claim your private health-fund rebate on the spot
+            for eligible treatments. Just bring your fund card.
+          </p>
+        </div>
       </div>
 
       {order.map((cat) =>
