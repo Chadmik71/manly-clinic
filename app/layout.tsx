@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -16,6 +16,12 @@ export const metadata: Metadata = {
     icon: "/favicon.png",
     apple: "/apple-touch-icon.png",
   },
+  // Installable-app behaviour on iOS (Add to Home Screen → opens full-screen).
+  appleWebApp: {
+    capable: true,
+    title: "Manly Thai",
+    statusBarStyle: "default",
+  },
   metadataBase: new URL(CLINIC.domain),
   openGraph: {
     type: "website",
@@ -26,6 +32,10 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", images: ["/og.png"] },
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#14A39F", // brand teal — tints the status bar in standalone/PWA mode
 };
 
 export default function RootLayout({
