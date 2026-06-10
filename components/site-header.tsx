@@ -31,7 +31,7 @@ export function SiteHeader({ user }: { user?: { name: string; role: string } | n
             className="h-10 w-10"
           />
           <span className="hidden sm:inline">{CLINIC.name}</span>
-          <span className="sm:hidden">MRC</span>
+          <span className="sm:hidden">Manly Thai</span>
         </Link>
         <nav className="hidden md:flex items-center gap-6 text-sm">
           {nav.map((n) => (
