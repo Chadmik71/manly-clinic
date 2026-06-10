@@ -40,6 +40,12 @@ model User {
   // Updated whenever a customer submits with claimWithHealthFund=true.
   healthFundName         String?
   healthFundMemberNumber String?
+  // Marketing/news consent (Spam Act 2003) — opt-in, default off. Gates the
+  // post-visit Google review SMS. marketingConsentAt records when it was given.
+  marketingConsent       Boolean   @default(false)
+  marketingConsentAt     DateTime?
+  // Throttles review-request SMS so a regular isn't re-asked within 90 days.
+  lastReviewRequestAt    DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -149,6 +155,9 @@ model Booking {
   paymentIntentId String?
   voucherCode     String?
   voucherAppliedCents Int   @default(0)
+  // Timestamp the post-visit Google review SMS was sent for this booking.
+  // Null = not yet sent; set prevents the daily cron from re-asking.
+  reviewRequestSentAt DateTime?
 
   // Per-visit clinical notes (SOAP + extras). Captured by the treating
   // therapist after the session. All optional — older bookings, walk-ins,
@@ -391,6 +400,7 @@ model ClinicSetting {
   depositsEnabled       Boolean   @default(true)          // master kill switch for online deposits
   cardSurchargeEnabled  Boolean   @default(false)         // when true, add cardSurchargeBps to deposit
   cardSurchargeBps      Int       @default(150)           // surcharge in basis points (150 = 1.50%)
+  reviewRequestEnabled  Boolean   @default(false)         // when true, send post-visit Google review SMS to consenting clients
   updatedAt             DateTime  @updatedAt
   updatedBy             String?                            // User.id of admin who last changed it
 }

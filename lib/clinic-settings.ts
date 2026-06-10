@@ -14,12 +14,14 @@ export type ClinicSettings = {
   depositsEnabled: boolean;
   cardSurchargeEnabled: boolean;
   cardSurchargeBps: number;
+  reviewRequestEnabled: boolean;
 };
 
 export const CLINIC_SETTINGS_DEFAULTS: ClinicSettings = {
   depositsEnabled: true,
   cardSurchargeEnabled: false,
   cardSurchargeBps: 150,
+  reviewRequestEnabled: false,
 };
 
 /**
@@ -37,6 +39,7 @@ export async function getClinicSettings(): Promise<ClinicSettings> {
       depositsEnabled: true,
       cardSurchargeEnabled: true,
       cardSurchargeBps: true,
+      reviewRequestEnabled: true,
     },
   });
   return row;

@@ -6,6 +6,7 @@ import {
   notifyDailyReport,
   type DailyReportBooking,
 } from "@/lib/notify";
+import { sendDueReviewRequests } from "@/lib/review-requests";
 import {
   SYDNEY_TZ,
   sydneyDateOf,
@@ -155,6 +156,20 @@ export async function GET(req: Request) {
     anomalies: { stalePastConfirmed, upcomingWithoutTherapist },
   });
 
+  // Piggyback the post-visit Google review SMS run on this daily schedule.
+  // No-ops unless the admin has enabled it in Settings. Never throws so a
+  // review-send hiccup can't break the daily report.
+  let reviewRequests: { enabled: boolean; candidates: number; sent: number } = {
+    enabled: false,
+    candidates: 0,
+    sent: 0,
+  };
+  try {
+    reviewRequests = await sendDueReviewRequests("cron:daily-report");
+  } catch (err) {
+    console.error("[cron/daily-report] review-request send failed", err);
+  }
+
   return NextResponse.json({
     ok: true,
     date: todayISO,
@@ -165,5 +180,6 @@ export async function GET(req: Request) {
     hicaps,
     new_signups: newSignups,
     anomalies: { stalePastConfirmed, upcomingWithoutTherapist },
+    reviewRequests,
   });
 }

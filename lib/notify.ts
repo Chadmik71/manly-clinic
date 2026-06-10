@@ -363,6 +363,22 @@ Need to change it? ${CLINIC.domain}/portal/bookings`;
   }
 }
 
+/**
+ * Post-visit Google review request — SMS only. Sent the day after a completed
+ * session to customers who opted into marketing/news (Spam Act 2003 consent).
+ * Includes a one-tap link to the clinic's Google review dialog. Twilio
+ * auto-handles the STOP keyword, but we spell it out for compliance.
+ */
+export async function notifyReviewRequest(args: {
+  phone: string;
+  name: string;
+}): Promise<void> {
+  const firstName = (args.name || "").trim().split(/\s+/)[0] || "there";
+  const reviewUrl = `https://search.google.com/local/writereview?placeid=${CLINIC.googlePlaceId}`;
+  const body = `Hi ${firstName}, thanks for visiting ${CLINIC.name}! We hope you enjoyed your massage. If you have a moment, a quick Google review means a lot to us: ${reviewUrl} — Reply STOP to opt out.`;
+  await sendSms({ to: args.phone, body });
+}
+
 function escapeVoucherHtml(input: string): string {
   return input
     .replace(/&/g, "&amp;")

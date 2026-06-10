@@ -9,6 +9,7 @@ type Props = {
     depositsEnabled: boolean;
     cardSurchargeEnabled: boolean;
     cardSurchargeBps: number;
+    reviewRequestEnabled: boolean;
   };
 };
 
@@ -19,6 +20,9 @@ export function SettingsForm({ initial }: Props) {
   );
   const [cardSurchargeBps, setCardSurchargeBps] = useState(
     String(initial.cardSurchargeBps),
+  );
+  const [reviewRequestEnabled, setReviewRequestEnabled] = useState(
+    initial.reviewRequestEnabled,
   );
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<
@@ -39,6 +43,7 @@ export function SettingsForm({ initial }: Props) {
       depositsEnabled,
       cardSurchargeEnabled,
       cardSurchargeBps: bps,
+      reviewRequestEnabled,
     });
     if (r.ok) {
       setResult({ kind: "ok" });
@@ -83,6 +88,22 @@ export function SettingsForm({ initial }: Props) {
           type="checkbox"
           checked={cardSurchargeEnabled}
           onChange={(e) => setCardSurchargeEnabled(e.target.checked)}
+          className="mt-1 h-5 w-5"
+          disabled={pending}
+        />
+      </label>
+
+      <label className="flex items-start justify-between gap-4 rounded-md border bg-card p-4">
+        <span className="flex-1">
+          <span className="block text-sm font-medium">Post-visit Google review SMS</span>
+          <span className="block text-xs text-muted-foreground">
+            When ON, the day after you mark a session Complete, customers who opted into news/updates get a thank-you SMS with a one-tap Google review link. Each customer is asked at most once every 90 days.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={reviewRequestEnabled}
+          onChange={(e) => setReviewRequestEnabled(e.target.checked)}
           className="mt-1 h-5 w-5"
           disabled={pending}
         />

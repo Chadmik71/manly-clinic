@@ -17,6 +17,7 @@ export type UpdateSettingsInput = {
   depositsEnabled: boolean;
   cardSurchargeEnabled: boolean;
   cardSurchargeBps: number;
+  reviewRequestEnabled: boolean;
 };
 
 export type UpdateSettingsResult =
@@ -31,7 +32,8 @@ export async function updateClinicSettings(
     return { ok: false, error: "Forbidden." };
   }
 
-  const { depositsEnabled, cardSurchargeEnabled, cardSurchargeBps } = input;
+  const { depositsEnabled, cardSurchargeEnabled, cardSurchargeBps, reviewRequestEnabled } =
+    input;
 
   // Validate bps. ACCC requires surcharges to roughly match the merchant
   // cost of acceptance (Stripe AU domestic is ~1.7%), so we cap at 5%.
@@ -54,6 +56,7 @@ export async function updateClinicSettings(
         depositsEnabled: Boolean(depositsEnabled),
         cardSurchargeEnabled: Boolean(cardSurchargeEnabled),
         cardSurchargeBps,
+        reviewRequestEnabled: Boolean(reviewRequestEnabled),
       },
       create: {
         id: "default",
@@ -61,6 +64,7 @@ export async function updateClinicSettings(
         depositsEnabled: Boolean(depositsEnabled),
         cardSurchargeEnabled: Boolean(cardSurchargeEnabled),
         cardSurchargeBps,
+        reviewRequestEnabled: Boolean(reviewRequestEnabled),
       },
     });
     revalidatePath("/staff/settings");

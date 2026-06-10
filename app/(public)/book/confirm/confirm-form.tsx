@@ -1143,6 +1143,20 @@ export function ConfirmForm({
               purpose of safe and continuing treatment.
             </span>
           </label>
+          {/* Optional marketing/news opt-in (Spam Act 2003 — must be unticked
+              by default). Drives the post-visit Google review SMS. */}
+          <label className="flex items-start gap-2 border-t pt-3 text-muted-foreground">
+            <input
+              type="checkbox"
+              name="marketingConsent"
+              className="mt-1"
+            />
+            <span>
+              Yes, I&apos;d like to receive occasional news, offers and a
+              follow-up after my visit from Manly Remedial Thai by SMS.
+              (Optional — reply STOP anytime to opt out.)
+            </span>
+          </label>
         </CardContent>
       </Card>
 

@@ -120,6 +120,7 @@ const schema = z.object({
   emergencyContactPhone: z.string().max(40).optional(),
   consentToTreat: z.string().optional(),
   consentToStore: z.string().optional(),
+  marketingConsent: z.string().optional(),
   claimWithHealthFund: z.string().optional(),
   healthFundName: z.string().max(80).optional(),
   healthFundMemberNumber: z.string().max(40).optional(),
@@ -570,6 +571,14 @@ export async function createBooking(
     userPatch.healthFundName = data.healthFundName;
   if (claimWithHealthFund && data.healthFundMemberNumber)
     userPatch.healthFundMemberNumber = data.healthFundMemberNumber;
+  // Marketing/news opt-in (gates the post-visit review SMS). Only ever set to
+  // true here — a later non-ticked booking must not silently revoke a prior
+  // consent (opt-out happens via the SMS STOP reply).
+  const marketingConsent = data.marketingConsent === "on";
+  if (marketingConsent) {
+    userPatch.marketingConsent = true;
+    userPatch.marketingConsentAt = new Date();
+  }
   if (Object.keys(userPatch).length > 0) {
     await db.user.update({
       where: { id: clientUserId },
@@ -637,6 +646,18 @@ export async function createBooking(
         ipAddress: ip,
         userAgent: ua,
       },
+      ...(marketingConsent
+        ? [
+            {
+              userId: clientUserId,
+              type: "MARKETING",
+              version: "1.0",
+              granted: true,
+              ipAddress: ip,
+              userAgent: ua,
+            },
+          ]
+        : []),
     ],
   });
 
