@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { InstallAppHint } from "@/components/install-app-hint";
 
 export default async function PublicLayout({
   children,
@@ -13,6 +14,7 @@ export default async function PublicLayout({
       <SiteHeader user={session?.user ? { name: session.user.name, role: session.user.role } : null} />
       <main className="flex-1">{children}</main>
       <SiteFooter />
+      <InstallAppHint />
     </div>
   );
 }
