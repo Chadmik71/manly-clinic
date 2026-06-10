@@ -11,6 +11,7 @@ import {
   BOOKING_EARLIEST_START_MIN,
 } from "@/lib/clinic";
 import { sydneyDateOf, sydneyDow } from "@/lib/time";
+import { redirect } from "next/navigation";
 
 // Sydney minute-of-day (0-1439). Robust against UTC server clock vs Sydney TZ.
 // Vercel serverless runs in UTC, but the clinic operates on Sydney calendar time.
@@ -841,5 +842,15 @@ export async function createBooking(
     // Cookie set is best-effort — if it fails we still complete the booking.
   }
 
-  return { ok: true, reference };
+  // Redirect server-side to the confirmation page. Doing the navigation here
+  // (rather than returning a reference for the client to window.location to)
+  // avoids the brief error-page flash: a server action otherwise triggers an
+  // automatic re-render of the confirm page, which raced the client-side
+  // navigation. redirect() throws NEXT_REDIRECT, so it must stay outside any
+  // try/catch — the client transition follows it straight to the success page.
+  redirect(
+    session?.user
+      ? `/portal/bookings/confirmed?ref=${reference}`
+      : `/book/confirmed?ref=${reference}`,
+  );
 }
