@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { updateClinicSettings } from "./actions";
+import { updateClinicSettings, sendTestReviewSms } from "./actions";
 import type { UpdateSettingsResult } from "./actions";
 
 type Props = {
@@ -28,6 +28,23 @@ export function SettingsForm({ initial }: Props) {
   const [result, setResult] = useState<
     null | { kind: "ok" } | { kind: "error"; message: string }
   >(null);
+
+  // Self-service "send me a sample" test for the review SMS.
+  const [testPhone, setTestPhone] = useState("");
+  const [testPending, setTestPending] = useState(false);
+  const [testResult, setTestResult] = useState<
+    null | { kind: "ok" } | { kind: "error"; message: string }
+  >(null);
+
+  async function onSendTest() {
+    setTestPending(true);
+    setTestResult(null);
+    const r = await sendTestReviewSms(testPhone);
+    setTestResult(
+      r.ok ? { kind: "ok" } : { kind: "error", message: r.error },
+    );
+    setTestPending(false);
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -142,6 +159,38 @@ export function SettingsForm({ initial }: Props) {
         {result?.kind === "error" ? (
           <span className="text-sm text-red-600">{result.message}</span>
         ) : null}
+      </div>
+
+      <div className="rounded-md border bg-card p-4 space-y-2">
+        <span className="block text-sm font-medium">Send a test review SMS</span>
+        <span className="block text-xs text-muted-foreground">
+          Sends the exact post-visit review text to a mobile you choose, right
+          now, so you can preview it. Uses one SMS credit.
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="tel"
+            value={testPhone}
+            onChange={(e) => setTestPhone(e.target.value)}
+            placeholder="0433 273 377"
+            disabled={testPending}
+            className="w-44 rounded border px-2 py-1 text-sm"
+          />
+          <button
+            type="button"
+            onClick={onSendTest}
+            disabled={testPending || !testPhone.trim()}
+            className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+          >
+            {testPending ? "Sending..." : "Send test SMS"}
+          </button>
+          {testResult?.kind === "ok" ? (
+            <span className="text-sm text-green-600">Sent.</span>
+          ) : null}
+          {testResult?.kind === "error" ? (
+            <span className="text-sm text-red-600">{testResult.message}</span>
+          ) : null}
+        </div>
       </div>
     </form>
   );

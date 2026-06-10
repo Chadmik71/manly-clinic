@@ -4,6 +4,40 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { CLINIC_SETTINGS_DEFAULTS } from "@/lib/clinic-settings";
+import { normalisePhone, isAuMobile } from "@/lib/phone";
+import { notifyReviewRequest } from "@/lib/notify";
+import { audit } from "@/lib/audit";
+
+/**
+ * Send a one-off sample of the post-visit review SMS to a chosen number, so an
+ * admin can preview it on a real handset. ADMIN-only. Uses the same Twilio
+ * path as the live cron, so it only actually sends when Twilio is configured
+ * (i.e. in production).
+ */
+export async function sendTestReviewSms(
+  phoneRaw: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    return { ok: false, error: "Forbidden." };
+  }
+  const phone = normalisePhone(phoneRaw);
+  if (!isAuMobile(phone)) {
+    return { ok: false, error: "Enter a valid Australian mobile, e.g. 0433 273 377." };
+  }
+  try {
+    await notifyReviewRequest({ phone, name: session.user.name ?? "there" });
+    await audit({
+      userId: session.user.id,
+      action: "TEST_REVIEW_SMS_SENT",
+      resource: phone,
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error("[sendTestReviewSms] send failed", err);
+    return { ok: false, error: "Failed to send. Check Twilio settings / server logs." };
+  }
+}
 
 // Server action wired by app/staff/settings/settings-form.tsx.
 //
