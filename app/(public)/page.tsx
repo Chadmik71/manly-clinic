@@ -322,6 +322,23 @@ export default async function HomePage() {
             </div>
           </div>
         </div>
+        {/* HICAPS acceptance badge — on-the-spot health-fund claims. White tile
+            keeps the navy/gold logo legible on both the cream and dark themes. */}
+        <div className="container flex flex-col items-center gap-3 pb-10 text-center">
+          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+            <Image
+              src="/hicaps.png"
+              alt="HICAPS — fast claims on the spot"
+              width={659}
+              height={210}
+              className="h-auto w-[170px] sm:w-[200px]"
+            />
+          </div>
+          <p className="max-w-md text-sm text-muted-foreground">
+            We&apos;re HICAPS-enabled — claim your private health-fund rebate on
+            the spot for eligible treatments. Just bring your fund card.
+          </p>
+        </div>
         {/* Wave flows the muted strip down into the Treatments section */}
         <WaveDivider className="pointer-events-none absolute -bottom-px left-0 h-8 w-full text-background" />
       </section>
