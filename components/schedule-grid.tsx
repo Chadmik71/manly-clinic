@@ -9,7 +9,10 @@ import { BookingQuickActions } from "@/app/(portal)/staff/schedule/quick-actions
 
 const DAY_START_HOUR = 8;
 const DAY_END_HOUR = 21; // exclusive
-const HOUR_PX = 120;
+// 60px/hour matches the Receptioner day-view density (a 60-min booking is one
+// hour-row tall) so more of the day is visible without scrolling. MIN_PX is
+// derived, so every position/height in the grid rescales consistently.
+const HOUR_PX = 60;
 const MIN_PX = HOUR_PX / 60;
 const COL_MIN_W = 200;
 
@@ -457,7 +460,7 @@ export function ScheduleGrid({
                     >
                       <Link
                         href={`/staff/bookings/${b.id}`}
-                        className="absolute inset-0 rounded-md p-2 text-[11px] leading-tight overflow-hidden border-l-[6px] shadow-sm hover:shadow-md transition-shadow block"
+                        className="absolute inset-0 rounded-md p-1.5 text-[10px] leading-[1.15] overflow-hidden border-l-4 shadow-sm hover:shadow-md transition-shadow block"
                         style={{
                           background: `hsl(var(--bk-${c}-bg))`,
                           borderLeftColor: `hsl(var(--bk-${c}-border))`,
