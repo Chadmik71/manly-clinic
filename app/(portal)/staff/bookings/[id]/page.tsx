@@ -74,11 +74,14 @@ export default async function StaffBookingDetail({
     orderBy: { user: { name: "asc" } },
   });
 
-  // Variants of this booking’s service so the form can offer a duration
-  // change (e.g. 60 min → 120 min) without having to switch the entire service.
+  // All bookable variants across active services, so staff can change the
+  // massage TYPE (e.g. Remedial → Thai), not just the duration. The current
+  // variant is always included even if its service was since deactivated, so
+  // the dropdown still reflects the booking's actual selection.
   const variantsList = await db.serviceVariant.findMany({
-    where: { serviceId: b.serviceId },
-    orderBy: { durationMin: "asc" },
+    where: { OR: [{ service: { active: true } }, { id: b.variantId }] },
+    include: { service: { select: { name: true } } },
+    orderBy: [{ service: { name: "asc" } }, { durationMin: "asc" }],
   });
 
   // Format the existing startsAt into a Sydney-local "YYYY-MM-DDTHH:mm" string
@@ -176,7 +179,7 @@ export default async function StaffBookingDetail({
                 }))}
                 variants={variantsList.map((vr) => ({
                   id: vr.id,
-                  serviceName: b.service.name,
+                  serviceName: vr.service.name,
                   durationMin: vr.durationMin,
                   priceCents: vr.priceCents,
                 }))}
