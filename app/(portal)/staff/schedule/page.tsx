@@ -65,11 +65,11 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const { start: dayStart, end: dayEnd, date: day, dow } = sydneyDayBounds(dateStr);
 
   const [therapistsRaw, bookings, timeOffs] = await Promise.all([
-    // Show ALL therapists on the schedule (active + inactive). Inactive ones
-    // get isWorking=false so their column reads as fully off, but their
-    // quick-action menu offers "Activate" so admins can re-enable them
-    // without leaving the schedule page.
+    // Only show ACTIVE therapist slots as columns (e.g. Staff 1–4). Inactive
+    // ones are hidden so the schedule reflects the working slot count; re-enable
+    // them from Staff → Therapists if needed.
     db.therapist.findMany({
+      where: { active: true },
       include: { user: { select: { name: true } }, availability: { where: { dayOfWeek: dow } } },
       orderBy: [{ active: "desc" }, { user: { name: "asc" } }],
     }),
