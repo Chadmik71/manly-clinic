@@ -33,6 +33,17 @@ export default async function ServicesPage() {
 
   const order = ["THERAPEUTIC", "RELAXATION", "SPECIALTY", "ADD_ON"];
 
+  // Banner photo per category (Pexels — free commercial license, no
+  // attribution required). Tasteful, clothed/clinical imagery. Shown as a
+  // cropped strip above each section's cards; object-cover handles the
+  // mixed source aspect ratios.
+  const categoryImage: Record<string, string> = {
+    THERAPEUTIC: "/svc-therapeutic.jpg",
+    RELAXATION: "/svc-relaxation.jpg",
+    SPECIALTY: "/svc-specialty.jpg",
+    ADD_ON: "/svc-addon.jpg",
+  };
+
   return (
     <div className="relative overflow-hidden container py-12 md:py-16">
       <Blob className="pointer-events-none absolute -top-32 -right-40 h-[26rem] w-[26rem] text-accent/30 dark:text-accent/15" />
@@ -71,10 +82,30 @@ export default async function ServicesPage() {
       {order.map((cat) =>
         grouped[cat] ? (
           <section key={cat} className="mb-12">
-            <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-2xl font-semibold">{categoryLabel(cat)}</h2>
-              <Badge variant="secondary">{grouped[cat].length}</Badge>
-            </div>
+            {categoryImage[cat] && (
+              <div className="relative mb-5 h-40 w-full overflow-hidden rounded-2xl border sm:h-48">
+                <Image
+                  src={categoryImage[cat]}
+                  alt={`${categoryLabel(cat)} massage treatment`}
+                  fill
+                  sizes="100vw"
+                  className="object-cover"
+                />
+                {/* Left-weighted scrim keeps the category title legible over
+                    the photo on both themes. */}
+                <div className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/40 to-transparent" />
+                <div className="absolute bottom-0 left-0 flex items-center gap-3 p-4">
+                  <h2 className="text-2xl font-semibold">{categoryLabel(cat)}</h2>
+                  <Badge variant="secondary">{grouped[cat].length}</Badge>
+                </div>
+              </div>
+            )}
+            {!categoryImage[cat] && (
+              <div className="flex items-center gap-3 mb-4">
+                <h2 className="text-2xl font-semibold">{categoryLabel(cat)}</h2>
+                <Badge variant="secondary">{grouped[cat].length}</Badge>
+              </div>
+            )}
             <div className="grid gap-4 md:grid-cols-2">
               {grouped[cat].map((s) => (
                 <Card key={s.id}>
