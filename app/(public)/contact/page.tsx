@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Phone, Mail, MapPin, Clock } from "lucide-react";
 import { CLINIC } from "@/lib/clinic";
@@ -13,9 +14,20 @@ export default function ContactPage() {
   return (
     <div className="relative overflow-hidden container py-12 md:py-16">
       <Blob className="pointer-events-none absolute -top-32 -right-40 h-[26rem] w-[26rem] text-accent/30 dark:text-accent/15" />
-      <div className="relative flex items-center gap-2 mb-8">
+      <div className="relative flex items-center gap-2 mb-6">
         <LeafSprig className="h-7 w-7 text-primary/70" />
         <h1 className="text-4xl font-bold tracking-tight">Contact us</h1>
+      </div>
+      {/* Welcoming treatment-room photo (Pexels — free commercial license,
+          no attribution required). */}
+      <div className="relative mb-8 h-44 w-full overflow-hidden rounded-2xl border sm:h-56">
+        <Image
+          src="/contact-welcome.jpg"
+          alt="Calm massage treatment room at the clinic"
+          fill
+          sizes="100vw"
+          className="object-cover"
+        />
       </div>
       <div className="relative grid gap-6 md:grid-cols-2">
         <Card>

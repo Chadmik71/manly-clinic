@@ -395,30 +395,44 @@ export default async function HomePage() {
           have to ask. */}
       <section className="relative border-y bg-muted/30">
         <div className="container py-16 md:py-20">
-          <div className="mx-auto mb-10 max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight">
-              Your first visit, step by step
-            </h2>
-            <p className="mt-2 text-muted-foreground">
-              New to the clinic? Here’s exactly what to expect — no surprises.
-            </p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {FIRST_VISIT_STEPS.map((step, i) => {
-              const StepIcon = step.icon;
-              return (
-                <div key={i} className="rounded-xl border bg-card p-5">
-                  <div className="mb-3 flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
-                      {i + 1}
-                    </span>
-                    <StepIcon className="h-5 w-5 text-primary" aria-hidden />
-                  </div>
-                  <h3 className="mb-1 font-medium">{step.title}</h3>
-                  <p className="text-sm text-muted-foreground">{step.body}</p>
-                </div>
-              );
-            })}
+          <div className="grid items-center gap-10 lg:grid-cols-2">
+            {/* Assessment-led treatment photo (Pexels — free commercial
+                license, no attribution required). Reinforces the "clinical,
+                not just a spa" message beside the steps. */}
+            <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border shadow-sm">
+              <Image
+                src="/home-firstvisit.jpg"
+                alt="Therapist assessing a client's posture before remedial treatment"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
+              />
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">
+                Your first visit, step by step
+              </h2>
+              <p className="mt-2 text-muted-foreground">
+                New to the clinic? Here’s exactly what to expect — no surprises.
+              </p>
+              <div className="mt-8 grid gap-6 sm:grid-cols-2">
+                {FIRST_VISIT_STEPS.map((step, i) => {
+                  const StepIcon = step.icon;
+                  return (
+                    <div key={i} className="rounded-xl border bg-card p-5">
+                      <div className="mb-3 flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
+                          {i + 1}
+                        </span>
+                        <StepIcon className="h-5 w-5 text-primary" aria-hidden />
+                      </div>
+                      <h3 className="mb-1 font-medium">{step.title}</h3>
+                      <p className="text-sm text-muted-foreground">{step.body}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </section>
