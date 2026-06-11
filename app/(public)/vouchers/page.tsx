@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -31,6 +32,18 @@ export default function VouchersPage() {
             The perfect gift — redeemable at {CLINIC.name} on any treatment.
           </p>
         </div>
+      </div>
+
+      {/* Spa/wellness flatlay (Pexels — free commercial license, no
+          attribution required) to warm up the gift-voucher page. */}
+      <div className="relative mb-6 h-44 w-full overflow-hidden rounded-2xl border sm:h-52">
+        <Image
+          src="/voucher-gift.jpg"
+          alt="Natural spa products — the feel of a wellness gift"
+          fill
+          sizes="(max-width: 768px) 100vw, 768px"
+          className="object-cover"
+        />
       </div>
 
       <Card className="relative">

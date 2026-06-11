@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
@@ -115,9 +116,21 @@ export default async function BookPage({
       <div className="container py-12 max-w-5xl">
         <BookingSteps step={1} />
         <h1 className="text-3xl font-bold mt-6 mb-2">Choose a treatment</h1>
-        <p className="text-muted-foreground mb-8">
+        <p className="text-muted-foreground mb-6">
           Select the modality you&apos;d like to book.
         </p>
+        {/* Slim, decorative welcome banner — step 1 only. Kept off the
+            date/time picker (step 2) to leave the conversion-critical
+            slot UI untouched. Pexels — free commercial license. */}
+        <div className="relative mb-8 hidden h-36 w-full overflow-hidden rounded-2xl border sm:block">
+          <Image
+            src="/book-welcome.jpg"
+            alt="Remedial therapist treating a client at the clinic"
+            fill
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+        </div>
         {!session?.user && lastBooking ? (
           <div className="mb-6 rounded-md border border-primary/40 bg-primary/10 p-4 text-sm flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="font-medium">Welcome back!</span>
