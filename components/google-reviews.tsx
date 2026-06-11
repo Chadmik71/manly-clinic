@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getGoogleReviews } from "@/lib/google-reviews";
@@ -36,6 +37,20 @@ export async function GoogleReviews() {
           </span>
           <span>· {data.totalRatings} Google reviews</span>
         </div>
+      </div>
+
+      {/* Decorative treatment-room photo (Pexels — free commercial license,
+          no attribution required). Purely ambience for this section — the
+          actual review cards below use each reviewer's real Google profile
+          photo, so this is not presented as a client portrait. */}
+      <div className="relative mb-8 h-44 w-full overflow-hidden rounded-2xl border sm:h-56">
+        <Image
+          src="/reviews-care.jpg"
+          alt="Therapist treating a client in a calm clinic room"
+          fill
+          sizes="100vw"
+          className="object-cover object-center"
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
