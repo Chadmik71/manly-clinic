@@ -17,6 +17,7 @@ import {
   updateWalkInClientDetails,
   updateBookingInternalNotes,
   updateBookingAnnotation,
+  completeBookingIntake,
 } from "./actions";
 import { ClinicalNotesForm } from "./clinical-notes-form";
 import { AssignTherapistForm } from "./assign-therapist-form";
@@ -24,6 +25,7 @@ import { EditAppointmentForm } from "./edit-appointment-form";
 import { EditWalkInClientForm } from "./edit-walkin-client-form";
 import { AnnotatedDiagramSection } from "./annotated-diagram-section";
 import { EditInternalNotesForm } from "./edit-internal-notes-form";
+import { CompleteIntakeForm } from "./complete-intake-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
 import { BodyDiagram } from "@/components/body-diagram";
 import { zoneLabel } from "@/lib/body-diagram-zones";
@@ -51,6 +53,71 @@ export default async function StaffBookingDetail({
     where: { userId: b.clientId },
     orderBy: { updatedAt: "desc" },
   });
+
+  // A booking made over the phone records only a quick consent stub (no
+  // clinical fields) until the customer physically arrives at the shop and
+  // staff complete the full medical form on the PC/tablet. medicalConditions
+  // is required on every full intake, so its absence reliably flags "still
+  // needs completing" — same proxy used in the new-booking prefill lookup.
+  const needsIntakeCompletion =
+    (!intake || !intake.medicalConditions) &&
+    b.status !== "CANCELLED" &&
+    b.status !== "NO_SHOW";
+
+  let completionPrefill: Parameters<typeof CompleteIntakeForm>[0]["prefill"] | null =
+    null;
+  if (needsIntakeCompletion) {
+    const [clientDemo, priorFullIntake] = await Promise.all([
+      db.user.findUnique({
+        where: { id: b.clientId },
+        select: {
+          dob: true,
+          gender: true,
+          gpName: true,
+          gpClinic: true,
+          gpPhone: true,
+          healthFundName: true,
+          healthFundMemberNumber: true,
+        },
+      }),
+      db.intakeForm.findFirst({
+        where: { userId: b.clientId, medicalConditions: { not: null } },
+        orderBy: { updatedAt: "desc" },
+      }),
+    ]);
+    completionPrefill = {
+      user: {
+        dob: clientDemo?.dob ? clientDemo.dob.toISOString().slice(0, 10) : "",
+        gender: clientDemo?.gender ?? "",
+        gpName: clientDemo?.gpName ?? "",
+        gpClinic: clientDemo?.gpClinic ?? "",
+        gpPhone: clientDemo?.gpPhone ?? "",
+        healthFundName: clientDemo?.healthFundName ?? "",
+        healthFundMemberNumber: clientDemo?.healthFundMemberNumber ?? "",
+      },
+      intake: priorFullIntake
+        ? {
+            medicalConditions: priorFullIntake.medicalConditions ?? "",
+            medications: priorFullIntake.medications ?? "",
+            allergies: priorFullIntake.allergies ?? "",
+            injuries: priorFullIntake.injuries ?? "",
+            medicalHistory: parseHistory(priorFullIntake.medicalHistory),
+            painLocationCodes: parseHistory(priorFullIntake.painLocationCodes),
+            painScale: priorFullIntake.painScale,
+            painOnset: priorFullIntake.painOnset ?? "",
+            painHistory: priorFullIntake.painHistory ?? "",
+            treatmentGoals: priorFullIntake.treatmentGoals ?? "",
+            pregnancy: priorFullIntake.pregnancy ?? false,
+            pregnancyWeeks: priorFullIntake.pregnancyWeeks ?? null,
+            emergencyContactName: priorFullIntake.emergencyContactName ?? "",
+            emergencyContactRelationship:
+              priorFullIntake.emergencyContactRelationship ?? "",
+            emergencyContactPhone: priorFullIntake.emergencyContactPhone ?? "",
+            reasonForTreatment: priorFullIntake.reasonForTreatment ?? "",
+          }
+        : null,
+    };
+  }
 
   // For remedial-massage bookings only, fetch all active therapists so the
   // staff can reassign. Empty list for other services skips the query.
@@ -235,6 +302,29 @@ export default async function StaffBookingDetail({
             </div>
           </CardContent>
         </Card>
+
+        {needsIntakeCompletion && completionPrefill && (
+          <Card className="md:col-span-2 border-primary/40">
+            <CardHeader>
+              <CardTitle>Complete medical form</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                This booking was taken without the customer present (e.g. a
+                phone booking). Now that they&rsquo;re at the shop, fill in
+                the medical form with them on this screen and get their
+                signature below.
+              </p>
+              <CompleteIntakeForm
+                bookingId={b.id}
+                healthFundEligible={b.service.healthFundEligible}
+                isPregnancyService={b.service.slug === "pregnancy-massage"}
+                prefill={completionPrefill}
+                action={completeBookingIntake}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="md:col-span-2">
           <CardHeader>
