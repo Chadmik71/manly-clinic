@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
+import { WaitlistForm } from "./waitlist-form";
 
 // Bucket boundaries (local browser TZ — Sydney for the vast majority of
 // our customers). Splitting the flat slot list into Morning / Afternoon /
@@ -12,13 +13,18 @@ const EVENING_START_HOUR = 17; // >= 17:00 -> Evening, else Afternoon
 export function SlotPicker({
   slots,
   serviceSlug,
+  serviceId,
   variantId,
   date,
   partnerVariantId,
   nextAvailableDate,
+  waitlistEnabled,
+  waitlistPrefill,
 }: {
   slots: string[];
   serviceSlug: string;
+  /** Service id (not slug) — needed for the waitlist form's DB write. */
+  serviceId: string;
   variantId: string;
   date: string;
   /**
@@ -32,6 +38,9 @@ export function SlotPicker({
    *  no next day was found. Surfaced as a "try this day instead" link in
    *  the empty state. */
   nextAvailableDate?: string | null;
+  /** Whether the admin has turned the waitlist feature on (Staff → Settings). */
+  waitlistEnabled?: boolean;
+  waitlistPrefill?: { name?: string | null; email?: string | null };
 }) {
   if (slots.length === 0) {
     const partnerSuffix = partnerVariantId
@@ -52,6 +61,11 @@ export function SlotPicker({
         ) : (
           <p>Try another date or call the clinic.</p>
         )}
+        {waitlistEnabled ? (
+          <div className="pt-3 mt-3 border-t">
+            <WaitlistForm serviceId={serviceId} date={date} prefill={waitlistPrefill} />
+          </div>
+        ) : null}
       </div>
     );
   }

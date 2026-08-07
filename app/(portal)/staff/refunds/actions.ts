@@ -5,6 +5,8 @@ import { audit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { getStripe, stripeEnabled } from "@/lib/stripe";
 import { notifyRefundDecided } from "@/lib/notify";
+import { matchAndNotifyWaitlist } from "@/lib/waitlist";
+import { sydneyDateOf } from "@/lib/time";
 
 // Refunds move real money. Admin-only, defense-in-depth: the /staff/refunds
 // page redirects non-admins, but server actions are reachable independent of
@@ -174,6 +176,7 @@ export async function approveRefund(
     decision: "APPROVED",
     declineReason: null,
   });
+  await matchAndNotifyWaitlist({ date: sydneyDateOf(b.startsAt), serviceId: b.serviceId });
 
   revalidatePath("/staff/refunds");
   revalidatePath("/portal/bookings");

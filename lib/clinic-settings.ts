@@ -15,6 +15,7 @@ export type ClinicSettings = {
   cardSurchargeEnabled: boolean;
   cardSurchargeBps: number;
   reviewRequestEnabled: boolean;
+  waitlistEnabled: boolean;
 };
 
 export const CLINIC_SETTINGS_DEFAULTS: ClinicSettings = {
@@ -22,6 +23,7 @@ export const CLINIC_SETTINGS_DEFAULTS: ClinicSettings = {
   cardSurchargeEnabled: false,
   cardSurchargeBps: 150,
   reviewRequestEnabled: false,
+  waitlistEnabled: false,
 };
 
 /**
@@ -40,6 +42,7 @@ export async function getClinicSettings(): Promise<ClinicSettings> {
       cardSurchargeEnabled: true,
       cardSurchargeBps: true,
       reviewRequestEnabled: true,
+      waitlistEnabled: true,
     },
   });
   return row;

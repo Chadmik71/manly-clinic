@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { notifyBookingCancelled } from "@/lib/notify";
+import { matchAndNotifyWaitlist } from "@/lib/waitlist";
 import { addMinutes } from "date-fns";
 import {
   BOOKING_EARLIEST_START_MIN,
@@ -79,6 +80,17 @@ export async function setBookingStatus(
       reference: booking.reference,
       startsAt: booking.startsAt,
       feeCents: 0,
+    });
+  }
+
+  // Both CANCELLED and NO_SHOW free up the therapist's time — getAvailableSlots
+  // only excludes PENDING/CONFIRMED bookings — so both should wake the waitlist.
+  // Independent of the notifyClient checkbox above (that's about the cancelled
+  // client, this is about people waiting for the freed-up spot).
+  if (status === "CANCELLED" || status === "NO_SHOW") {
+    await matchAndNotifyWaitlist({
+      date: sydneyDateOf(booking.startsAt),
+      serviceId: booking.serviceId,
     });
   }
 

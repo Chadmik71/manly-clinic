@@ -57,6 +57,7 @@ model User {
   consentRecords  ConsentRecord[]
   auditLogs       AuditLog[]
   therapist       Therapist?
+  waitlistEntries WaitlistEntry[]
 }
 
 // --- Clinic ---
@@ -76,6 +77,7 @@ model Service {
   createdAt   DateTime   @default(now())
   variants    ServiceVariant[]
   bookings    Booking[]
+  waitlistEntries WaitlistEntry[]
 }
 
 model ServiceVariant {
@@ -386,6 +388,34 @@ model DailyCapacityOverride {
   createdBy      String?  // User.id of admin who set it (denormalised, no FK)
 }
 
+/// A customer's request to be notified if a spot opens up on a day that was
+/// fully booked for a given service. Matched on {date, serviceId} only (not
+/// exact variant/duration) — deliberately coarse for a low-volume clinic.
+/// No reservation/hold system: matchAndNotifyWaitlist (lib/waitlist.ts)
+/// notifies every WAITING entry when a matching booking is cancelled or
+/// no-showed, and whoever books first gets the spot.
+model WaitlistEntry {
+  id          String    @id @default(cuid())
+  date        String    // YYYY-MM-DD in Sydney TZ, same convention as DailyCapacityOverride.date
+  serviceId   String
+  service     Service   @relation(fields: [serviceId], references: [id])
+  clientId    String?   // set when the requester was signed in; null for guests
+  client      User?     @relation(fields: [clientId], references: [id])
+  guestName   String
+  guestEmail  String
+  guestPhone  String    // normalisePhone()'d AU mobile
+  status      String    @default("WAITING") // WAITING | NOTIFIED | REMOVED
+  /// Explicit per-request consent timestamp for the "notify me" SMS/email —
+  /// deliberately separate from User.marketingConsent, since this is a
+  /// direct response to the customer's own request, not marketing.
+  consentAt   DateTime  @default(now())
+  notifiedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([date, serviceId, status])
+  @@index([clientId])
+}
+
 
 // Singleton settings row for clinic-wide feature flags.
 //
@@ -401,6 +431,7 @@ model ClinicSetting {
   cardSurchargeEnabled  Boolean   @default(false)         // when true, add cardSurchargeBps to deposit
   cardSurchargeBps      Int       @default(150)           // surcharge in basis points (150 = 1.50%)
   reviewRequestEnabled  Boolean   @default(false)         // when true, send post-visit Google review SMS to consenting clients
+  waitlistEnabled       Boolean   @default(false)         // when true, booking picker offers a waitlist form on fully-booked days
   updatedAt             DateTime  @updatedAt
   updatedBy             String?                            // User.id of admin who last changed it
 }

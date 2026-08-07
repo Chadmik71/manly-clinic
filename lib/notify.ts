@@ -379,6 +379,42 @@ export async function notifyReviewRequest(args: {
   await sendSms({ to: args.phone, body });
 }
 
+/**
+ * Sent to everyone on a service+date waitlist when a matching booking is
+ * cancelled or no-showed (see lib/waitlist.ts matchAndNotifyWaitlist). There
+ * is no reservation/hold system — every waiting entry gets this at once, so
+ * the copy is explicit that the spot isn't guaranteed.
+ */
+export async function notifyWaitlistSlotOpen(args: {
+  email: string;
+  phone: string;
+  name: string;
+  serviceName: string;
+  serviceSlug: string;
+  /** Sydney calendar date, YYYY-MM-DD. */
+  date: string;
+  /** Human label for the date, e.g. "Tuesday 28 April 2026". */
+  dateLabel: string;
+}): Promise<void> {
+  const firstName = (args.name || "").trim().split(/\s+/)[0] || "there";
+  const bookUrl = `${CLINIC.domain}/book?service=${args.serviceSlug}&date=${args.date}`;
+  const subject = `A spot may have opened up — ${args.serviceName}`;
+  const text = `Hi ${firstName},
+
+A spot may have opened up for ${args.serviceName} on ${args.dateLabel}. This isn't guaranteed — everyone else on the waitlist for that day got this message too, so book now if you'd like it:
+
+${bookUrl}
+
+${CLINIC.name}
+${CLINIC.phone}`;
+  const html = `<p>Hi ${firstName},</p><p>A spot may have opened up for <strong>${args.serviceName}</strong> on <strong>${args.dateLabel}</strong>. This isn&rsquo;t guaranteed &mdash; everyone else on the waitlist for that day got this message too, so book now if you&rsquo;d like it:</p><p><a href="${bookUrl}">${bookUrl}</a></p><p style="color:#64748b;font-size:12px">${CLINIC.name} &middot; ${CLINIC.phone}</p>`;
+  await sendEmail({ to: args.email, subject, html, text });
+  await sendSms({
+    to: args.phone,
+    body: `${CLINIC.name}: a spot may be open for ${args.serviceName} on ${args.dateLabel}. Not guaranteed, book fast: ${bookUrl}`,
+  });
+}
+
 function escapeVoucherHtml(input: string): string {
   return input
     .replace(/&/g, "&amp;")

@@ -129,4 +129,6 @@ export const RATE_LIMITS = {
   // trying many usernames from one source still trips it. 10/min is far above
   // any legitimate human login rate even on a shared clinic NAT IP.
   login: { limit: 10, windowMs: 60_000 }, // 10/min per IP
+  // Waitlist join: public, unauthenticated form on the booking page.
+  waitlist: { limit: 5, windowMs: 60_000 }, // 5/min per IP
 } as const;

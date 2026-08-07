@@ -20,6 +20,7 @@ import { CouplePicker } from "./couple-picker";
 import { getDistinctSlotTimes } from "@/lib/booking";
 import { addDays, format, parseISO, isValid } from "date-fns";
 import { sydneyTodayISO } from "@/lib/time";
+import { getClinicSettingsSafe } from "@/lib/clinic-settings";
 
 export const metadata = {
   title: "Book an appointment",
@@ -185,6 +186,10 @@ export default async function BookPage({
   }
 
   // Step 2: pick variant + date + slot
+  const [step2Session, clinicSettings] = await Promise.all([
+    auth(),
+    getClinicSettingsSafe(),
+  ]);
   const service = await db.service.findUnique({
     where: { slug: sp.service },
     include: { variants: { orderBy: { durationMin: "asc" } } },
@@ -345,10 +350,17 @@ export default async function BookPage({
               <SlotPicker
                 slots={slots.map((s) => s.toISOString())}
                 serviceSlug={service.slug}
+                serviceId={service.id}
                 variantId={variant.id}
                 date={dateISO}
                 partnerVariantId={selectedPartnerId ?? undefined}
                 nextAvailableDate={nextAvailableDate}
+                waitlistEnabled={clinicSettings.waitlistEnabled}
+                waitlistPrefill={
+                  step2Session?.user
+                    ? { name: step2Session.user.name, email: step2Session.user.email }
+                    : undefined
+                }
               />
             ) : (
               <p className="text-sm text-muted-foreground">

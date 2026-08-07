@@ -10,6 +10,7 @@ type Props = {
     cardSurchargeEnabled: boolean;
     cardSurchargeBps: number;
     reviewRequestEnabled: boolean;
+    waitlistEnabled: boolean;
   };
 };
 
@@ -24,6 +25,7 @@ export function SettingsForm({ initial }: Props) {
   const [reviewRequestEnabled, setReviewRequestEnabled] = useState(
     initial.reviewRequestEnabled,
   );
+  const [waitlistEnabled, setWaitlistEnabled] = useState(initial.waitlistEnabled);
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<
     null | { kind: "ok" } | { kind: "error"; message: string }
@@ -61,6 +63,7 @@ export function SettingsForm({ initial }: Props) {
       cardSurchargeEnabled,
       cardSurchargeBps: bps,
       reviewRequestEnabled,
+      waitlistEnabled,
     });
     if (r.ok) {
       setResult({ kind: "ok" });
@@ -121,6 +124,22 @@ export function SettingsForm({ initial }: Props) {
           type="checkbox"
           checked={reviewRequestEnabled}
           onChange={(e) => setReviewRequestEnabled(e.target.checked)}
+          className="mt-1 h-5 w-5"
+          disabled={pending}
+        />
+      </label>
+
+      <label className="flex items-start justify-between gap-4 rounded-md border bg-card p-4">
+        <span className="flex-1">
+          <span className="block text-sm font-medium">Waitlist enabled</span>
+          <span className="block text-xs text-muted-foreground">
+            When ON, customers see a &quot;Notify me if a spot opens&quot; form on fully-booked days in the booking flow. If a matching booking is later cancelled or marked a no-show, everyone waiting for that day and treatment gets a text/email — it&apos;s not a reserved spot, just a heads-up to book fast.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={waitlistEnabled}
+          onChange={(e) => setWaitlistEnabled(e.target.checked)}
           className="mt-1 h-5 w-5"
           disabled={pending}
         />

@@ -8,6 +8,8 @@ import {
   CANCEL_FEE_PERCENT,
 } from "@/lib/clinic";
 import { notifyBookingCancelled } from "@/lib/notify";
+import { matchAndNotifyWaitlist } from "@/lib/waitlist";
+import { sydneyDateOf } from "@/lib/time";
 
 import { getStripe } from "@/lib/stripe";
 
@@ -79,6 +81,7 @@ export async function cancelBooking(
     startsAt: b.startsAt,
     feeCents,
   });
+  await matchAndNotifyWaitlist({ date: sydneyDateOf(b.startsAt), serviceId: b.serviceId });
   revalidatePath("/portal/bookings");
   revalidatePath("/portal");
   return { ok: true, feeCents };
