@@ -53,6 +53,7 @@ export type UpdateSettingsInput = {
   cardSurchargeBps: number;
   reviewRequestEnabled: boolean;
   waitlistEnabled: boolean;
+  lapsedNudgeEnabled: boolean;
 };
 
 export type UpdateSettingsResult =
@@ -73,6 +74,7 @@ export async function updateClinicSettings(
     cardSurchargeBps,
     reviewRequestEnabled,
     waitlistEnabled,
+    lapsedNudgeEnabled,
   } = input;
 
   // Validate bps. ACCC requires surcharges to roughly match the merchant
@@ -98,6 +100,7 @@ export async function updateClinicSettings(
         cardSurchargeBps,
         reviewRequestEnabled: Boolean(reviewRequestEnabled),
         waitlistEnabled: Boolean(waitlistEnabled),
+        lapsedNudgeEnabled: Boolean(lapsedNudgeEnabled),
       },
       create: {
         id: "default",
@@ -107,6 +110,7 @@ export async function updateClinicSettings(
         cardSurchargeBps,
         reviewRequestEnabled: Boolean(reviewRequestEnabled),
         waitlistEnabled: Boolean(waitlistEnabled),
+        lapsedNudgeEnabled: Boolean(lapsedNudgeEnabled),
       },
     });
     revalidatePath("/staff/settings");

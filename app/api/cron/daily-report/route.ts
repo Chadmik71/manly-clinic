@@ -7,6 +7,7 @@ import {
   type DailyReportBooking,
 } from "@/lib/notify";
 import { sendDueReviewRequests } from "@/lib/review-requests";
+import { sendDueLapsedNudges } from "@/lib/lapsed-clients";
 import {
   SYDNEY_TZ,
   sydneyDateOf,
@@ -170,6 +171,20 @@ export async function GET(req: Request) {
     console.error("[cron/daily-report] review-request send failed", err);
   }
 
+  // Piggyback the lapsed-client win-back nudge on the same daily schedule.
+  // No-ops unless the admin has enabled it in Settings. Never throws so a
+  // nudge-send hiccup can't break the daily report.
+  let lapsedNudges: { enabled: boolean; candidates: number; sent: number } = {
+    enabled: false,
+    candidates: 0,
+    sent: 0,
+  };
+  try {
+    lapsedNudges = await sendDueLapsedNudges("cron:daily-report");
+  } catch (err) {
+    console.error("[cron/daily-report] lapsed-client nudge send failed", err);
+  }
+
   return NextResponse.json({
     ok: true,
     date: todayISO,
@@ -181,5 +196,6 @@ export async function GET(req: Request) {
     new_signups: newSignups,
     anomalies: { stalePastConfirmed, upcomingWithoutTherapist },
     reviewRequests,
+    lapsedNudges,
   });
 }

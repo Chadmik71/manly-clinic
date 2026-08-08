@@ -380,6 +380,69 @@ export async function notifyReviewRequest(args: {
 }
 
 /**
+ * Post-visit "book your next session" email — sent the day after a completed
+ * session to customers who opted into marketing/news, alongside (but
+ * independent of) the Google review SMS. Deep-links straight back to the
+ * same treatment + variant they just had via the existing /book?service=&variant=
+ * pattern, so rebooking is one tap. Email only (SMS is reserved for the
+ * review ask so a single visit doesn't generate two texts).
+ */
+export async function notifyPostVisitFollowUp(args: {
+  email: string;
+  name: string;
+  serviceName: string;
+  serviceSlug: string;
+  variantId: string;
+}): Promise<void> {
+  const firstName = (args.name || "").trim().split(/\s+/)[0] || "there";
+  const bookUrl = `${CLINIC.domain}/book?service=${args.serviceSlug}&variant=${args.variantId}`;
+  const subject = `Thanks for visiting ${CLINIC.name}`;
+  const text = `Hi ${firstName},
+
+Thanks for coming in for your ${args.serviceName}! If you'd like to book your next session, here's a one-tap link straight back to it:
+
+${bookUrl}
+
+${CLINIC.name}
+${CLINIC.phone}`;
+  const html = `<p>Hi ${firstName},</p><p>Thanks for coming in for your <strong>${args.serviceName}</strong>! If you&rsquo;d like to book your next session, here&rsquo;s a one-tap link straight back to it:</p><p><a href="${bookUrl}">Book ${args.serviceName} again</a></p><p style="color:#64748b;font-size:12px">${CLINIC.name} &middot; ${CLINIC.phone}</p>`;
+  await sendEmail({ to: args.email, subject, html, text });
+}
+
+/**
+ * "We haven't seen you in a while" nudge for clients whose most recent
+ * in-app COMPLETED booking is older than the lapsed-window and who don't
+ * already have an upcoming booking. See lib/lapsed-clients.ts for the
+ * selection query. Generic booking link (no specific service) since we
+ * don't know if they want the same treatment again.
+ */
+export async function notifyLapsedClient(args: {
+  email: string;
+  phone: string | null;
+  name: string;
+}): Promise<void> {
+  const firstName = (args.name || "").trim().split(/\s+/)[0] || "there";
+  const bookUrl = `${CLINIC.domain}/book`;
+  const subject = `We miss you at ${CLINIC.name}`;
+  const text = `Hi ${firstName},
+
+It's been a little while since your last visit to ${CLINIC.name} — we'd love to have you back. Book a session whenever suits:
+
+${bookUrl}
+
+${CLINIC.name}
+${CLINIC.phone}`;
+  const html = `<p>Hi ${firstName},</p><p>It&rsquo;s been a little while since your last visit to ${CLINIC.name} &mdash; we&rsquo;d love to have you back. Book a session whenever suits:</p><p><a href="${bookUrl}">Book a session</a></p><p style="color:#64748b;font-size:12px">${CLINIC.name} &middot; ${CLINIC.phone}</p>`;
+  await sendEmail({ to: args.email, subject, html, text });
+  if (args.phone) {
+    await sendSms({
+      to: args.phone,
+      body: `${CLINIC.name}: it's been a while since your last visit — we'd love to see you again. Book here: ${bookUrl} Reply STOP to opt out.`,
+    });
+  }
+}
+
+/**
  * Sent to everyone on a service+date waitlist when a matching booking is
  * cancelled or no-showed (see lib/waitlist.ts matchAndNotifyWaitlist). There
  * is no reservation/hold system — every waiting entry gets this at once, so

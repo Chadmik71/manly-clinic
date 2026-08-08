@@ -46,6 +46,8 @@ model User {
   marketingConsentAt     DateTime?
   // Throttles review-request SMS so a regular isn't re-asked within 90 days.
   lastReviewRequestAt    DateTime?
+  // Throttles the "haven't seen you in a while" lapsed-client nudge.
+  lastLapsedNudgeAt      DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -430,8 +432,9 @@ model ClinicSetting {
   depositsEnabled       Boolean   @default(true)          // master kill switch for online deposits
   cardSurchargeEnabled  Boolean   @default(false)         // when true, add cardSurchargeBps to deposit
   cardSurchargeBps      Int       @default(150)           // surcharge in basis points (150 = 1.50%)
-  reviewRequestEnabled  Boolean   @default(false)         // when true, send post-visit Google review SMS to consenting clients
+  reviewRequestEnabled  Boolean   @default(false)         // when true, send post-visit "book again" email + Google review SMS to consenting clients
   waitlistEnabled       Boolean   @default(false)         // when true, booking picker offers a waitlist form on fully-booked days
+  lapsedNudgeEnabled    Boolean   @default(false)         // when true, nudge consenting clients who haven't rebooked in a while
   updatedAt             DateTime  @updatedAt
   updatedBy             String?                            // User.id of admin who last changed it
 }
