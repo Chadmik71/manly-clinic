@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fix / Change Log — Manly Remedial &amp; Thai Massage</title>
+<style>
+  :root {
+    --ink: #1c1a17;
+    --muted: #6b6459;
+    --line: #ddd6ca;
+    --accent: #0f7a6b;
+    --accent-bg: #e6f4f1;
+    --bg-alt: #faf8f4;
+    --badge-done-bg: #e5f6ec;
+    --badge-done-fg: #157a44;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 40px 32px 64px;
+    line-height: 1.5;
+    background: #fff;
+  }
+  h1 {
+    font-size: 22px;
+    margin: 0 0 4px;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 24px;
+  }
+  .lede {
+    font-size: 13.5px;
+    color: #3a362f;
+    background: var(--bg-alt);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+  }
+  h2 {
+    font-size: 15px;
+    margin: 28px 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--line);
+  }
+  .follow-empty {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  ul.backlog {
+    margin: 8px 0 0;
+    padding-left: 20px;
+    font-size: 13px;
+  }
+  ul.backlog li { margin-bottom: 6px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 12.5px;
+  }
+  thead th {
+    text-align: left;
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 8px 10px;
+    border-bottom: 2px solid var(--accent);
+    position: sticky;
+    top: 0;
+  }
+  tbody td {
+    vertical-align: top;
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  tbody tr:nth-child(even) { background: var(--bg-alt); }
+  td.date { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+  td.ref code, td.result code, td.asked code, td.issue code {
+    background: #f0ede5;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 11.5px;
+  }
+  .status-badge {
+    display: inline-block;
+    background: var(--badge-done-bg);
+    color: var(--badge-done-fg);
+    font-weight: 600;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .followup-dash { color: var(--muted); }
+  footer {
+    margin-top: 36px;
+    font-size: 11.5px;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
+  @media print {
+    body { padding: 0 18px; }
+    a { color: inherit; text-decoration: none; }
+    thead th { position: static; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Fix / Change Log</h1>
+<p class="subtitle">Manly Remedial &amp; Thai Massage — clinic management app · generated 2026-08-11</p>
+
+<p class="lede">
+A running record of everything asked of Claude to fix, add, or investigate in this repo —
+so it's easy to recognize "have I already asked for this?" or "was this already fixed?",
+and to see at a glance what's still waiting on real-world confirmation, without digging
+back through chat history.
+</p>
+
+<h2>🔭 Open follow-ups</h2>
+<p class="follow-empty">None — every fix below was verified live before being marked Done.</p>
+
+<h2>Backlog — found during QA, not yet actioned</h2>
+<p style="font-size:13px; color:var(--muted); margin:6px 0 0;">Surfaced by the 2026-08-11 deep-testing pass, not yet requested as a fix:</p>
+<ul class="backlog">
+  <li>Couple-booking confirmation screen (<code>/portal/bookings/confirmed</code>) only shows the primary service/price, not the partner half or the combined total (both bookings ARE created correctly — display-only).</li>
+  <li>Walk-in voucher form (<code>/staff/vouchers/new</code>) requires a recipient email even though its own copy says "print it and hand it over" is an option.</li>
+  <li>CLAUDE.md says every customer booking captures a fresh signature; code (by design) only requires one for pregnancy/health-fund bookings — doc drift.</li>
+  <li><code>/portal/bookings/[id]/reschedule</code> moves the booking on a single click with no "confirm this move?" step.</li>
+</ul>
+
+<h2>Log</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width:7%">Date</th>
+      <th style="width:16%">Asked</th>
+      <th style="width:20%">Issue found</th>
+      <th style="width:26%">Result / fix</th>
+      <th style="width:7%">Status</th>
+      <th style="width:6%">Follow&#8209;up</th>
+      <th style="width:18%">Ref</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="date">2026-08-11</td>
+      <td class="asked">Staff calendar (<code>/staff/schedule</code>) only lets you step one day at a time via the ‹ › arrows; asked for a way to jump straight to a date (e.g. 15 days out)</td>
+      <td class="issue">N/A — feature request</td>
+      <td class="result">Added a clickable date label next to the clock icon in <code>DateNav</code> that opens the browser's native date picker; picking a date navigates straight to <code>?date=...</code>. Verified working locally and live on production.</td>
+      <td><span class="status-badge">✅ Done</span></td>
+      <td class="followup-dash">—</td>
+      <td class="ref"><code>components/staff-shell.tsx</code><br>commit <code>a2d5b6a</code></td>
+    </tr>
+    <tr>
+      <td class="date">2026-08-11</td>
+      <td class="asked">Use Fable 5 to deep-test the site — customer view, staff view, audit view — assuming the site is live even under maintenance mode</td>
+      <td class="issue">N/A — testing/investigation request</td>
+      <td class="result">Ran 3 parallel Fable 5 QA agents: deep functional testing (real submissions, synthetic data) against local dev, plus a read-only pass against production with maintenance-mode bypass via the existing staff-session/preview-token mechanism. Surfaced 6 real bugs (rows below) plus 4 lower-priority backlog items (see Backlog section above).</td>
+      <td><span class="status-badge">✅ Done</span></td>
+      <td class="followup-dash">—</td>
+      <td class="ref">3 agent runs (customer-facing, staff portal, audit-logging)</td>
+    </tr>
+    <tr>
+      <td class="date">2026-08-11</td>
+      <td class="asked">Fix the audit-logging gap found during testing</td>
+      <td class="issue"><code>/staff/bookings/[id]</code> only wrote a <code>VIEW_HEALTH_INFO</code> audit entry when the client had an <code>IntakeForm</code> on file — a booking for a client with no intake at all (clinical notes, annotations, contact details all visible) left zero audit trail</td>
+      <td class="result">Logging now happens unconditionally; <code>resource</code> points at the <code>Booking</code> itself (not the client's possibly-unrelated latest intake), with the intake id carried in metadata instead</td>
+      <td><span class="status-badge">✅ Done</span></td>
+      <td class="followup-dash">—</td>
+      <td class="ref"><code>app/(portal)/staff/bookings/[id]/page.tsx</code><br>commit <code>048d8fe</code></td>
+    </tr>
+    <tr>
+      <td class="date">2026-08-11</td>
+      <td class="asked">(same batch) fix the literal "·" text bug found on the clinical notes form</td>
+      <td class="issue">In an uncommitted in-progress feature (chip-based SOAP note builder), "·" was sitting as raw JSX text outside any JS string, so it rendered the literal 6 characters instead of a "·" separator</td>
+      <td class="result">Wrapped in <code>{"·"}</code> so the escape is interpreted at runtime</td>
+      <td><span class="status-badge">✅ Done</span></td>
+      <td class="followup-dash">—</td>
+      <td class="ref"><code>.../clinical-notes-form.tsx</code><br>commit <code>ff76db9</code></td>
+    </tr>
+    <tr>
+      <td class="date">2026-08-11</td>
+      <td class="asked">(same batch) fix the Block Time dialog defaulting to the wrong day</td>
+      <td class="issue"><code>date</code> state was seeded once via <code>useState(dateStr)</code> at mount and only resynced on dialog close; navigating to a different day (via arrows or the new date-picker) then opening the dialog silently kept the originally-loaded day</td>
+      <td class="result">Added <code>openDialog()</code> that resyncs <code>date</code> to the currently-viewed <code>dateStr</code> every time the dialog is opened</td>
+      <td><span class="status-badge">✅ Done</span></td>
+      <td class="followup-dash">—</td>
+      <td class="ref"><code>.../block-time-dialog.tsx</code><br>commit <code>36e07fd</code></td>
+    </tr>
+    <tr>
+      <td class="date">2026-08-11</td>
+      <td class="asked">Fix the couple-booking race (HIGH) — ticking "booking for two" then clicking quickly could silently produce a solo booking</td>
+      <td class="issue">Two compounding bugs: (1) the date-tab links in <code>page.tsx</code> never included <code>&amp;partner=</code> at all, unconditionally — not just a timing issue; (2) both date tabs and slot links were built from server-rendered props that lag behind the URL for a moment right after the couple checkbox's <code>router.push</code></td>
+      <td class="result">Extracted date tabs into a new <code>date-tabs.tsx</code> client component reading <code>partner</code> live from <code>useSearchParams()</code>; <code>slot-picker.tsx</code> now also prefers the live URL value over the (possibly stale) prop</td>
+      <td><span class="status-badge">✅ Done</span></td>
+      <td class="followup-dash">—</td>
+      <td class="ref"><code>date-tabs.tsx</code> (new)<br><code>page.tsx</code>, <code>slot-picker.tsx</code><br>commit <code>9f8eade</code></td>
+    </tr>
+    <tr>
+      <td class="date">2026-08-11</td>
+      <td class="asked">Fix the therapist real-name fallback</td>
+      <td class="issue"><code>therapistPublicName()</code> fell back to the therapist's real name whenever <code>displayName</code> was unset. The "Add Therapist" form never collects a display name, so this wasn't a rare edge case — it's the default state for every newly added therapist until an admin manually sets one</td>
+      <td class="result">Fallback changed to a safe <code>Staff &lt;ID&gt;</code> placeholder instead of the real name; added optional <code>id</code> to <code>TherapistNameish</code>; corrected the stale <code>schema.prisma</code> comment that had documented the old (unsafe) behaviour as intentional</td>
+      <td><span class="status-badge">✅ Done</span></td>
+      <td class="followup-dash">—</td>
+      <td class="ref"><code>lib/utils.ts</code>, <code>schema.prisma</code> (comment)<br>commit <code>c5194e6</code></td>
+    </tr>
+    <tr>
+      <td class="date">2026-08-11</td>
+      <td class="asked">Fix the submit-time session mismatch</td>
+      <td class="issue"><code>createBooking()</code> re-read <code>auth()</code> fresh at submit time with no check against the session shown on page load ("Booked under X"). If a different account signed in on another browser tab before submit, the booking and health intake silently saved under the new account with no warning. A <code>_signedInEmail</code> hidden field already existed on the form but was never actually validated server-side</td>
+      <td class="result"><code>createBooking</code> now compares <code>_signedInEmail</code> (captured at page load) against the current session's email at submit, and rejects with a clear message on mismatch. The legitimate "Not you?" sign-out flow is unaffected since it does a full page reload</td>
+      <td><span class="status-badge">✅ Done</span></td>
+      <td class="followup-dash">—</td>
+      <td class="ref"><code>book/confirm/actions.ts</code><br>commit <code>90c4da3</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<footer>
+  Generated from FIX_LOG.md at the repo root. Convention: one row per request; Status/Follow-up are updated in place as items resolve.
+</footer>
+
+</body>
+</html>
