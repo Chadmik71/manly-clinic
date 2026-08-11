@@ -150,6 +150,23 @@ export async function createBooking(
 ): Promise<{ ok?: boolean; error?: string; reference?: string }> {
   const session = await auth();
 
+  // Session-change guard. The confirm page shows "Booked under {name}" using
+  // whatever session was active when the page rendered, and stamps that same
+  // email into a hidden _signedInEmail field. If a different account signs
+  // in on another tab of the same browser before this form is submitted,
+  // auth() above would silently pick up the NEW session — attributing the
+  // booking (and any health intake) to the wrong person with no warning.
+  // Only enforced when the page was rendered signed-in; a guest page load
+  // (empty _signedInEmail) imposes no constraint.
+  const expectedEmail = String(fd.get("_signedInEmail") ?? "").trim().toLowerCase();
+  const currentEmail = session?.user?.email?.toLowerCase() ?? "";
+  if (expectedEmail && expectedEmail !== currentEmail) {
+    return {
+      error:
+        "Your sign-in session changed while filling out this form. Please refresh the page and try again to make sure this booking is saved under the right account.",
+    };
+  }
+
   // Deposit verification — when feature flag is on, the booking confirm form
   // attaches a Stripe PaymentIntent ID to the FormData. We verify here that
   // the PaymentIntent has actually succeeded, paid the expected amount, and
