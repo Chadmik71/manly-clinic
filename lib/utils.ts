@@ -40,6 +40,7 @@ export function categoryLabel(c: string): string {
  * Accepts either { displayName, user: { name } } or { displayName, name }.
  */
 export type TherapistNameish = {
+  id?: string;
   displayName?: string | null;
   user?: { name: string | null } | null;
   name?: string | null;
@@ -50,11 +51,17 @@ function realName(t: TherapistNameish): string {
 }
 
 /**
- * Customer-facing label. Returns the slot/display name when set, else the
- * real human name as a graceful fallback for not-yet-relabelled therapists.
+ * Customer-facing label. Returns the slot/display name when set. Never
+ * falls back to the real name — the Add Therapist form doesn't collect a
+ * display name, so every newly added therapist starts in this fallback
+ * state until an admin sets one from the therapist's profile page. Falls
+ * back to a stable "Staff <ID>" tag instead so anonymisation holds even
+ * then, and the odd-looking tag nudges staff to set a proper label.
  */
 export function therapistPublicName(t: TherapistNameish): string {
-  return t.displayName?.trim() || realName(t);
+  const display = t.displayName?.trim();
+  if (display) return display;
+  return `Staff ${t.id ? t.id.slice(-4).toUpperCase() : "????"}`;
 }
 
 /**

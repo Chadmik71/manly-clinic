@@ -98,9 +98,12 @@ model Therapist {
   userId        String   @unique
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   bio           String?
-  // What customers see when picking a therapist (e.g. "Therapist 1").
-  // Falls back to user.name if null. Lets the clinic operate with rotating
-  // staff while keeping the customer-facing booking flow stable.
+  // What customers see when picking a therapist (e.g. "Staff 1"). Not
+  // collected on the Add Therapist form, so this is null by default for
+  // every new therapist — therapistPublicName() (lib/utils.ts) never falls
+  // back to the real name for customer-facing display, it uses a "Staff
+  // <ID>" placeholder instead until an admin sets this from the therapist's
+  // profile page.
   displayName   String?
   qualifications String? // free text, e.g. "Cert IV Massage Therapy, AAMT member"
   // Required on tax invoices for health-fund rebates
