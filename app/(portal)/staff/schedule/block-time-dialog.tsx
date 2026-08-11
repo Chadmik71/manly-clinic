@@ -66,6 +66,14 @@ export function BlockTimeDialog({
     setError(null);
   }
 
+  function openDialog() {
+    // Re-sync to the day currently being viewed — dateStr can have changed
+    // via the schedule's arrow/date-picker nav since this component mounted,
+    // and useState's initial value only runs once.
+    setDate(dateStr);
+    setOpen(true);
+  }
+
   function close() {
     setOpen(false);
     reset();
@@ -108,7 +116,7 @@ export function BlockTimeDialog({
 
   if (!open) {
     return (
-      <Button variant="outline" onClick={() => setOpen(true)}>
+      <Button variant="outline" onClick={openDialog}>
         <Ban className="h-4 w-4 mr-1.5" />
         Block time
       </Button>
