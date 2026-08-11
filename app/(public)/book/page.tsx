@@ -17,6 +17,7 @@ import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 import { ServiceVariantPicker } from "./variant-picker";
 import { SlotPicker } from "./slot-picker";
 import { CouplePicker } from "./couple-picker";
+import { DateTabs } from "./date-tabs";
 import { getDistinctSlotTimes } from "@/lib/booking";
 import { addDays, format, parseISO, isValid } from "date-fns";
 import { sydneyTodayISO } from "@/lib/time";
@@ -322,30 +323,12 @@ export default async function BookPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex gap-2 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1">
-              {days.map((d) => {
-                const iso = format(d, "yyyy-MM-dd");
-                const selected = dateISO === iso;
-                return (
-                  <Link
-                    key={iso}
-                    href={`/book?service=${service.slug}&variant=${
-                      variant?.id ?? ""
-                    }&date=${iso}`}
-                    className={`shrink-0 rounded-md border px-3 py-2 text-center text-sm transition-colors ${
-                      selected
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "hover:bg-accent"
-                    }`}
-                  >
-                    <div className="text-xs opacity-80">
-                      {format(d, "EEE")}
-                    </div>
-                    <div className="font-semibold">{format(d, "d MMM")}</div>
-                  </Link>
-                );
-              })}
-            </div>
+            <DateTabs
+              serviceSlug={service.slug}
+              variantId={variant?.id ?? ""}
+              dateISO={dateISO}
+              days={days.map((d) => format(d, "yyyy-MM-dd"))}
+            />
             {variant ? (
               <SlotPicker
                 slots={slots.map((s) => s.toISOString())}

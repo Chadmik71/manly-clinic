@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { WaitlistForm } from "./waitlist-form";
 
@@ -42,9 +43,16 @@ export function SlotPicker({
   waitlistEnabled?: boolean;
   waitlistPrefill?: { name?: string | null; email?: string | null };
 }) {
+  // Read the live URL, not just the server-rendered prop — right after
+  // CouplePicker's router.push updates the URL, this component still holds
+  // its old `partnerVariantId` prop until the server re-render commits, and
+  // a click in that window would otherwise silently drop the partner.
+  const searchParams = useSearchParams();
+  const currentPartnerId = searchParams.get("partner") ?? partnerVariantId ?? "";
+
   if (slots.length === 0) {
-    const partnerSuffix = partnerVariantId
-      ? `&partner=${partnerVariantId}`
+    const partnerSuffix = currentPartnerId
+      ? `&partner=${currentPartnerId}`
       : "";
     return (
       <div className="text-sm text-muted-foreground rounded-md border border-dashed p-6 text-center space-y-2">
@@ -82,8 +90,8 @@ export function SlotPicker({
     else groups[2].slots.push(iso);
   }
 
-  const partnerSuffix = partnerVariantId
-    ? `&partner=${partnerVariantId}`
+  const partnerSuffix = currentPartnerId
+    ? `&partner=${currentPartnerId}`
     : "";
 
   return (
