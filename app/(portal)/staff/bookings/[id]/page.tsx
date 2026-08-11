@@ -164,15 +164,18 @@ export default async function StaffBookingDetail({
   const _mm = _hmParts.find((p) => p.type === "minute")?.value ?? "00";
   const initialStartsAt = `${b.startsAt.toLocaleDateString("en-CA", { timeZone: SYDNEY_TZ })}T${_hh}:${_mm}`;
 
-  // Audit: staff viewed health information
-  if (intake) {
-    await audit({
-      userId: session.user.id,
-      action: "VIEW_HEALTH_INFO",
-      resource: `IntakeForm:${intake.id}`,
-      metadata: { booking: b.reference },
-    });
-  }
+  // Audit: staff viewed health information. Logged unconditionally — this
+  // page shows clinical notes, annotations, and contact details even for
+  // bookings whose client has no intake form on file, so the audit trail
+  // can't be gated on `intake` existing. Resource points at the booking
+  // (not the client's latest intake) so it can't drift onto a different
+  // visit's form; the intake id, if any, is carried in metadata instead.
+  await audit({
+    userId: session.user.id,
+    action: "VIEW_HEALTH_INFO",
+    resource: `Booking:${b.id}`,
+    metadata: { booking: b.reference, intakeFormId: intake?.id ?? null },
+  });
 
   return (
     <StaffShell
