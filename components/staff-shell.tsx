@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { CalendarDays, ListChecks, Users, Stethoscope, Settings, Wrench, LogOut, ChevronLeft, ChevronRight, Clock, BarChart3, Gift, UserCircle, LayoutGrid, Undo2, Bell } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -123,10 +124,12 @@ function shiftDateStr(dateStr: string, days: number): string {
 }
 
 export function DateNav({ date, basePath, extraQuery }: { date: Date; basePath: string; extraQuery?: string; }) {
+  const router = useRouter();
   const todayStr = sydneyDateStr(date);
   const yestStr = shiftDateStr(todayStr, -1);
   const tomStr = shiftDateStr(todayStr, 1);
   const todaySydney = sydneyDateStr(new Date());
+  const pickerRef = useRef<HTMLInputElement>(null);
 
   // Display the date — render it as Sydney-local
   const fmtParts = new Intl.DateTimeFormat("en-AU", {
@@ -138,15 +141,40 @@ export function DateNav({ date, basePath, extraQuery }: { date: Date; basePath: 
   }).format(date);
 
   const q = extraQuery ? `&${extraQuery}` : "";
+
+  function openPicker() {
+    const el = pickerRef.current;
+    if (!el) return;
+    if (typeof el.showPicker === "function") el.showPicker();
+    else el.focus();
+  }
+
   return (
     <div className="flex items-center gap-2">
       <Link href={`${basePath}?date=${yestStr}${q}`} className="grid h-7 w-7 place-items-center rounded-md hover:bg-accent text-muted-foreground" aria-label="Previous day">
         <ChevronLeft className="h-4 w-4" />
       </Link>
-      <span className="font-medium tabular-nums flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={openPicker}
+        className="relative font-medium tabular-nums flex items-center gap-1.5 rounded-md px-1.5 py-0.5 hover:bg-accent"
+        aria-label="Jump to date"
+        title="Pick a date"
+      >
         <Clock className="h-3.5 w-3.5 text-muted-foreground" />
         {fmtParts}
-      </span>
+        <input
+          ref={pickerRef}
+          type="date"
+          value={todayStr}
+          onChange={(e) => {
+            if (e.target.value) router.push(`${basePath}?date=${e.target.value}${q}`);
+          }}
+          className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
+          aria-hidden="true"
+          tabIndex={-1}
+        />
+      </button>
       <Link href={`${basePath}?date=${tomStr}${q}`} className="grid h-7 w-7 place-items-center rounded-md hover:bg-accent text-muted-foreground" aria-label="Next day">
         <ChevronRight className="h-4 w-4" />
       </Link>
