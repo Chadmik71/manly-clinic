@@ -83,7 +83,7 @@ const schema = z.object({
 // Server-side client search for the booking-create form. Mirrors the
 // /staff/clients page search shape (token-split AND-of-OR over name +
 // email + phone-digits + externalId + suburb + postcode + notes + booking
-// reference + health-fund member number) so the two surfaces feel
+// reference) so the two surfaces feel
 // identical to the admin. The page used to preload `take: 500` rows and
 // filter in the browser, but the clinic has ~4,200 imported clients (see
 // lib/phone.ts header) so most were unreachable.
@@ -128,7 +128,7 @@ export async function searchClients(
           { postcode: { contains: t } },
           { notes: { contains: t } },
           { bookings: { some: { reference: { contains: t.toUpperCase() } } } },
-          { intakeForms: { some: { healthFundMemberNumber: { contains: t } } } },
+          // No fund member number here: it is encrypted (lib/field-crypto.ts), so it can't be searched.
         ],
       };
     }),

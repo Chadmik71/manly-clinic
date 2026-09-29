@@ -32,7 +32,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
             { postcode: { contains: t } },
             { notes: { contains: t } },
             { bookings: { some: { reference: { contains: t.toUpperCase() } } } },
-            { intakeForms: { some: { healthFundMemberNumber: { contains: t } } } },
+            // No fund member number here: it is encrypted (lib/field-crypto.ts), so it can't be searched.
           ],
         };
       }),

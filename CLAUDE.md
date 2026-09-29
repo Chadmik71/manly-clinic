@@ -208,6 +208,8 @@ Reads, single-row writes/deletes, and `prisma db push` of additive (non-destruct
 
 - `lib/audit.ts` — append-only audit log; required on every staff data view
 
+- `lib/field-crypto.ts` — app-level AES-256-GCM encryption of health fields (intake, SOAP notes, signatures, GP details, fund member numbers), applied automatically by the Prisma extension in `lib/db.ts`. Key: `FIELD_ENCRYPTION_KEY` (different per environment; losing it loses the data)
+
 
 
 - `components/body-diagram.tsx` — front+back SVG silhouette client component (exports `BodyDiagram`)
@@ -362,6 +364,8 @@ The 3 columns above were pushed to production on 2026-05-30 (`prisma db push` re
 - **`next-themes` script-tag warning** is a known React 19 vs next-themes 0.4.x compat gap. Dev-only console noise; non-fatal. `<html suppressHydrationWarning>` already handles the actual hydration mismatch — don't chase the warning until next-themes ships a fix.
 
 
+
+- **Encrypted health fields can't be searched or filtered by value.** Anything in `ENCRYPTED_FIELDS` (`lib/field-crypto.ts`) is stored as `enc1:...`, so `contains`/equality filters on it never match (`{ not: null }` still works). Scripts that use their own `new PrismaClient()` see the raw `enc1:` values and write plain text; run `npx tsx scripts/encrypt-health-fields.ts` (dry run) afterwards to catch anything unencrypted.
 
 - **Auth middleware lives in `proxy.ts`** (renamed for Next.js 16 — the file convention used to be `middleware.ts`).
 
