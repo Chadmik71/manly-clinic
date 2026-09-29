@@ -31,6 +31,9 @@ export function SignaturePad({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const lastPt = useRef<{ x: number; y: number } | null>(null);
+  // Ref as well as state: a very quick stroke can end before React
+  // re-renders, and the end handler must still see that ink was drawn.
+  const hasInk = useRef(false);
   const [isEmpty, setIsEmpty] = useState(true);
 
   // HiDPI-aware canvas setup. Sets the bitmap size to width*dpr so
@@ -52,9 +55,19 @@ export function SignaturePad({
     ctx.strokeStyle = "#0f172a";
   }, [width, height]);
 
-  function pointerPos(e: React.PointerEvent<HTMLCanvasElement>) {
+  // The drawing space is always width x height, but the canvas is shown at
+  // width: 100%, so on phones/tablets it's squeezed narrower. Scale the
+  // pointer position into drawing space, or strokes land left of the finger.
+  function toCanvas(clientX: number, clientY: number) {
     const rect = canvasRef.current!.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    return {
+      x: ((clientX - rect.left) * width) / rect.width,
+      y: ((clientY - rect.top) * height) / rect.height,
+    };
+  }
+
+  function pointerPos(e: React.PointerEvent<HTMLCanvasElement>) {
+    return toCanvas(e.clientX, e.clientY);
   }
 
   function start(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -69,12 +82,22 @@ export function SignaturePad({
     if (!drawing.current) return;
     e.preventDefault();
     const ctx = canvasRef.current!.getContext("2d")!;
-    const pt = pointerPos(e);
+    // Browsers batch fast touch/pen movement into one event; the coalesced
+    // list holds every intermediate point, so fast strokes stay smooth.
+    const native = e.nativeEvent;
+    const samples =
+      typeof native.getCoalescedEvents === "function" && native.getCoalescedEvents().length > 0
+        ? native.getCoalescedEvents()
+        : [native];
     ctx.beginPath();
     ctx.moveTo(lastPt.current!.x, lastPt.current!.y);
-    ctx.lineTo(pt.x, pt.y);
+    for (const s of samples) {
+      const pt = toCanvas(s.clientX, s.clientY);
+      ctx.lineTo(pt.x, pt.y);
+      lastPt.current = pt;
+    }
     ctx.stroke();
-    lastPt.current = pt;
+    hasInk.current = true;
     if (isEmpty) setIsEmpty(false);
   }
 
@@ -88,7 +111,7 @@ export function SignaturePad({
       // releasePointerCapture throws if pointerId was never captured;
       // safe to ignore.
     }
-    if (!isEmpty) {
+    if (hasInk.current) {
       onChange(canvasRef.current!.toDataURL("image/png"));
     }
   }
@@ -108,6 +131,7 @@ export function SignaturePad({
     ctx.lineJoin = "round";
     ctx.lineWidth = 2;
     ctx.strokeStyle = "#0f172a";
+    hasInk.current = false;
     setIsEmpty(true);
     onChange(null);
   }

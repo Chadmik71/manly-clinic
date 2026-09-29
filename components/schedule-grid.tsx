@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
@@ -11,6 +11,8 @@ import {
   BookingDetailsDialog,
   type BookingPreview,
 } from "@/app/(portal)/staff/schedule/booking-details-dialog";
+import { MoveBookingDialog } from "@/app/(portal)/staff/schedule/move-booking-dialog";
+import { updateBookingDetails } from "@/app/(portal)/staff/bookings/[id]/actions";
 
 const DAY_START_HOUR = 8;
 const DAY_END_HOUR = 21; // exclusive
@@ -29,7 +31,7 @@ type Booking = {
   status: string;
   priceCentsAtBooking: number;
   service: { name: string; category: string };
-  variant: { durationMin: number };
+  variant: { id: string; durationMin: number };
   client: { id: string; name: string; phone: string | null };
   therapistId: string | null;
   /** True if the client has no prior CONFIRMED/COMPLETED bookings — this is
@@ -130,6 +132,165 @@ export function ScheduleGrid({
   const dayStartMin = DAY_START_HOUR * 60;
   const dayEndMin = DAY_END_HOUR * 60;
 
+  // ---- Drag a booking card to another staff column / time ----------------
+  // Mouse: press and move. Touch/pen: press and hold ~0.45 s, then move (a
+  // quick swipe still scrolls). Drop opens a confirmation; the move itself
+  // goes through updateBookingDetails, the same checks as "Edit appointment".
+  type DragTarget = { therapistId: string; startMin: number };
+  type DragState = {
+    booking: Booking;
+    fromTherapistId: string;
+    pointerId: number;
+    pointerType: string;
+    startX: number;
+    startY: number;
+    grabOffsetY: number;
+    active: boolean;
+    target: DragTarget | null;
+  };
+  const dragRef = useRef<DragState | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const longPress = useRef<number | null>(null);
+  const suppressClick = useRef(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [pendingMove, setPendingMove] = useState<{ booking: Booking; fromTherapistId: string; target: DragTarget } | null>(null);
+  const therapistName = (id: string | null) => therapists.find((t) => t.id === id)?.name ?? "Unassigned";
+
+  const canDrag = (b: Booking) => !!dateStr && (b.status === "PENDING" || b.status === "CONFIRMED");
+
+  function dropTargetAt(clientX: number, clientY: number, d: DragState): DragTarget | null {
+    const col = document
+      .elementsFromPoint(clientX, clientY)
+      .find((el) => (el as HTMLElement).dataset?.therapistCol) as HTMLElement | undefined;
+    if (!col) return null;
+    const rect = col.getBoundingClientRect();
+    const raw = dayStartMin + (clientY - d.grabOffsetY - rect.top) / MIN_PX;
+    const snapped = Math.round(raw / 15) * 15;
+    const latest = dayEndMin - d.booking.variant.durationMin;
+    return {
+      therapistId: col.dataset.therapistCol!,
+      startMin: Math.max(dayStartMin, Math.min(latest, snapped)),
+    };
+  }
+
+  function clearLongPress() {
+    if (longPress.current != null) {
+      window.clearTimeout(longPress.current);
+      longPress.current = null;
+    }
+  }
+
+  function activateDrag(el: HTMLElement) {
+    const d = dragRef.current;
+    if (!d) return;
+    d.active = true;
+    try {
+      el.setPointerCapture(d.pointerId);
+    } catch {
+      // pointer already released
+    }
+    setDrag({ ...d });
+  }
+
+  function onCardPointerDown(e: React.PointerEvent<HTMLElement>, b: Booking, fromTherapistId: string) {
+    if (e.button !== 0 || !canDrag(b)) return;
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    dragRef.current = {
+      booking: b,
+      fromTherapistId,
+      pointerId: e.pointerId,
+      pointerType: e.pointerType,
+      startX: e.clientX,
+      startY: e.clientY,
+      grabOffsetY: e.clientY - rect.top,
+      active: false,
+      target: null,
+    };
+    if (e.pointerType !== "mouse") {
+      clearLongPress();
+      longPress.current = window.setTimeout(() => activateDrag(card), 450);
+    }
+  }
+
+  function onCardPointerMove(e: React.PointerEvent<HTMLElement>) {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    if (!d.active) {
+      const dist = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
+      if (d.pointerType === "mouse") {
+        if (dist > 6) activateDrag(e.currentTarget);
+        else return;
+      } else {
+        // Finger moved before the long-press: it's a scroll, not a drag.
+        if (dist > 10) {
+          clearLongPress();
+          dragRef.current = null;
+        }
+        return;
+      }
+    }
+    e.preventDefault();
+    d.target = dropTargetAt(e.clientX, e.clientY, d);
+    setDrag({ ...d });
+  }
+
+  function endDrag(e: React.PointerEvent<HTMLElement>, cancelled: boolean) {
+    clearLongPress();
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d || e.pointerId !== d.pointerId) return;
+    setDrag(null);
+    if (!d.active) return;
+    // A drag must not also count as a click that opens the pop-up.
+    suppressClick.current = true;
+    window.setTimeout(() => (suppressClick.current = false), 50);
+    if (cancelled || !d.target) return;
+    const origStart = minutesFromMidnight(d.booking.startsAt);
+    if (d.target.therapistId === d.fromTherapistId && d.target.startMin === origStart) return;
+    setPendingMove({ booking: d.booking, fromTherapistId: d.fromTherapistId, target: d.target });
+  }
+
+  // While a touch drag is active, stop the page from scrolling under it.
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const onTouchMove = (ev: TouchEvent) => {
+      if (dragRef.current?.active) ev.preventDefault();
+    };
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", onTouchMove);
+  }, []);
+
+  // The server refuses clashes and blocked-off time, but not a time outside
+  // the staff member's shift (staff may be covering), so flag it here.
+  function shiftWarning(target: DragTarget, durationMin: number): string | null {
+    const t = therapists.find((x) => x.id === target.therapistId);
+    if (!t) return null;
+    const end = target.startMin + durationMin;
+    if (!t.isWorking) return `${t.name} isn't rostered on this day.`;
+    if ((t.startMin != null && target.startMin < t.startMin) || (t.endMin != null && end > t.endMin)) {
+      return `This is outside ${t.name}'s working hours.`;
+    }
+    return null;
+  }
+
+  async function confirmMove(): Promise<{ error?: string }> {
+    if (!pendingMove || !dateStr) return { error: "Nothing to move." };
+    const { booking, target } = pendingMove;
+    const hh = String(Math.floor(target.startMin / 60)).padStart(2, "0");
+    const mm = String(target.startMin % 60).padStart(2, "0");
+    const res = await updateBookingDetails(booking.id, {
+      startsAt: `${dateStr}T${hh}:${mm}`,
+      therapistId: target.therapistId,
+      variantId: booking.variant.id,
+    });
+    if (res.error) return { error: res.error };
+    setPendingMove(null);
+    router.refresh();
+    return {};
+  }
+
   // Per-therapist day stats: how booked they are (utilisation %) and where the
   // open bookable gaps are. Computed once and shared by the header (badge) and
   // the body columns (gap markers). Cancelled/no-show bookings don't occupy
@@ -228,7 +389,10 @@ export function ScheduleGrid({
   }
 
   return (
-    <div className="border rounded-md bg-card overflow-hidden">
+    <div
+      ref={gridRef}
+      className={`border rounded-md bg-card overflow-hidden ${drag?.active ? "cursor-grabbing select-none" : ""}`}
+    >
       <div className="overflow-x-auto overflow-y-hidden">
         <div
           className="grid"
@@ -321,7 +485,8 @@ export function ScheduleGrid({
             return (
               <div
                 key={t.id}
-                className={`relative border-r last:border-r-0 ${dateStr && t.isWorking ? "cursor-pointer" : ""}`}
+                data-therapist-col={t.id}
+                className={`relative border-r last:border-r-0 ${dateStr && t.isWorking ? "cursor-pointer" : ""} ${drag?.active && drag.target?.therapistId === t.id ? "bg-primary/5" : ""}`}
                 onClick={(e) => handleColumnClick(e, t)}
                 style={{
                   height: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_PX}px`,
@@ -454,6 +619,20 @@ export function ScheduleGrid({
                     );
                   })}
 
+                {/* Where the dragged booking will land in this column. */}
+                {drag?.active && drag.target?.therapistId === t.id && (
+                  <div
+                    className="absolute left-1 right-1 z-20 rounded-md border-2 border-dashed border-primary bg-primary/15 pointer-events-none p-2 text-[12px] font-semibold text-primary"
+                    style={{
+                      top: `${(drag.target.startMin - dayStartMin) * MIN_PX}px`,
+                      height: `${drag.booking.variant.durationMin * MIN_PX}px`,
+                    }}
+                  >
+                    {minToLabel(drag.target.startMin)} – {minToLabel(drag.target.startMin + drag.booking.variant.durationMin)}
+                    <div className="font-normal">→ {t.name}</div>
+                  </div>
+                )}
+
                 {ts.map((b) => {
                   const startMin = minutesFromMidnight(b.startsAt);
                   const top = (startMin - dayStartMin) * MIN_PX;
@@ -461,10 +640,11 @@ export function ScheduleGrid({
                   if (top + height < 0 || top > (dayEndMin - dayStartMin) * MIN_PX) return null;
                   const c = paletteFor(b.service.category, b.status);
                   const cancelled = b.status === "CANCELLED" || b.status === "NO_SHOW";
+                  const beingDragged = drag?.active && drag.booking.id === b.id;
                   return (
                     <div
                       key={b.id}
-                      className={`absolute left-1 right-1 ${cancelled ? "opacity-60" : ""}`}
+                      className={`absolute left-1 right-1 ${cancelled ? "opacity-60" : ""} ${beingDragged ? "opacity-40" : ""}`}
                       style={{
                         top: `${top + 1}px`,
                         height: `${height - 2}px`,
@@ -472,7 +652,18 @@ export function ScheduleGrid({
                     >
                       <Link
                         href={`/staff/bookings/${b.id}`}
+                        draggable={false}
+                        onDragStart={(e) => e.preventDefault()}
+                        onPointerDown={(e) => onCardPointerDown(e, b, t.id)}
+                        onPointerMove={onCardPointerMove}
+                        onPointerUp={(e) => endDrag(e, false)}
+                        onPointerCancel={(e) => endDrag(e, true)}
+                        title={canDrag(b) ? "Click for details · drag to move" : undefined}
                         onClick={(e) => {
+                          if (suppressClick.current) {
+                            e.preventDefault();
+                            return;
+                          }
                           // Plain click opens the pop-up; Ctrl/Cmd/Shift/middle
                           // click still opens the full page in a new tab.
                           if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
@@ -557,6 +748,17 @@ export function ScheduleGrid({
         <BookingDetailsDialog
           preview={openBooking}
           onClose={() => setOpenBooking(null)}
+        />
+      )}
+      {pendingMove && (
+        <MoveBookingDialog
+          clientName={pendingMove.booking.client.name}
+          serviceLabel={`${pendingMove.booking.variant.durationMin} min ${pendingMove.booking.service.name}`}
+          fromLabel={`${therapistName(pendingMove.fromTherapistId)}, ${sydneyTimeShort(pendingMove.booking.startsAt)}`}
+          toLabel={`${therapistName(pendingMove.target.therapistId)}, ${minToLabel(pendingMove.target.startMin)}`}
+          warning={shiftWarning(pendingMove.target, pendingMove.booking.variant.durationMin)}
+          onConfirm={confirmMove}
+          onClose={() => setPendingMove(null)}
         />
       )}
     </div>
