@@ -195,6 +195,7 @@ export function ConfirmForm({
   // mounted under a `hidden` wrapper so pre-filled allergies/injuries
   // still submit even if the customer never expands the card.
   const [safetyFloorOpen, setSafetyFloorOpen] = useState(false);
+  const [sameAsLast, setSameAsLast] = useState(false);
   const [voucherOpen, setVoucherOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   // Body-diagram selection. Pre-fills from the most recent intake so
@@ -366,6 +367,38 @@ export function ConfirmForm({
       ? 'pregnancy'
       : 'safety';
 
+  // "Nothing has changed" shortcut for returning customers: hides the
+  // medical sections (they stay mounted, pre-filled, and are submitted as a
+  // fresh intake for this visit) and jumps to consent + signature. Offered
+  // only when the last form has every required answer, so a hidden
+  // required field can never block the submit.
+  const filled = (v: string | null | undefined) => !!v && v.trim().length > 0;
+  const canSkipIntake =
+    intakeMode === "full" &&
+    !isGuest &&
+    !!intakeDefaults &&
+    filled(intakeDefaults.medicalConditions) &&
+    filled(intakeDefaults.medications) &&
+    filled(intakeDefaults.allergies) &&
+    filled(intakeDefaults.injuries) &&
+    filled(intakeDefaults.emergencyContactName) &&
+    filled(intakeDefaults.emergencyContactPhone);
+  const fundOnFile =
+    !!intakeDefaults &&
+    filled(intakeDefaults.healthFundName) &&
+    filled(intakeDefaults.healthFundMemberNumber) &&
+    filled(intakeDefaults.reasonForTreatment);
+  const hideIntake = canSkipIntake && sameAsLast;
+  // The fund card also hides, unless this claim still needs fund details.
+  const hideFund = hideIntake && (!claiming || fundOnFile);
+
+  function chooseSameAsLast() {
+    setSameAsLast(true);
+    window.setTimeout(() => {
+      document.getElementById("consent-and-sign")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
+
   return (
     <form ref={formRef} onSubmit={onSubmit} className="space-y-5">
       {depositsActive && (
@@ -429,6 +462,51 @@ export function ConfirmForm({
         </Card>
       )}
 
+      {canSkipIntake && (
+        <Card className="border-primary/40">
+          <CardContent className="py-5 space-y-3">
+            {!sameAsLast ? (
+              <>
+                <div>
+                  <p className="font-semibold">Welcome back! Has anything changed with your health?</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    We have your health form from last time: medical history, medications,
+                    allergies, injuries and emergency contact. If nothing has changed, skip
+                    straight to signing.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button type="button" onClick={chooseSameAsLast} className="h-auto min-h-10 whitespace-normal py-2">
+                    Nothing has changed, go to signature
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setSameAsLast(false)} className="h-auto min-h-10 whitespace-normal py-2" asChild>
+                    <a href="#patient-details">Something has changed, let me update</a>
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold">✓ Using your health form from last time</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    By signing below you confirm it&rsquo;s still accurate today.
+                    {claiming && fundOnFile && intakeDefaults?.healthFundName
+                      ? ` Claiming with ${intakeDefaults.healthFundName}.`
+                      : ""}
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSameAsLast(false)}>
+                  Review or change
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Medical sections. Hidden (but still submitted, pre-filled) when a
+          returning customer confirms nothing has changed. */}
+      <div id="patient-details" hidden={hideIntake} className="space-y-5 scroll-mt-20">
       {/* 1. Patient details (hidden for relaxation / safety services) */}
       {intakeMode !== "safety" && (<Card>
         <SectionHeader
@@ -863,9 +941,11 @@ export function ConfirmForm({
       </Card>
       )}
 
+      </div>
+
       {/* 8. Health fund (optional) */}
       {serviceHealthFundEligible && (
-        <Card>
+        <Card hidden={hideFund}>
           <SectionHeader step={stepNo(8)} title="Health fund / private insurance" />
           <CardContent className="pb-5 pt-4 space-y-3">
             <Badge variant="success" className="w-fit">
@@ -1096,7 +1176,7 @@ export function ConfirmForm({
       </Card>
 
       {/* 11 (or 10). Consent */}
-      <Card id="consent-and-sign">
+      <Card id="consent-and-sign" className="scroll-mt-20">
         <SectionHeader
           step={stepNo(lastClinicalStep)}
           title="Consent"
