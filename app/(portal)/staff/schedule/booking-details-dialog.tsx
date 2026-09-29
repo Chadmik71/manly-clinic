@@ -259,13 +259,13 @@ export function BookingDetailsDialog({
             </Button>
           )}
           <Button size="sm" variant="outline" asChild>
-            <Link href={`/staff/clients/${preview.clientId}`}>
+            <Link href={`/staff/clients/${preview.clientId}`} target="_blank" rel="noopener">
               <User className="h-4 w-4 mr-1" />
               Client record
             </Link>
           </Button>
           <Button size="sm" variant="outline" asChild>
-            <Link href={`/staff/bookings/${preview.id}`}>
+            <Link href={`/staff/bookings/${preview.id}`} target="_blank" rel="noopener">
               <ExternalLink className="h-4 w-4 mr-1" />
               Open full booking
             </Link>
