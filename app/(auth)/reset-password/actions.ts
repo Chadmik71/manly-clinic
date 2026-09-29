@@ -23,7 +23,7 @@ export async function resetPassword(
     return { error: "Password must be at least 8 characters." };
   }
 
-  const result = verifyResetToken(parsed.data.token);
+  const result = await verifyResetToken(parsed.data.token);
   if ("error" in result) return { error: result.error };
 
   const user = await db.user.findUnique({
@@ -32,11 +32,17 @@ export async function resetPassword(
   });
   if (!user) return { error: "Account not found." };
 
+  // Only write if the password hash is still the one the link was checked
+  // against: if the same link was submitted twice at once, the second
+  // write matches nothing. See lib/reset-token.ts.
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
-  await db.user.update({
-    where: { id: user.id },
+  const { count } = await db.user.updateMany({
+    where: { id: user.id, passwordHash: result.passwordHash },
     data: { passwordHash },
   });
+  if (count === 0) {
+    return { error: "This reset link has already been used. Please request a new one." };
+  }
 
   await audit({
     userId: user.id,

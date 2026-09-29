@@ -38,7 +38,7 @@ export async function requestPasswordReset(
   }
 
   // Issue a 30-minute HMAC token and email the link.
-  const token = signResetToken(user.id);
+  const token = signResetToken(user.id, user.passwordHash);
   const link = `${CLINIC.domain}/reset-password?token=${encodeURIComponent(token)}`;
 
   const apiKey = process.env.RESEND_API_KEY;

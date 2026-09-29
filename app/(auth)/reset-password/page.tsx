@@ -19,7 +19,7 @@ export default async function ResetPasswordPage({
 }) {
   const sp = await searchParams;
   const token = sp.token ?? "";
-  const result = token ? verifyResetToken(token) : { error: "Missing token." };
+  const result = token ? await verifyResetToken(token) : { error: "Missing token." };
 
   if ("error" in result) {
     return (
