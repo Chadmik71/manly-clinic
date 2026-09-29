@@ -289,7 +289,6 @@ export async function createBooking(
       resource: `User:${merge.userId}`,
       metadata: {
         matchedBy: merge.matchedBy,
-        upgradedEmail: merge.upgradedEmail,
       },
     });
   }

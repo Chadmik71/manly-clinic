@@ -11,9 +11,13 @@
 //  2. Phone match — only if exactly one user has that phone (non-unique
 //     column means we can have collisions, in which case we prefer to
 //     create a new record rather than risk linking the wrong person).
-//  3. If we matched by phone and the stored email is synthetic (imported
-//     placeholder), upgrade it to the guest's real email — this lights
-//     up forgot-password for them later.
+//  3. Patch missing name/phone only. The stored email is NEVER replaced
+//     here, even an imported placeholder: a phone match plus a typed email
+//     isn't proof of identity, and moving the email would let anyone who
+//     knows a client's mobile number reset their password and read their
+//     health record. Staff add real emails in person instead (Online account
+//     box + invite, app/(portal)/staff/clients/account-actions.ts). The
+//     booking confirmation still goes to the email the guest typed.
 //  4. No match → create a new user with an unguessable placeholder hash;
 //     they'll set a real password via forgot-password if they ever want
 //     to log in.
@@ -22,13 +26,10 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 
-const SYNTHETIC_EMAIL_RE = /^imported-.*@manlyremedialthai\.com\.au$/i;
-
 export type MergeResult = {
   userId: string;
   isNew: boolean;
   matchedBy: "email" | "phone" | null;
-  upgradedEmail: boolean;
 };
 
 export async function findOrCreateUserForGuest(input: {
@@ -60,29 +61,15 @@ export async function findOrCreateUserForGuest(input: {
   }
 
   if (user) {
-    // 3. Patch missing fields. Never overwrite real data the user already has;
-    //    do replace synthetic email when we matched by phone.
+    // 3. Patch missing fields only; never overwrite what the record has
+    //    (the email in particular, see the header comment).
     const patch: Record<string, unknown> = {};
     if (!user.phone && phone) patch.phone = phone;
     if (!user.name && name) patch.name = name;
-    let upgradedEmail = false;
-    if (
-      matchedBy === "phone" &&
-      SYNTHETIC_EMAIL_RE.test(user.email) &&
-      emailLower &&
-      !SYNTHETIC_EMAIL_RE.test(emailLower)
-    ) {
-      // Make sure no other user already owns this email before we move it.
-      const collision = await db.user.findUnique({ where: { email: emailLower } });
-      if (!collision) {
-        patch.email = emailLower;
-        upgradedEmail = true;
-      }
-    }
     if (Object.keys(patch).length > 0) {
       await db.user.update({ where: { id: user.id }, data: patch });
     }
-    return { userId: user.id, isNew: false, matchedBy, upgradedEmail };
+    return { userId: user.id, isNew: false, matchedBy };
   }
 
   // 4. No match — create. Random placeholder hash so they can't log in
@@ -104,6 +91,5 @@ export async function findOrCreateUserForGuest(input: {
     userId: created.id,
     isNew: true,
     matchedBy: null,
-    upgradedEmail: false,
   };
 }
