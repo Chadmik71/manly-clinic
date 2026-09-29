@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { formatPrice, therapistInternalName } from "@/lib/utils";
+import { isPlaceholderEmail } from "@/lib/placeholder-email";
+import { ClientAccountSection } from "@/components/client-account-card";
 
 // Sydney calendar time for booking.startsAt (UTC in DB; Vercel runs in UTC).
 const SYD_DATE_TIME = new Intl.DateTimeFormat("en-AU", {
@@ -81,7 +83,7 @@ export default async function ClientProfile({
             <Row
               label="Email"
               value={
-                client.email.endsWith("@clinic.local") ? (
+                isPlaceholderEmail(client.email) ? (
                   <span className="text-muted-foreground italic">no email on file</span>
                 ) : (
                   client.email
@@ -112,6 +114,13 @@ export default async function ClientProfile({
                 <p className="whitespace-pre-wrap mt-1">{client.notes}</p>
               </div>
             )}
+            <div className="pt-3 mt-3 border-t">
+              <ClientAccountSection
+                clientId={client.id}
+                email={client.email}
+                hasRealEmail={!isPlaceholderEmail(client.email)}
+              />
+            </div>
           </CardContent>
         </Card>
 

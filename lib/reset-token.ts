@@ -41,10 +41,19 @@ function sign(payloadB64: string, passwordHash: string): string {
     .digest("base64url");
 }
 
-export function signResetToken(userId: string, passwordHash: string): string {
+/**
+ * `expirySeconds` defaults to 30 minutes for self-service resets. Staff
+ * portal invites use a longer window, since the client may not open the
+ * email the same day; the link is still single-use (see above).
+ */
+export function signResetToken(
+  userId: string,
+  passwordHash: string,
+  expirySeconds: number = EXPIRY_SECONDS,
+): string {
   const payload: Payload = {
     uid: userId,
-    exp: Math.floor(Date.now() / 1000) + EXPIRY_SECONDS,
+    exp: Math.floor(Date.now() / 1000) + expirySeconds,
     v: TOKEN_VERSION,
   };
   const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");

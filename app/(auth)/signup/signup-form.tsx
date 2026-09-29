@@ -11,11 +11,15 @@ import { Label } from "@/components/ui/label";
 export function SignupForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  // Clients booked in by staff (or imported) already have an account without
+  // a password; point them at "set your password" instead of a dead end.
+  const [accountExists, setAccountExists] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setAccountExists(false);
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const password = String(fd.get("password") ?? "");
@@ -48,6 +52,11 @@ export function SignupForm() {
     });
 
     if (!res.ok) {
+      if (res.status === 409) {
+        setAccountExists(true);
+        setLoading(false);
+        return;
+      }
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       setError(data?.error ?? "Could not create account.");
       setLoading(false);
@@ -113,6 +122,18 @@ export function SignupForm() {
       </label>
       {error && (
         <p className="text-sm text-destructive" role="alert">{error}</p>
+      )}
+      {accountExists && (
+        <div className="rounded-md border border-primary/40 bg-primary/5 p-3 text-sm" role="alert">
+          <p className="font-medium">You already have an account with us.</p>
+          <p className="text-muted-foreground mt-1">
+            If we booked you in over the phone or at the clinic, your account was set up
+            for you. Choose a password to start using it.
+          </p>
+          <Link href="/forgot-password" className="inline-block mt-2 text-primary font-medium hover:underline">
+            Set your password →
+          </Link>
+        </div>
       )}
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? "Creating…" : "Create account"}

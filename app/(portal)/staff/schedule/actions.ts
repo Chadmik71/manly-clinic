@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getAvailableSlots } from "@/lib/booking";
 import { audit } from "@/lib/audit";
+import { isPlaceholderEmail } from "@/lib/placeholder-email";
 
 /**
  * Walk-in finder — for when a customer is standing at the counter asking
@@ -160,7 +161,8 @@ export async function getBookingSummary(
       isCouple: b.coupleGroupId != null,
       notes: b.notes,
       cancelReason: b.cancelReason,
-      client: b.client,
+      // Placeholder addresses (no real email on file) aren't worth showing.
+      client: { ...b.client, email: isPlaceholderEmail(b.client.email) ? "" : b.client.email },
     },
   };
 }

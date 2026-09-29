@@ -3,6 +3,7 @@
 // throw — notifications are best-effort and must not block bookings.
 
 import { CLINIC } from "@/lib/clinic";
+import { isPlaceholderEmail } from "@/lib/placeholder-email";
 
 type EmailArgs = {
   /** Single recipient or array of recipients. Resend's API accepts either,
@@ -15,7 +16,14 @@ type EmailArgs = {
 };
 type SmsArgs = { to: string; body: string };
 
-async function sendEmail({ to, subject, html, text }: EmailArgs): Promise<void> {
+async function sendEmail({ to: rawTo, subject, html, text }: EmailArgs): Promise<void> {
+  // Never email made-up placeholder addresses (clients with no real email on
+  // file): they bounce, and bounces hurt the sender reputation.
+  const recipients = (Array.isArray(rawTo) ? rawTo : [rawTo]).filter(
+    (r) => !isPlaceholderEmail(r),
+  );
+  if (recipients.length === 0) return;
+  const to = Array.isArray(rawTo) ? recipients : recipients[0];
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM || `bookings@${CLINIC.mailDomain}`;
   if (!apiKey) {
@@ -361,6 +369,36 @@ Need to change it? ${CLINIC.domain}/portal/bookings`;
       body: `${CLINIC.name}: reminder ${args.serviceName} ${fmtShort(args.startsAt)}. Ref ${args.reference}.`,
     });
   }
+}
+
+/**
+ * Invite to set a password for the online portal. Sent by staff for clients
+ * whose account was created for them (phone booking, walk-in, old-system
+ * import), so they can book online with their medical form pre-filled.
+ */
+export async function notifyPortalInvite(args: {
+  email: string;
+  name: string;
+  link: string;
+  expiresHours: number;
+}): Promise<void> {
+  const subject = `Set up your ${CLINIC.name} online account`;
+  const text = `Hi ${args.name},
+
+You can now book online and see your appointments at ${CLINIC.name}. Your details and health form from your visit are already saved, so next time you only need to check them and sign.
+
+Choose a password here (the link works once and expires in ${args.expiresHours} hours):
+${args.link}
+
+If you didn't expect this email, you can ignore it.
+
+${CLINIC.name}
+${CLINIC.address.line1}, ${CLINIC.address.suburb}`;
+  const html = `<p>Hi ${escHtml(args.name)},</p>
+<p>You can now book online and see your appointments at ${escHtml(CLINIC.name)}. Your details and health form from your visit are already saved, so next time you only need to check them and sign.</p>
+<p><a href="${args.link}">Choose your password</a> (the link works once and expires in ${args.expiresHours} hours).</p>
+<p style="color:#64748b;font-size:12px">If you didn't expect this email, you can ignore it.<br/>${escHtml(CLINIC.name)}, ${escHtml(CLINIC.address.line1)}, ${escHtml(CLINIC.address.suburb)}</p>`;
+  await sendEmail({ to: args.email, subject, html, text });
 }
 
 /**

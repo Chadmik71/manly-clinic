@@ -28,6 +28,8 @@ import { EditInternalNotesForm } from "./edit-internal-notes-form";
 import { CompleteIntakeForm } from "./complete-intake-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
 import { diffIntakes } from "@/lib/intake-changes";
+import { isPlaceholderEmail } from "@/lib/placeholder-email";
+import { ClientAccountSection } from "@/components/client-account-card";
 import { BodyDiagram } from "@/components/body-diagram";
 import { zoneLabel } from "@/lib/body-diagram-zones";
 
@@ -336,6 +338,15 @@ export default async function StaffBookingDetail({
                 Open client profile →
               </Link>
             </div>
+            {b.client.role === "CLIENT" && (
+              <div className="pt-3 border-t">
+                <ClientAccountSection
+                  clientId={b.client.id}
+                  email={b.client.email}
+                  hasRealEmail={!isPlaceholderEmail(b.client.email)}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -350,9 +350,9 @@ export function NewBookingForm({
             <Label htmlFor="walkInEmail">Email (optional)</Label>
             <Input id="walkInEmail" name="walkInEmail" type="email" />
             <p className="text-xs text-muted-foreground">
-              If omitted, a synthetic placeholder email will be generated. The
-              client can later sign up using their real email to claim the
-              record.
+              Hard to get over the phone? Leave it blank. When the client
+              arrives, add it in the &ldquo;Online account&rdquo; box on their
+              booking and send them an invite to set up their account.
             </p>
           </div>
         </div>
