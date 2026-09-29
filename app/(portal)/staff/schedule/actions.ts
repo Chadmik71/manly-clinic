@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getAvailableSlots } from "@/lib/booking";
+import { audit } from "@/lib/audit";
 
 /**
  * Walk-in finder — for when a customer is standing at the counter asking
@@ -57,5 +58,109 @@ export async function findWalkinSlots(
       therapistId: s.therapistId,
       therapistName: nameById.get(s.therapistId) ?? "Therapist",
     })),
+  };
+}
+
+export type BookingSummary = {
+  id: string;
+  reference: string;
+  status: string;
+  startsAtIso: string;
+  endsAtIso: string;
+  serviceName: string;
+  durationMin: number;
+  priceCents: number;
+  paidCents: number;
+  voucherAppliedCents: number;
+  claimWithHealthFund: boolean;
+  isWalkIn: boolean;
+  isCouple: boolean;
+  notes: string | null;
+  cancelReason: string | null;
+  client: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    visitCount: number;
+    noShowCount: number;
+  };
+};
+
+/**
+ * Booking details for the calendar's pop-up. Deliberately no health
+ * information (intake, clinical notes): those stay on the full booking
+ * page, which has its own audit entry. This view is logged too.
+ */
+export async function getBookingSummary(
+  bookingId: string,
+): Promise<{ ok: true; booking: BookingSummary } | { ok: false; error: string }> {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "STAFF" && session.user.role !== "ADMIN")
+  ) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  const b = await db.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      id: true,
+      reference: true,
+      status: true,
+      startsAt: true,
+      endsAt: true,
+      priceCentsAtBooking: true,
+      paidCents: true,
+      voucherAppliedCents: true,
+      claimWithHealthFund: true,
+      isWalkIn: true,
+      coupleGroupId: true,
+      notes: true,
+      cancelReason: true,
+      service: { select: { name: true } },
+      variant: { select: { durationMin: true } },
+      client: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          visitCount: true,
+          noShowCount: true,
+        },
+      },
+    },
+  });
+  if (!b) return { ok: false, error: "Booking not found." };
+
+  await audit({
+    userId: session.user.id,
+    action: "VIEW_BOOKING_SUMMARY",
+    resource: `Booking:${b.id}`,
+    metadata: { booking: b.reference },
+  });
+
+  return {
+    ok: true,
+    booking: {
+      id: b.id,
+      reference: b.reference,
+      status: b.status,
+      startsAtIso: b.startsAt.toISOString(),
+      endsAtIso: b.endsAt.toISOString(),
+      serviceName: b.service.name,
+      durationMin: b.variant.durationMin,
+      priceCents: b.priceCentsAtBooking,
+      paidCents: b.paidCents,
+      voucherAppliedCents: b.voucherAppliedCents,
+      claimWithHealthFund: b.claimWithHealthFund,
+      isWalkIn: b.isWalkIn,
+      isCouple: b.coupleGroupId != null,
+      notes: b.notes,
+      cancelReason: b.cancelReason,
+      client: b.client,
+    },
   };
 }

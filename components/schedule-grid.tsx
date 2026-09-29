@@ -1,11 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
 import { formatPrice } from "@/lib/utils";
 import { TherapistQuickActions } from "@/components/therapist-quick-actions";
 import { BookingQuickActions } from "@/app/(portal)/staff/schedule/quick-actions";
+import {
+  BookingDetailsDialog,
+  type BookingPreview,
+} from "@/app/(portal)/staff/schedule/booking-details-dialog";
 
 const DAY_START_HOUR = 8;
 const DAY_END_HOUR = 21; // exclusive
@@ -115,6 +120,7 @@ export function ScheduleGrid({
   ) => Promise<{ ok?: boolean; error?: string }>;
 }) {
   const router = useRouter();
+  const [openBooking, setOpenBooking] = useState<BookingPreview | null>(null);
   const dayStartMin = DAY_START_HOUR * 60;
   const dayEndMin = DAY_END_HOUR * 60;
 
@@ -460,6 +466,25 @@ export function ScheduleGrid({
                     >
                       <Link
                         href={`/staff/bookings/${b.id}`}
+                        onClick={(e) => {
+                          // Plain click opens the pop-up; Ctrl/Cmd/Shift/middle
+                          // click still opens the full page in a new tab.
+                          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                          e.preventDefault();
+                          setOpenBooking({
+                            id: b.id,
+                            startsAt: b.startsAt,
+                            endsAt: b.endsAt,
+                            status: b.status,
+                            priceCents: b.priceCentsAtBooking,
+                            serviceName: b.service.name,
+                            durationMin: b.variant.durationMin,
+                            clientId: b.client.id,
+                            clientName: b.client.name,
+                            clientPhone: b.client.phone,
+                            therapistName: t.name,
+                          });
+                        }}
                         className="absolute inset-0 rounded-md p-2 text-[12px] leading-snug overflow-hidden border-l-[6px] shadow-sm hover:shadow-md transition-shadow block"
                         style={{
                           background: `hsl(var(--bk-${c}-bg))`,
@@ -506,6 +531,12 @@ export function ScheduleGrid({
           })}
         </div>
       </div>
+      {openBooking && (
+        <BookingDetailsDialog
+          preview={openBooking}
+          onClose={() => setOpenBooking(null)}
+        />
+      )}
     </div>
   );
 }
