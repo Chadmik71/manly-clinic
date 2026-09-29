@@ -1,31 +1,35 @@
 import { NextResponse } from "next/server";
-import { addHours, subHours } from "date-fns";
+import { subHours } from "date-fns";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { notifyBookingReminder } from "@/lib/notify";
 import { requireCronAuth } from "@/lib/cron-auth";
 import { withDbRetry } from "@/lib/db-retry";
+import { sydneyDateOf, sydneyDayBoundsUtc, sydneyTodayISO } from "@/lib/time";
 
-// Sends reminders for bookings starting between [now+23h, now+25h] that
-// haven't already been reminded (we use a metadata flag in AuditLog).
+// Sends a reminder for every booking on tomorrow's Sydney date that hasn't
+// already been reminded (REMINDER_SENT in AuditLog). Runs once a day in the
+// evening: the Vercel Hobby plan only allows daily cron jobs, so the old
+// "every 15 min, bookings 23-25h away" window would have skipped most of them.
 //
 // Auth: fails closed without CRON_SECRET. Vercel Cron injects
 // `Authorization: Bearer <CRON_SECRET>` automatically; manual / external
 // schedulers can also pass `?secret=<CRON_SECRET>`. See lib/cron-auth.ts.
 //
-// Trigger: scheduled via vercel.json crons block (every 15 min).
+// Trigger: vercel.json crons block, daily at 07:00 UTC (5 pm AEST / 6 pm AEDT).
+// Safe to re-run: already-reminded bookings are skipped.
 export async function GET(req: Request) {
   const unauth = requireCronAuth(req);
   if (unauth) return unauth;
 
   const now = new Date();
-  const windowStart = addHours(now, 23);
-  const windowEnd = addHours(now, 25);
+  const today = sydneyDayBoundsUtc(sydneyTodayISO());
+  const { start: windowStart, end: windowEnd } = sydneyDayBoundsUtc(sydneyDateOf(today.end));
 
   const dueBookings = await withDbRetry(() =>
     db.booking.findMany({
       where: {
-        startsAt: { gte: windowStart, lte: windowEnd },
+        startsAt: { gte: windowStart, lt: windowEnd },
         status: { in: ["PENDING", "CONFIRMED"] },
       },
       include: {
@@ -41,7 +45,7 @@ export async function GET(req: Request) {
     db.auditLog.findMany({
       where: {
         action: "REMINDER_SENT",
-        createdAt: { gte: subHours(now, 26) },
+        createdAt: { gte: subHours(now, 48) },
       },
       select: { resource: true },
     }),

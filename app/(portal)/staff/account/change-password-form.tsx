@@ -29,7 +29,7 @@ export function ChangePasswordForm() {
   }
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
+    <form ref={formRef} onSubmit={handleSubmit} method="post" className="space-y-3">
       <div>
         <Label htmlFor="currentPassword">Current password</Label>
         <Input id="currentPassword" name="currentPassword" type="password" required autoComplete="current-password" />

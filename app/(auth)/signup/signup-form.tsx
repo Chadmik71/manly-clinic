@@ -65,7 +65,7 @@ export function SignupForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} method="post" className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="name">Full name</Label>
         <Input id="name" name="name" required />

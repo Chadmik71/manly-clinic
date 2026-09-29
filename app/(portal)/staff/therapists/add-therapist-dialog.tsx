@@ -41,7 +41,7 @@ export function AddTherapistDialog() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="bg-background rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-semibold">Add New Therapist</h2>
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
+        <form ref={formRef} onSubmit={handleSubmit} method="post" className="space-y-3">
           <label className="flex items-start gap-2 rounded-md border bg-accent/30 p-3 text-sm cursor-pointer">
             <input
               type="checkbox"

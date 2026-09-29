@@ -481,6 +481,13 @@ export function NewBookingForm({
             />
             <span>Client is claiming this session with their health fund.</span>
           </label>
+          {claiming && (
+            <p className="text-xs text-muted-foreground">
+              Booking over the phone? Untick this. When the client arrives, open the
+              booking and use &ldquo;Complete medical form&rdquo; to switch the claim on
+              and get their signature.
+            </p>
+          )}
           {claimActive && (
             <div key={`claim-${prefillVersion}`} className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">

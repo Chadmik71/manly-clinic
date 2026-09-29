@@ -60,7 +60,8 @@ export function StaffShell({ user, topbar, children }: { user: { name: string; e
       </aside>
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="h-12 border-b bg-card flex items-center px-4 gap-4 text-sm sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-          <span className="text-muted-foreground min-w-0 truncate">{CLINIC.name} <span className="opacity-60">·</span> <span className="capitalize">{pathname.split("/")[2] ?? "today"}</span></span>
+          {/* On phones a page's own top-bar content (e.g. the date picker) needs the room, so the title hides. */}
+          <span className={cn("text-muted-foreground min-w-0 truncate", topbar ? "hidden sm:inline" : "")}>{CLINIC.name} <span className="opacity-60">·</span> <span className="capitalize">{pathname.split("/")[2] ?? "today"}</span></span>
           <div className="flex-1 flex justify-center min-w-0">{topbar}</div>
           <Link href="/staff/account" className="hidden md:inline text-muted-foreground hover:text-foreground">{user.name}</Link>
           {/* Mobile-only header actions — the desktop sidebar (which carries Account / theme / sign-out) is hidden below sm:, so surface these in the header instead. */}
@@ -91,13 +92,14 @@ export function StaffShell({ user, topbar, children }: { user: { name: string; e
             </Button>
           </div>
         </header>
-        <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-card flex justify-around py-1.5">
+        <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-card flex py-1.5">
           {rail.map((it) => {
             const active = pathname === it.href || (it.href !== "/staff" && pathname.startsWith(it.href));
             const Icon = it.icon;
             return (
-              <Link key={it.href} href={it.href} className={cn("flex flex-col items-center gap-0.5 px-2 py-1 rounded-md text-[10px]", active ? "text-primary" : "text-muted-foreground")}>
-                <Icon className="h-4 w-4" />{it.label}
+              // Equal-width items that may shrink, so all tabs fit a phone screen.
+              <Link key={it.href} href={it.href} className={cn("flex-1 min-w-0 flex flex-col items-center gap-0.5 px-0.5 py-1 rounded-md text-[10px]", active ? "text-primary" : "text-muted-foreground")}>
+                <Icon className="h-4 w-4 shrink-0" /><span className="max-w-full truncate">{it.label}</span>
               </Link>
             );
           })}
@@ -131,14 +133,15 @@ export function DateNav({ date, basePath, extraQuery }: { date: Date; basePath: 
   const todaySydney = sydneyDateStr(new Date());
   const pickerRef = useRef<HTMLInputElement>(null);
 
-  // Display the date — render it as Sydney-local
+  // Display the date — render it as Sydney-local. The year is hidden on
+  // phones so the date stays on one line in the narrow header.
   const fmtParts = new Intl.DateTimeFormat("en-AU", {
     timeZone: SYDNEY_TZ,
     weekday: "short",
     day: "numeric",
     month: "short",
-    year: "numeric",
   }).format(date);
+  const fmtYear = new Intl.DateTimeFormat("en-AU", { timeZone: SYDNEY_TZ, year: "numeric" }).format(date);
 
   const q = extraQuery ? `&${extraQuery}` : "";
 
@@ -150,7 +153,7 @@ export function DateNav({ date, basePath, extraQuery }: { date: Date; basePath: 
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1 sm:gap-2">
       <Link href={`${basePath}?date=${yestStr}${q}`} className="grid h-7 w-7 place-items-center rounded-md hover:bg-accent text-muted-foreground" aria-label="Previous day">
         <ChevronLeft className="h-4 w-4" />
       </Link>
@@ -162,7 +165,10 @@ export function DateNav({ date, basePath, extraQuery }: { date: Date; basePath: 
         title="Pick a date"
       >
         <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-        {fmtParts}
+        <span className="whitespace-nowrap">
+          {fmtParts}
+          <span className="hidden sm:inline"> {fmtYear}</span>
+        </span>
         <input
           ref={pickerRef}
           type="date"
@@ -178,7 +184,7 @@ export function DateNav({ date, basePath, extraQuery }: { date: Date; basePath: 
       <Link href={`${basePath}?date=${tomStr}${q}`} className="grid h-7 w-7 place-items-center rounded-md hover:bg-accent text-muted-foreground" aria-label="Next day">
         <ChevronRight className="h-4 w-4" />
       </Link>
-      <Link href={`${basePath}?date=${todaySydney}${q}`} className="ml-2 px-2 py-0.5 rounded-md border text-xs hover:bg-accent">
+      <Link href={`${basePath}?date=${todaySydney}${q}`} className="ml-1 sm:ml-2 px-2 py-0.5 rounded-md border text-xs hover:bg-accent whitespace-nowrap">
         Today
       </Link>
     </div>

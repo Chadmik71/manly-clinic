@@ -110,6 +110,7 @@ export function ConfirmForm({
   partnerVariantSummary,
   bookingSummary,
   depositsEnabled,
+  smsEnabled = false,
 }: {
   action: (
     formData: FormData,
@@ -147,7 +148,13 @@ export function ConfirmForm({
   /** Runtime DB-backed setting from ClinicSetting. When false, the booking
    *  flow bypasses the deposit step entirely. */
   depositsEnabled: boolean;
+  /** True when SMS sending is configured (Twilio env vars set), so the
+   *  confirmation modal only promises an SMS that will actually be sent. */
+  smsEnabled?: boolean;
 }) {
+  const confirmationChannelsText = smsEnabled
+    ? "Once confirmed, we’ll send you an email and SMS."
+    : "Once confirmed, we’ll send you a confirmation email.";
   // Effective deposit-required flag: env kill switch AND admin's runtime
   // toggle must both be on for the booking to require a deposit.
   const depositsActive = DEPOSITS_ENV_ENABLED && depositsEnabled;
@@ -1172,7 +1179,9 @@ export function ConfirmForm({
             }
             desc={
               isRemedialClaim
-                ? "Required for every visit where you claim a rebate. A fresh signature is needed each visit — your previous health information is already filled in above."
+                ? intakeDefaults
+                  ? "Required for every visit where you claim a rebate. A fresh signature is needed each visit — your previous health information is already filled in above."
+                  : "Required for every visit where you claim a rebate. Next time, your health information will be filled in for you, and you'll just check it and sign."
                 : "Required for every pregnancy-massage booking. By signing, you confirm you've read the safety information above and that the clinical details are accurate."
             }
           />
@@ -1298,8 +1307,8 @@ export function ConfirmForm({
               </p>
             )}
             <p className="text-xs text-muted-foreground mb-5">
-              Once confirmed, we’ll send you an email and SMS. To cancel or
-              reschedule, contact the clinic directly.
+              {confirmationChannelsText} To cancel or reschedule, contact the
+              clinic directly.
             </p>
 <label className="flex items-start gap-2 text-sm cursor-pointer select-none">
               <input

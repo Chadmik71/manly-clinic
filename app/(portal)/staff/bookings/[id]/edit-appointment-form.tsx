@@ -39,12 +39,13 @@ export function EditAppointmentForm({
   action: (
     bookingId: string,
     data: { startsAt: string; therapistId: string; variantId: string },
-  ) => Promise<{ ok?: boolean; error?: string }>;
+  ) => Promise<{ ok?: boolean; error?: string; notice?: string }>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [startsAt, setStartsAt] = useState(currentStartsAt);
   const [therapistId, setTherapistId] = useState(currentTherapistId);
   const [variantId, setVariantId] = useState(currentVariantId);
@@ -68,6 +69,7 @@ export function EditAppointmentForm({
       if (res.error) {
         setError(res.error);
       } else {
+        setNotice(res.notice ?? null);
         setOpen(false);
         router.refresh();
       }
@@ -76,9 +78,23 @@ export function EditAppointmentForm({
 
   if (!open) {
     return (
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Edit appointment
-      </Button>
+      <div className="space-y-2">
+        {notice && (
+          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+            {notice}
+          </p>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setNotice(null);
+            setOpen(true);
+          }}
+        >
+          Edit appointment
+        </Button>
+      </div>
     );
   }
 

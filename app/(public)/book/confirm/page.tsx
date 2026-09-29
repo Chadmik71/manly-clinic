@@ -296,6 +296,11 @@ export default async function ConfirmPage({
         partnerVariantSummary={partnerVariantSummary}
         signedInEmail={signedInEmail}
         depositsEnabled={clinicSettings.depositsEnabled}
+        smsEnabled={
+          !!process.env.TWILIO_ACCOUNT_SID &&
+          !!process.env.TWILIO_AUTH_TOKEN &&
+          !!process.env.TWILIO_FROM
+        }
         bookingSummary={{
           serviceName: service.name,
           durationLabel: formatDuration(variant.durationMin),

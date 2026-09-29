@@ -314,7 +314,7 @@ function sydneyMinuteOfDay(d: Date): number {
 export async function updateBookingDetails(
   bookingId: string,
   data: { startsAt: string; therapistId: string; variantId: string },
-): Promise<{ ok?: boolean; error?: string }> {
+): Promise<{ ok?: boolean; error?: string; notice?: string }> {
   const session = await auth();
   if (
     !session?.user ||
@@ -332,8 +332,15 @@ export async function updateBookingDetails(
 
   const variant = await db.serviceVariant.findUnique({
     where: { id: data.variantId },
+    include: { service: { select: { name: true, healthFundEligible: true } } },
   });
   if (!variant) return { error: "Service variant not found." };
+
+  // A health-fund claim only makes sense on a rebatable service. Switching a
+  // claim booking to e.g. Thai massage turns the claim off, so the invoice
+  // never presents a non-rebatable session as a HICAPS claim.
+  const claimTurnedOff =
+    booking.claimWithHealthFund && !variant.service.healthFundEligible;
 
   const endsAt = addMinutes(startsAt, variant.durationMin);
   const startMin = sydneyMinuteOfDay(startsAt);
@@ -383,6 +390,7 @@ export async function updateBookingDetails(
       variantId: variant.id,
       serviceId: variant.serviceId,
       priceCentsAtBooking: variant.priceCents,
+      ...(claimTurnedOff ? { claimWithHealthFund: false } : {}),
     },
   });
 
@@ -397,13 +405,19 @@ export async function updateBookingDetails(
       newVariantId: variant.id,
       previousTherapistId: booking.therapistId,
       newTherapistId,
+      ...(claimTurnedOff ? { healthFundClaimTurnedOff: true } : {}),
     },
   });
 
   revalidatePath(`/staff/bookings/${bookingId}`);
   revalidatePath("/staff/bookings");
   revalidatePath("/staff/schedule");
-  return { ok: true };
+  return claimTurnedOff
+    ? {
+        ok: true,
+        notice: `Health fund claim turned off: ${variant.service.name} isn't health-fund rebatable.`,
+      }
+    : { ok: true };
 }
 
 /**

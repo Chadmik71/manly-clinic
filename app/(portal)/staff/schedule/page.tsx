@@ -234,9 +234,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     <StaffShell user={session.user} topbar={<DateNav date={day} basePath="/staff/schedule" />}>
       <AutoRefresh intervalMs={30000} />
       <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-lg font-semibold">Schedule</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {therapists.length > 0 && <WalkinFinderDialog />}
             {session.user.role === "ADMIN" && therapists.length > 0 && (
               <BlockTimeDialog

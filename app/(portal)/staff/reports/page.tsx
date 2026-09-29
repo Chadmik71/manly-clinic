@@ -629,7 +629,7 @@ export default async function ReportsPage({
         </Card>
 
         {/* Summary */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 [&>*]:min-w-0">
           <Stat label="Bookings" value={totalCount.toString()} />
           <Stat label="Revenue" value={formatPrice(totalRevenueCents)} />
           <Stat label="Unique clients" value={uniqueClients.toString()} />
@@ -654,13 +654,13 @@ export default async function ReportsPage({
         </div>
 
         {/* Busiest times + utilisation */}
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
           <HeatmapCard heatmap={heatmap} />
           <UtilisationCard rows={utilisation} />
         </div>
 
         {/* Breakdowns */}
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3 [&>*]:min-w-0">
           <Breakdown title="By health fund" rows={byFund} />
           <Breakdown title="By therapist" rows={byStaff} />
           <Breakdown title="By service" rows={byService} />
@@ -796,7 +796,7 @@ function Breakdown({
             {rows.map((r) => (
               <li key={r.key} className="space-y-0.5">
                 <div className="flex items-baseline justify-between gap-2 text-sm">
-                  <span className="truncate">{r.label}</span>
+                  <span className="truncate min-w-0">{r.label}</span>
                   <span className="tabular-nums font-medium">
                     {formatPrice(r.revenueCents)}
                   </span>
@@ -926,7 +926,7 @@ function UtilisationCard({
             {rows.map((r) => (
               <li key={r.id} className="space-y-0.5">
                 <div className="flex items-baseline justify-between gap-2 text-sm">
-                  <span className="truncate">{r.label}</span>
+                  <span className="truncate min-w-0">{r.label}</span>
                   <span className="tabular-nums font-medium">
                     {r.pct === null ? "—" : `${r.pct}%`}
                   </span>

@@ -63,7 +63,9 @@ export default async function PortalHome() {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {lastVisit && (
-              <Button asChild>
+              // Long service names ("Remedial Massage (Health Fund Rebate)")
+              // must wrap on phones instead of pushing the card off-screen.
+              <Button asChild className="h-auto min-h-10 max-w-full whitespace-normal py-2 text-left">
                 <Link
                   href={`/book?service=${lastVisit.service.slug}&variant=${lastVisit.variant.id}`}
                   title={`Last booked: ${lastVisit.service.name} · ${formatDuration(lastVisit.variant.durationMin)}`}

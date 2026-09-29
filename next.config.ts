@@ -54,6 +54,9 @@ const securityHeaders = [
 
 const config: NextConfig = {
   reactStrictMode: true,
+  // Don't advertise the framework (and so its version's known issues) in
+  // an X-Powered-By header on every response.
+  poweredByHeader: false,
   typedRoutes: false,
   // pdfkit needs runtime access to its bundled .afm font files; Next bundling
   // rewrites the paths, so load it from node_modules at runtime.

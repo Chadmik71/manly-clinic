@@ -41,7 +41,10 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    // method="post": if someone submits before the page's JavaScript has
+    // loaded, the browser falls back to a native submit. POST keeps the
+    // password out of the URL, browser history and server logs.
+    <form onSubmit={onSubmit} method="post" className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input
