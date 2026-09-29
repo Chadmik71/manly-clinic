@@ -36,6 +36,12 @@ type Booking = {
    *  their first visit. Surfaced as a "NEW" badge on the card so therapists
    *  can prep differently. */
   isFirstVisit?: boolean;
+  /** Remedial/pregnancy booking still waiting on the full medical form
+   *  (e.g. booked over the phone). Shown as a "Form needed" badge. */
+  needsIntakeForm?: boolean;
+  /** Medical-form sections the client changed since their last visit
+   *  (e.g. "Medications"). Non-empty shows a "Health update" badge. */
+  healthChanges?: string[];
 };
 
 type Therapist = {
@@ -483,6 +489,8 @@ export function ScheduleGrid({
                             clientName: b.client.name,
                             clientPhone: b.client.phone,
                             therapistName: t.name,
+                            needsIntakeForm: !!b.needsIntakeForm,
+                            healthChanges: b.healthChanges ?? [],
                           });
                         }}
                         className="absolute inset-0 rounded-md p-2 text-[12px] leading-snug overflow-hidden border-l-[6px] shadow-sm hover:shadow-md transition-shadow block"
@@ -509,6 +517,20 @@ export function ScheduleGrid({
                         <div className="opacity-80 truncate">
                           {b.variant.durationMin} min {b.service.name}
                         </div>
+                        {(b.needsIntakeForm || (b.healthChanges?.length ?? 0) > 0) && (
+                          <div className="mt-0.5 flex flex-wrap gap-1">
+                            {b.needsIntakeForm && (
+                              <span className="inline-block rounded-sm bg-amber-500 text-white text-[9px] font-bold uppercase px-1 py-px tracking-wider">
+                                Form needed
+                              </span>
+                            )}
+                            {(b.healthChanges?.length ?? 0) > 0 && (
+                              <span className="inline-block rounded-sm bg-red-600 text-white text-[9px] font-bold uppercase px-1 py-px tracking-wider">
+                                Health update
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div className="font-semibold mt-0.5">
                           {formatPrice(b.priceCentsAtBooking)}
                         </div>

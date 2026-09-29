@@ -27,6 +27,7 @@ import { AnnotatedDiagramSection } from "./annotated-diagram-section";
 import { EditInternalNotesForm } from "./edit-internal-notes-form";
 import { CompleteIntakeForm } from "./complete-intake-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
+import { diffIntakes } from "@/lib/intake-changes";
 import { BodyDiagram } from "@/components/body-diagram";
 import { zoneLabel } from "@/lib/body-diagram-zones";
 
@@ -53,6 +54,38 @@ export default async function StaffBookingDetail({
     where: { userId: b.clientId },
     orderBy: { updatedAt: "desc" },
   });
+
+  // What the client changed in their medical form since their last visit
+  // before this booking (same rule as the calendar's "Health update" badge).
+  const compareSelect = {
+    createdAt: true,
+    medicalHistory: true,
+    medicalConditions: true,
+    medications: true,
+    allergies: true,
+    injuries: true,
+    pregnancy: true,
+  } as const;
+  const [recentFullIntakes, lastVisit] = await Promise.all([
+    db.intakeForm.findMany({
+      where: { userId: b.clientId, medicalConditions: { not: null } },
+      orderBy: { createdAt: "desc" },
+      take: 2,
+      select: compareSelect,
+    }),
+    db.booking.findFirst({
+      where: { clientId: b.clientId, status: "COMPLETED", startsAt: { lt: b.startsAt } },
+      orderBy: { startsAt: "desc" },
+      select: { startsAt: true },
+    }),
+  ]);
+  const [latestFull, previousFull] = recentFullIntakes;
+  const healthChanges =
+    latestFull &&
+    previousFull &&
+    (!lastVisit || latestFull.createdAt > lastVisit.startsAt)
+      ? diffIntakes(previousFull, latestFull)
+      : [];
 
   // A booking made over the phone records only a quick consent stub (no
   // clinical fields) until the customer physically arrives at the shop and
@@ -334,6 +367,29 @@ export default async function StaffBookingDetail({
             <CardTitle>Latest health intake</CardTitle>
           </CardHeader>
           <CardContent>
+            {healthChanges.length > 0 && latestFull && (
+              <div className="mb-5 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm">
+                <div className="font-semibold text-red-800 dark:text-red-300">
+                  Health update since last visit
+                </div>
+                <div className="text-muted-foreground mb-2">
+                  The client changed their medical form on{" "}
+                  {new Intl.DateTimeFormat("en-AU", { timeZone: SYDNEY_TZ, day: "numeric", month: "short", year: "numeric" }).format(latestFull.createdAt)}.
+                </div>
+                <dl className="grid gap-2">
+                  {healthChanges.map((c) => (
+                    <div key={c.label}>
+                      <dt className="font-medium">{c.label}</dt>
+                      <dd className="text-muted-foreground">
+                        Before: {c.before}
+                        <br />
+                        Now: <span className="text-foreground font-medium">{c.after}</span>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
             {intake ? (
               <div className="space-y-5">
                 <dl className="grid gap-3 text-sm sm:grid-cols-2">

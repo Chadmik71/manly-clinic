@@ -12,6 +12,7 @@ import {
   toggleTherapistActive,
   removeTimeOffFromSchedule,
 } from "@/app/(portal)/staff/therapists/[id]/actions";
+import { diffIntakes } from "@/lib/intake-changes";
 import { BlockTimeDialog } from "./block-time-dialog";
 import { WalkinFinderDialog } from "./walkin-finder-dialog";
 
@@ -122,9 +123,72 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const priorMap = new Map(
     priorCounts.map((p) => [p.clientId, p._count._all]),
   );
+
+  // "Form needed" badge: remedial (health-fund eligible) and pregnancy
+  // bookings for clients who have never completed the full medical form,
+  // e.g. a new client booked over the phone. Returning clients with a form
+  // on file don't get it: phone bookings and safety-tier bookings save a
+  // consent-only intake row, but the full form stays on file and pre-fills
+  // "Complete medical form" if they need to confirm it for a claim.
+  // medicalConditions is required on every full intake (same proxy as the
+  // booking page and the prefill lookups).
+  const [fullIntakes, lastVisits] = clientIds.length
+    ? await Promise.all([
+        db.intakeForm.findMany({
+          where: { userId: { in: clientIds }, medicalConditions: { not: null } },
+          orderBy: { createdAt: "desc" },
+          select: {
+            userId: true,
+            createdAt: true,
+            medicalHistory: true,
+            medicalConditions: true,
+            medications: true,
+            allergies: true,
+            injuries: true,
+            pregnancy: true,
+          },
+        }),
+        db.booking.groupBy({
+          by: ["clientId"],
+          where: {
+            clientId: { in: clientIds },
+            startsAt: { lt: dayStart },
+            status: "COMPLETED",
+          },
+          _max: { startsAt: true },
+        }),
+      ])
+    : [[], []];
+  const intakesByClient = new Map<string, typeof fullIntakes>();
+  for (const i of fullIntakes) {
+    const list = intakesByClient.get(i.userId) ?? [];
+    list.push(i);
+    intakesByClient.set(i.userId, list);
+  }
+  const lastVisitByClient = new Map(
+    lastVisits.map((v) => [v.clientId, v._max.startsAt]),
+  );
+
+  // "Health update" badge: the client's newest medical form differs from
+  // their previous one in a safety-relevant section (lib/intake-changes.ts)
+  // and was filled in since their last completed visit, so the therapist
+  // sees it once, before the first session after the change.
+  function healthChangesFor(clientId: string): string[] {
+    const [latest, previous] = intakesByClient.get(clientId) ?? [];
+    if (!latest || !previous) return [];
+    const lastVisit = lastVisitByClient.get(clientId);
+    if (lastVisit && latest.createdAt <= lastVisit) return [];
+    return diffIntakes(previous, latest).map((c) => c.label);
+  }
+
   const bookingsWithBadge = bookings.map((b) => ({
     ...b,
     isFirstVisit: (priorMap.get(b.clientId) ?? 0) === 0,
+    needsIntakeForm:
+      (b.service.healthFundEligible || b.service.slug === "pregnancy-massage") &&
+      (b.status === "PENDING" || b.status === "CONFIRMED") &&
+      !intakesByClient.has(b.clientId),
+    healthChanges: b.status === "NO_SHOW" ? [] : healthChangesFor(b.clientId),
   }));
 
   // Today's tally — what's actually happening today, at a glance. Counts

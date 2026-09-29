@@ -23,6 +23,8 @@ export type BookingPreview = {
   clientName: string;
   clientPhone: string | null;
   therapistName: string;
+  needsIntakeForm: boolean;
+  healthChanges: string[];
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -169,6 +171,28 @@ export function BookingDetailsDialog({
             <span className="text-xs text-muted-foreground ml-auto font-mono">{details.reference}</span>
           )}
         </div>
+
+        {preview.needsIntakeForm && (
+          <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+            <div className="font-semibold text-amber-800 dark:text-amber-300">Medical form needed</div>
+            <div className="text-muted-foreground">
+              Fill it in with the client when they arrive: open the full booking and use
+              &ldquo;Complete medical form&rdquo;. They sign on the screen.
+            </div>
+          </div>
+        )}
+
+        {preview.healthChanges.length > 0 && (
+          <div className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm">
+            <div className="font-semibold text-red-800 dark:text-red-300">
+              Health update since last visit
+            </div>
+            <div className="text-muted-foreground">
+              Changed: {preview.healthChanges.join(", ")}. Check the details on the full
+              booking page before the session.
+            </div>
+          </div>
+        )}
 
         <dl className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-2 text-sm">
           <dt className="text-muted-foreground">Client</dt>
