@@ -131,4 +131,7 @@ export const RATE_LIMITS = {
   login: { limit: 10, windowMs: 60_000 }, // 10/min per IP
   // Waitlist join: public, unauthenticated form on the booking page.
   waitlist: { limit: 5, windowMs: 60_000 }, // 5/min per IP
+  // "Email me a sign-in link": each request sends an email, so keep it low
+  // per IP and per email address (stops someone flooding a client's inbox).
+  magicLink: { limit: 5, windowMs: 10 * 60_000 }, // 5 per 10 min
 } as const;

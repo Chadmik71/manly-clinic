@@ -5,6 +5,8 @@ import { audit } from "@/lib/audit";
 import { notifyBookingReminder } from "@/lib/notify";
 import { requireCronAuth } from "@/lib/cron-auth";
 import { withDbRetry } from "@/lib/db-retry";
+import { bookingsNeedingHealthForm } from "@/lib/booking-intake";
+import { CLINIC } from "@/lib/clinic";
 import { sydneyDateOf, sydneyDayBoundsUtc, sydneyTodayISO } from "@/lib/time";
 
 // Sends a reminder for every booking on tomorrow's Sydney date that hasn't
@@ -33,7 +35,7 @@ export async function GET(req: Request) {
         status: { in: ["PENDING", "CONFIRMED"] },
       },
       include: {
-        service: { select: { name: true } },
+        service: { select: { name: true, healthFundEligible: true, slug: true } },
         variant: { select: { durationMin: true } },
         client: { select: { name: true, email: true, phone: true } },
       },
@@ -56,6 +58,8 @@ export async function GET(req: Request) {
       .filter((s): s is string => !!s),
   );
 
+  const needsForm = await bookingsNeedingHealthForm(dueBookings);
+
   let sent = 0;
   for (const b of dueBookings) {
     const tag = `Booking:${b.id}`;
@@ -67,6 +71,9 @@ export async function GET(req: Request) {
       reference: b.reference,
       serviceName: b.service.name,
       startsAt: b.startsAt,
+      healthFormUrl: needsForm.has(b.id)
+        ? `${CLINIC.domain}/portal/bookings/${b.id}/health-form`
+        : undefined,
     });
     await audit({
       userId: null,

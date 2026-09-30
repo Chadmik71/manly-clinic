@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { authConfig } from "@/lib/auth.config";
 import { getClientIp, rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { consumeMagicLinkToken } from "@/lib/magic-link";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -52,6 +53,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           role: user.role,
         };
+      },
+    }),
+    // One-tap email sign-in link for clients (lib/magic-link.ts). The token
+    // is single-use, expires after 20 minutes and only works for CLIENT
+    // accounts; sign-in attempts share the login rate limit.
+    Credentials({
+      id: "magic-link",
+      name: "Email link",
+      credentials: { token: { label: "Token", type: "text" } },
+      async authorize(credentials, request) {
+        const token = typeof credentials?.token === "string" ? credentials.token : "";
+        if (!token) return null;
+        const ip = getClientIp(request as Request);
+        const limit = rateLimit(`login:${ip}`, RATE_LIMITS.login.limit, RATE_LIMITS.login.windowMs);
+        if (!limit.allowed) return null;
+        const user = await consumeMagicLinkToken(token);
+        if (!user) return null;
+        return { id: user.id, email: user.email, name: user.name, role: user.role };
       },
     }),
   ],

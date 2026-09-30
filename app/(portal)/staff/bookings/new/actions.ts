@@ -224,7 +224,7 @@ export async function getClientPrefill(clientId: string): Promise<{
     // with blanks. medicalConditions is required for every full intake, so
     // its presence is a reliable proxy for "this row had the medical data".
     db.intakeForm.findFirst({
-      where: { userId: clientId, medicalConditions: { not: null } },
+      where: { userId: clientId, AND: [{ medicalConditions: { not: null } }, { medicalConditions: { not: "" } }] },
       orderBy: { updatedAt: "desc" },
       select: {
         medicalConditions: true,

@@ -196,6 +196,7 @@ export function ConfirmForm({
   // still submit even if the customer never expands the card.
   const [safetyFloorOpen, setSafetyFloorOpen] = useState(false);
   const [sameAsLast, setSameAsLast] = useState(false);
+  const [fillLater, setFillLater] = useState(false);
   const [voucherOpen, setVoucherOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   // Body-diagram selection. Pre-fills from the most recent intake so
@@ -388,9 +389,21 @@ export function ConfirmForm({
     filled(intakeDefaults.healthFundName) &&
     filled(intakeDefaults.healthFundMemberNumber) &&
     filled(intakeDefaults.reasonForTreatment);
-  const hideIntake = canSkipIntake && sameAsLast;
+  // First-time (or incomplete-form) remedial clients can book now and fill
+  // in the health form later: online from the confirmation email, or at the
+  // clinic. The booking is made without a claim; the claim is switched on
+  // when the form and signature are completed.
+  const offerLater = intakeMode === "full" && !canSkipIntake;
+  const later = offerLater && fillLater;
+  const hideIntake = (canSkipIntake && sameAsLast) || later;
   // The fund card also hides, unless this claim still needs fund details.
-  const hideFund = hideIntake && (!claiming || fundOnFile);
+  const hideFund = later || (hideIntake && (!claiming || fundOnFile));
+
+  function chooseLater(on: boolean) {
+    setFillLater(on);
+    setClaiming(on ? false : serviceHealthFundEligible);
+    if (on) setSignatureDataUrl(null);
+  }
 
   function chooseSameAsLast() {
     setSameAsLast(true);
@@ -504,8 +517,50 @@ export function ConfirmForm({
         </Card>
       )}
 
+      {offerLater && (
+        <Card className="border-primary/40">
+          <CardContent className="py-5 space-y-3">
+            <div>
+              <p className="font-semibold">When would you like to fill in your health form?</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                We need it before your treatment. It takes about 3 minutes.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="When to fill in the health form">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!fillLater}
+                onClick={() => chooseLater(false)}
+                className={`rounded-md border p-3 text-left text-sm transition-colors ${!fillLater ? "border-primary bg-primary/10" : "hover:bg-accent"}`}
+              >
+                <span className="font-medium block">Now</span>
+                <span className="text-muted-foreground">
+                  Fill it in below. Claiming with your health fund? It&apos;s all done in one go.
+                </span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={fillLater}
+                onClick={() => chooseLater(true)}
+                className={`rounded-md border p-3 text-left text-sm transition-colors ${fillLater ? "border-primary bg-primary/10" : "hover:bg-accent"}`}
+              >
+                <span className="font-medium block">Later</span>
+                <span className="text-muted-foreground">
+                  Book now. We&apos;ll email you a link to fill it in before your visit, or
+                  you can do it when you arrive. Health fund claims are then done at the clinic.
+                </span>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      <input type="hidden" name="intakeLater" value={later ? "on" : ""} />
+
       {/* Medical sections. Hidden (but still submitted, pre-filled) when a
-          returning customer confirms nothing has changed. */}
+          returning customer confirms nothing has changed, or skipped when
+          a first-time client chooses to fill the form in later. */}
       <div id="patient-details" hidden={hideIntake} className="space-y-5 scroll-mt-20">
       {/* 1. Patient details (hidden for relaxation / safety services) */}
       {intakeMode !== "safety" && (<Card>
@@ -1214,8 +1269,9 @@ export function ConfirmForm({
               className="mt-1"
             />
             <span>
-              I consent to receiving the treatment described and confirm the
-              health information above is accurate to the best of my knowledge.
+              {later
+                ? "I consent to receiving the treatment described, and I'll complete my health form before my treatment starts."
+                : "I consent to receiving the treatment described and confirm the health information above is accurate to the best of my knowledge."}
             </span>
           </label>
           <label className="flex items-start gap-2">
@@ -1228,6 +1284,24 @@ export function ConfirmForm({
             <span>
               I consent to the secure storage of my health information for the
               purpose of safe and continuing treatment.
+            </span>
+          </label>
+          {/* Cancellation policy, ticked here with the other consents so the
+              booking needs one press of "Confirm booking" (it used to be a
+              second step in a pop-up). */}
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="acceptPolicy"
+              required
+              checked={policyAccepted}
+              onChange={(e) => setPolicyAccepted(e.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              I&apos;ve read the cancellation policy: at least 1 hour&apos;s notice to
+              cancel or reschedule, and arriving more than 10 minutes late without
+              calling means my booking is treated as cancelled.
             </span>
           </label>
           {/* Optional marketing/news opt-in (Spam Act 2003 — must be unticked
@@ -1293,7 +1367,14 @@ export function ConfirmForm({
             // the dialog stays closed.
             if (formRef.current && !formRef.current.reportValidity()) return;
             setError(null);
-            if (depositsActive && !paymentIntentId && paymentStage === "idle") {
+            // No deposit: book straight away (the policy is already ticked
+            // in the Consent section). With a deposit, the pop-up is where
+            // the card is entered.
+            if (!depositsActive) {
+              formRef.current?.requestSubmit();
+              return;
+            }
+            if (!paymentIntentId && paymentStage === "idle") {
               fetchPaymentIntent();
             }
             setConfirmOpen(true);
@@ -1390,20 +1471,6 @@ export function ConfirmForm({
               {confirmationChannelsText} To cancel or reschedule, contact the
               clinic directly.
             </p>
-<label className="flex items-start gap-2 text-sm cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 cursor-pointer"
-                checked={policyAccepted}
-                onChange={(e) => setPolicyAccepted(e.target.checked)}
-              />
-              <span className="text-muted-foreground">
-                I have read the cancellation policy: at least 1 hour&apos;s
-                notice to cancel or reschedule, and arriving more than 10
-                minutes late without calling means my booking will be
-                treated as cancelled.
-              </span>
-            </label>
                         {depositsActive && paymentStage === "card" && clientSecret ? (
                           <div className="space-y-2 my-4">
                             {paymentError && (

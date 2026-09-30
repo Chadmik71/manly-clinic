@@ -135,7 +135,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const [fullIntakes, lastVisits] = clientIds.length
     ? await Promise.all([
         db.intakeForm.findMany({
-          where: { userId: { in: clientIds }, medicalConditions: { not: null } },
+          where: { userId: { in: clientIds }, AND: [{ medicalConditions: { not: null } }, { medicalConditions: { not: "" } }] },
           orderBy: { createdAt: "desc" },
           select: {
             userId: true,

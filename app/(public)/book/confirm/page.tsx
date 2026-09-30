@@ -171,7 +171,7 @@ export default async function ConfirmPage({
     intake = await db.intakeForm.findFirst({
       where: {
         userId: session.user.id,
-        medicalConditions: { not: null },
+        AND: [{ medicalConditions: { not: null } }, { medicalConditions: { not: "" } }],
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -277,7 +277,8 @@ export default async function ConfirmPage({
           >
             Sign in
           </Link>{" "}
-          to skip filling in details. Otherwise just continue below —
+          (with your password, or a one-tap link we email you) to have your
+          details and health form filled in. Otherwise just continue below —
           we&apos;ll link this booking to your existing record automatically
           by email or phone.
         </div>

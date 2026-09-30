@@ -45,8 +45,11 @@ export function CompleteIntakeForm({
   isPregnancyService,
   prefill,
   action,
+  audience = "staff",
 }: {
   bookingId: string;
+  /** "client" when the client fills it in themselves (online health form). */
+  audience?: "staff" | "client";
   healthFundEligible: boolean;
   isPregnancyService: boolean;
   prefill: Prefill;
@@ -71,6 +74,26 @@ export function CompleteIntakeForm({
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
   const isPregnant = isPregnancyService || pregnantChecked;
+  const forClient = audience === "client";
+  const t = forClient
+    ? {
+        signFirst: "Please sign below.",
+        claiming: "I'm claiming this session with my health fund.",
+        pregnant: "I'm currently pregnant",
+        signatureLabel: "Your signature",
+        confirms: "By signing, you confirm the information above is accurate",
+        authorises: " and authorise us to submit a HICAPS claim on your behalf.",
+        done: "Thank you! Your health form is saved. See you at your appointment.",
+      }
+    : {
+        signFirst: "Please ask the client to sign below.",
+        claiming: "Client is claiming this session with their health fund.",
+        pregnant: "Client is currently pregnant",
+        signatureLabel: "Client signature",
+        confirms: "By signing, the client confirms the information above is accurate",
+        authorises: " and authorises us to submit a HICAPS claim on their behalf.",
+        done: "Medical form completed and saved. Refresh to see the record below.",
+      };
 
   function toggleHistory(code: string, on: boolean) {
     setHistory((s) => {
@@ -85,7 +108,7 @@ export function CompleteIntakeForm({
     e.preventDefault();
     setError(null);
     if (!signatureDataUrl) {
-      setError("Please ask the client to sign below.");
+      setError(t.signFirst);
       return;
     }
     const fd = new FormData(e.currentTarget);
@@ -113,9 +136,7 @@ export function CompleteIntakeForm({
 
   if (done) {
     return (
-      <p className="text-sm text-emerald-600">
-        Medical form completed and saved. Refresh to see the record below.
-      </p>
+      <p className="text-sm text-emerald-600">{t.done}</p>
     );
   }
 
@@ -129,7 +150,7 @@ export function CompleteIntakeForm({
             onChange={(e) => setClaiming(e.target.checked)}
             className="mt-0.5"
           />
-          <span>Client is claiming this session with their health fund.</span>
+          <span>{t.claiming}</span>
         </label>
       )}
       {claiming && (
@@ -188,7 +209,7 @@ export function CompleteIntakeForm({
             onChange={(e) => setPregnantChecked(e.target.checked)}
             className="mt-0.5"
           />
-          <span>Client is currently pregnant</span>
+          <span>{t.pregnant}</span>
         </label>
       )}
 
@@ -421,12 +442,12 @@ export function CompleteIntakeForm({
 
       <div className="space-y-2 rounded-md border bg-card p-4">
         <Label>
-          Client signature <span className="text-destructive">*</span>
+          {t.signatureLabel} <span className="text-destructive">*</span>
         </Label>
         <SignaturePad onChange={setSignatureDataUrl} disabled={pending} />
         <p className="text-xs text-muted-foreground">
-          By signing, the client confirms the information above is accurate
-          {claiming ? " and authorises us to submit a HICAPS claim on their behalf." : "."}
+          {t.confirms}
+          {claiming ? t.authorises : "."}
         </p>
       </div>
 

@@ -9,6 +9,7 @@ import { bookingReference } from "@/lib/utils";
 import {
   BOOKING_LATEST_END_MIN,
   BOOKING_EARLIEST_START_MIN,
+  CLINIC,
 } from "@/lib/clinic";
 import { sydneyDateOf, sydneyDow } from "@/lib/time";
 import { redirect } from "next/navigation";
@@ -122,6 +123,10 @@ const schema = z.object({
   consentToStore: z.string().optional(),
   marketingConsent: z.string().optional(),
   claimWithHealthFund: z.string().optional(),
+  // "on" when a first-time client chose to fill in the health form later
+  // (online before the visit, or at the clinic). Only valid without a claim:
+  // the claim is switched on when the form and signature are completed.
+  intakeLater: z.string().optional(),
   healthFundName: z.string().max(80).optional(),
   healthFundMemberNumber: z.string().max(40).optional(),
   reasonForTreatment: z.string().max(2000).optional(),
@@ -303,6 +308,7 @@ export async function createBooking(
   // Health-fund claim validation: only allowed for eligible services, and
   // when claimed, intake + fund details become required.
   const claimWithHealthFund = data.claimWithHealthFund === "on";
+  const intakeLater = data.intakeLater === "on" && !claimWithHealthFund;
   if (claimWithHealthFund && !variant.service.healthFundEligible) {
     return { error: "This treatment is not eligible for health fund rebates." };
   }
@@ -609,25 +615,35 @@ export async function createBooking(
     if (Number.isFinite(n) && n >= 0 && n <= 10) painScale = n;
   }
 
+  // Blank answers are saved as null, not "": several checks treat "has
+  // medical answers" as "full health form done". A client who chose to fill
+  // the form in later gets a consent-only row (no clinical fields at all).
+  const orNull = (v: string | undefined) => (v && v.trim() ? v : null);
+  const clinical = intakeLater
+    ? {}
+    : {
+        medicalConditions: orNull(data.medicalConditions),
+        medications: orNull(data.medications),
+        allergies: orNull(data.allergies),
+        injuries: orNull(data.injuries),
+        medicalHistory: orNull(data.medicalHistory),
+        painLocationCodes: orNull(data.painLocationCodes),
+        painLocation: orNull(data.painLocation),
+        painScale,
+        painOnset: orNull(data.painOnset),
+        painHistory: orNull(data.painHistory),
+        treatmentGoals: orNull(data.treatmentGoals),
+        emergencyContactName: orNull(data.emergencyContactName),
+        emergencyContactRelationship: orNull(data.emergencyContactRelationship),
+        emergencyContactPhone: orNull(data.emergencyContactPhone),
+      };
+
   await db.intakeForm.create({
     data: {
       userId: clientUserId,
-      medicalConditions: data.medicalConditions ?? null,
-      medications: data.medications ?? null,
-      allergies: data.allergies ?? null,
-      injuries: data.injuries ?? null,
-      medicalHistory: data.medicalHistory ?? null,
-      painLocationCodes: data.painLocationCodes ?? null,
-      painLocation: data.painLocation ?? null,
-      painScale,
-      painOnset: data.painOnset ?? null,
-      painHistory: data.painHistory ?? null,
-      treatmentGoals: data.treatmentGoals ?? null,
+      ...clinical,
       pregnancy: isPregnant,
       pregnancyWeeks,
-      emergencyContactName: data.emergencyContactName ?? null,
-      emergencyContactRelationship: data.emergencyContactRelationship ?? null,
-      emergencyContactPhone: data.emergencyContactPhone ?? null,
       healthFundName: claimWithHealthFund ? data.healthFundName : null,
       healthFundMemberNumber: claimWithHealthFund
         ? data.healthFundMemberNumber
@@ -833,6 +849,10 @@ export async function createBooking(
     durationMin: variant.durationMin,
     startsAt,
     priceCents: pricing.finalPriceCents,
+    healthFormUrl: intakeLater
+      ? `${CLINIC.domain}/portal/bookings/${bookingId!}/health-form`
+      : undefined,
+    rebookUrl: `${CLINIC.domain}/book?service=${variant.service.slug}&variant=${variant.id}`,
     partner:
       isCouple && partnerVariant
         ? {

@@ -136,7 +136,28 @@ export async function notifyBookingConfirmed(args: {
     /** Partner's name (the second person), if the customer entered one. */
     partnerName?: string | null;
   };
+  /** Set when the client chose to fill in their health form later: link to
+   *  complete it online before the visit. */
+  healthFormUrl?: string;
+  /** One-tap "book your next session" link (same service and length). */
+  rebookUrl?: string;
 }): Promise<void> {
+  const extraText =
+    (args.healthFormUrl
+      ? `
+
+Before your visit: please complete your health form (about 3 minutes). It saves time at the clinic:
+${args.healthFormUrl}
+No time? That's fine, you can fill it in when you arrive.`
+      : "") +
+    (args.rebookUrl ? `
+
+Book your next session: ${args.rebookUrl}` : "");
+  const extraHtml =
+    (args.healthFormUrl
+      ? `<p style="margin:12px 0;padding:10px 12px;border:1px solid #99d5cf;border-radius:6px;background:#effaf8"><strong>Before your visit:</strong> please <a href="${args.healthFormUrl}">complete your health form</a> (about 3 minutes). It saves time at the clinic. No time? You can fill it in when you arrive.</p>`
+      : "") +
+    (args.rebookUrl ? `<p><a href="${args.rebookUrl}">Book your next session</a></p>` : "");
   // Couple bookings get a different layout that lists both treatments and
   // both references in a single email. Solo path falls through unchanged.
   if (args.partner) {
@@ -160,7 +181,7 @@ Booking references:
   Yours:   ${args.reference}
   Partner: ${p.reference}
 
-Manage / cancel / reschedule: ${CLINIC.domain}/portal/bookings
+Manage / cancel / reschedule: ${CLINIC.domain}/portal/bookings${extraText}
 
 ${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb}
 ${CLINIC.phone}
@@ -175,7 +196,7 @@ ${CLINIC.name} · ${CLINIC.address.line1} ${CLINIC.address.suburb} ${CLINIC.addr
   <li><strong>${p.serviceName}</strong> — ${p.durationMin} min${partnerPriceStr} <span style="color:#64748b">(${partnerLabel})</span></li>
 </ul>
 <p>Booking references: <code>${args.reference}</code> (yours) &amp; <code>${p.reference}</code> (partner)<br/>
-<a href="${CLINIC.domain}/portal/bookings">Manage your booking</a></p>
+<a href="${CLINIC.domain}/portal/bookings">Manage your booking</a></p>${extraHtml}
 <p style="color:#64748b;font-size:12px">${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}</p>
 <p style="color:#64748b;font-size:12px;margin:12px 0;">Cancellation policy: please give us at least 1 hour&apos;s notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.</p>
 <p style="color:#64748b;font-size:12px;margin:12px 0 0 0;">${CLINIC.name} · ${CLINIC.address.line1} ${CLINIC.address.suburb} ${CLINIC.address.state} ${CLINIC.address.postcode} · ${CLINIC.phone}</p>`;
@@ -196,7 +217,7 @@ ${CLINIC.name} · ${CLINIC.address.line1} ${CLINIC.address.suburb} ${CLINIC.addr
 Your ${args.serviceName} (${args.durationMin} min) is confirmed for ${fmt(args.startsAt)}.
 
 Booking reference: ${args.reference}
-Manage / cancel / reschedule: ${CLINIC.domain}/portal/bookings
+Manage / cancel / reschedule: ${CLINIC.domain}/portal/bookings${extraText}
 
 Cancellation policy: please give us at least 1 hour's notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.
 
@@ -205,7 +226,7 @@ ${CLINIC.phone}`;
   const html = `<p>Hi ${args.name},</p>
 <p>Your <strong>${args.serviceName}</strong> (${args.durationMin} min) is confirmed for <strong>${fmt(args.startsAt)}</strong>.</p>
 <p>Booking reference: <code>${args.reference}</code><br/>
-<a href="${CLINIC.domain}/portal/bookings">Manage your booking</a></p>
+<a href="${CLINIC.domain}/portal/bookings">Manage your booking</a></p>${extraHtml}
 <p style="color:#64748b;font-size:12px;margin:12px 0;">Cancellation policy: please give us at least 1 hour&apos;s notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.</p>
       <p style="color:#64748b;font-size:12px">${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}</p>`;
   await sendEmail({ to: args.email, subject, html, text });
@@ -351,8 +372,19 @@ export async function notifyBookingReminder(args: {
   reference: string;
   serviceName: string;
   startsAt: Date;
+  /** Set when the client still hasn't filled in their health form. */
+  healthFormUrl?: string;
 }): Promise<void> {
   const subject = `Reminder — your ${args.serviceName} tomorrow`;
+  const formText = args.healthFormUrl
+    ? `
+
+Your health form isn't done yet. Fill it in now (about 3 minutes) so you can go straight in tomorrow:
+${args.healthFormUrl}`
+    : "";
+  const formHtml = args.healthFormUrl
+    ? `<p style="margin:12px 0;padding:10px 12px;border:1px solid #99d5cf;border-radius:6px;background:#effaf8">Your health form isn't done yet. <a href="${args.healthFormUrl}">Fill it in now</a> (about 3 minutes) so you can go straight in tomorrow.</p>`
+    : "";
   const text = `Hi ${args.name},
 
 Friendly reminder of your ${args.serviceName} on ${fmt(args.startsAt)}.
@@ -360,8 +392,8 @@ Friendly reminder of your ${args.serviceName} on ${fmt(args.startsAt)}.
 Booking reference: ${args.reference}
 ${CLINIC.address.line1}, ${CLINIC.address.suburb}
 
-Need to change it? ${CLINIC.domain}/portal/bookings`;
-  const html = `<p>Hi ${args.name},</p><p>Reminder of your <strong>${args.serviceName}</strong> on ${fmt(args.startsAt)}.</p><p>Reference <code>${args.reference}</code><br/><a href="${CLINIC.domain}/portal/bookings">Manage</a></p>`;
+Need to change it? ${CLINIC.domain}/portal/bookings${formText}`;
+  const html = `<p>Hi ${args.name},</p><p>Reminder of your <strong>${args.serviceName}</strong> on ${fmt(args.startsAt)}.</p><p>Reference <code>${args.reference}</code><br/><a href="${CLINIC.domain}/portal/bookings">Manage</a></p>${formHtml}`;
   await sendEmail({ to: args.email, subject, html, text });
   if (args.phone) {
     await sendSms({
@@ -369,6 +401,29 @@ Need to change it? ${CLINIC.domain}/portal/bookings`;
       body: `${CLINIC.name}: reminder ${args.serviceName} ${fmtShort(args.startsAt)}. Ref ${args.reference}.`,
     });
   }
+}
+
+/** One-tap sign-in link (clients who'd rather not use a password). */
+export async function notifyMagicLink(args: {
+  email: string;
+  name: string;
+  link: string;
+  minutes: number;
+}): Promise<void> {
+  const subject = `Your ${CLINIC.name} sign-in link`;
+  const text = `Hi ${args.name},
+
+Tap this link to sign in to ${CLINIC.name}. It works once and expires in ${args.minutes} minutes:
+${args.link}
+
+If you didn't ask for this, you can ignore this email. Nobody can sign in without the link.
+
+${CLINIC.name}`;
+  const html = `<p>Hi ${escHtml(args.name)},</p>
+<p><a href="${args.link}" style="display:inline-block;padding:10px 18px;border-radius:6px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:600">Sign in to ${escHtml(CLINIC.name)}</a></p>
+<p>The link works once and expires in ${args.minutes} minutes.</p>
+<p style="color:#64748b;font-size:12px">If you didn't ask for this, you can ignore this email. Nobody can sign in without the link.<br/>${escHtml(CLINIC.name)}</p>`;
+  await sendEmail({ to: args.email, subject, html, text });
 }
 
 /**

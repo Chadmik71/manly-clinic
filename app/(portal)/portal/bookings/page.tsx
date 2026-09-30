@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { bookingsNeedingHealthForm } from "@/lib/booking-intake";
 import { PortalShell } from "@/components/portal-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,8 @@ export default async function MyBookings() {
   const past = bookings.filter(
     (b) => b.startsAt < new Date() || b.status === "CANCELLED",
   );
+
+  const needsForm = await bookingsNeedingHealthForm(upcoming);
 
   const now = Date.now();
   const REFUND_REQUEST_MIN_HOURS = 1;
@@ -115,6 +118,13 @@ export default async function MyBookings() {
                   <span className="text-sm font-medium">
                     {formatPrice(b.priceCentsAtBooking)}
                   </span>
+                  {needsForm.has(b.id) && (
+                    <Button asChild size="sm">
+                      <Link href={`/portal/bookings/${b.id}/health-form`}>
+                        Fill in health form
+                      </Link>
+                    </Button>
+                  )}
                   <Button asChild size="sm" variant="outline">
                     <Link href={`/portal/bookings/${b.id}/reschedule`}>
                       Reschedule

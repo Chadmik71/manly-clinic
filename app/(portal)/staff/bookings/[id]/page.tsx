@@ -70,7 +70,7 @@ export default async function StaffBookingDetail({
   } as const;
   const [recentFullIntakes, lastVisit] = await Promise.all([
     db.intakeForm.findMany({
-      where: { userId: b.clientId, medicalConditions: { not: null } },
+      where: { userId: b.clientId, AND: [{ medicalConditions: { not: null } }, { medicalConditions: { not: "" } }] },
       orderBy: { createdAt: "desc" },
       take: 2,
       select: compareSelect,
@@ -116,7 +116,7 @@ export default async function StaffBookingDetail({
         },
       }),
       db.intakeForm.findFirst({
-        where: { userId: b.clientId, medicalConditions: { not: null } },
+        where: { userId: b.clientId, AND: [{ medicalConditions: { not: null } }, { medicalConditions: { not: "" } }] },
         orderBy: { updatedAt: "desc" },
       }),
     ]);

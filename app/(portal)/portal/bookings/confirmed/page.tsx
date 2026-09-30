@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { bookingsNeedingHealthForm } from "@/lib/booking-intake";
 import { PortalShell } from "@/components/portal-shell";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export default async function ConfirmedPage({
         include: { service: true, variant: true, therapist: { include: { user: true } } },
       })
     : null;
+  const needsForm = booking ? (await bookingsNeedingHealthForm([booking])).has(booking.id) : false;
 
   return (
     <PortalShell title="Booking confirmed" user={session.user} section="client">
@@ -66,6 +68,18 @@ export default async function ConfirmedPage({
               )}
             </div>
           ) : null}
+          {needsForm && booking && (
+            <div className="mt-6 mx-auto max-w-md rounded-md border border-primary/40 bg-primary/5 p-4 text-sm text-left">
+              <p className="font-semibold">One more thing: your health form</p>
+              <p className="text-muted-foreground mt-1">
+                Fill it in now (about 3 minutes) so there&apos;s no paperwork when you arrive.
+                We&apos;ve also emailed you the link.
+              </p>
+              <Button asChild className="mt-3">
+                <Link href={`/portal/bookings/${booking.id}/health-form`}>Fill in my health form</Link>
+              </Button>
+            </div>
+          )}
           <div className="flex gap-3 justify-center mt-6 flex-wrap">
             <Button asChild>
               <Link href="/portal/bookings">View my bookings</Link>

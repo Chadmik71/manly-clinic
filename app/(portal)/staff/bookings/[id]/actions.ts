@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { saveBookingIntake } from "@/lib/booking-intake";
 import { revalidatePath } from "next/cache";
 import { notifyBookingCancelled } from "@/lib/notify";
 import { matchAndNotifyWaitlist } from "@/lib/waitlist";
@@ -504,36 +505,6 @@ export async function updateBookingInternalNotes(
   return { ok: true };
 }
 
-const intakeCompletionSchema = z.object({
-  claimWithHealthFund: z.string().optional(),
-  healthFundName: z.string().max(80).optional(),
-  healthFundMemberNumber: z.string().max(40).optional(),
-  reasonForTreatment: z.string().max(2000).optional(),
-  // PNG data URL from the in-clinic signature pad, same 150 KB ceiling as
-  // the new-booking form and the public confirm action.
-  signatureDataUrl: z.string().max(150_000).optional(),
-  medicalHistory: z.string().max(2000).optional(), // JSON array of condition codes
-  medicalConditions: z.string().max(2000).optional(),
-  medications: z.string().max(2000).optional(),
-  allergies: z.string().max(2000).optional(),
-  injuries: z.string().max(2000).optional(),
-  painLocationCodes: z.string().max(2000).optional(), // JSON array of body-diagram codes
-  painScale: z.string().optional(),
-  painOnset: z.string().max(500).optional(),
-  painHistory: z.string().max(2000).optional(),
-  treatmentGoals: z.string().max(2000).optional(),
-  pregnancy: z.string().optional(),
-  pregnancyWeeks: z.string().optional(),
-  emergencyContactName: z.string().max(200).optional(),
-  emergencyContactRelationship: z.string().max(80).optional(),
-  emergencyContactPhone: z.string().max(40).optional(),
-  dob: z.string().optional(),
-  gender: z.string().max(40).optional(),
-  gpName: z.string().max(120).optional(),
-  gpClinic: z.string().max(200).optional(),
-  gpPhone: z.string().max(40).optional(),
-});
-
 /**
  * Complete the full clinical intake + signature for a booking that was made
  * over the phone (or otherwise created without the customer physically
@@ -557,140 +528,14 @@ export async function completeBookingIntake(
   )
     return { error: "Forbidden." };
 
-  const raw: Record<string, string> = {};
-  fd.forEach((v, k) => {
-    if (typeof v === "string") raw[k] = v;
+  const res = await saveBookingIntake({
+    bookingId,
+    fd,
+    actorUserId: session.user.id,
+    who: "staff",
+    auditAction: "COMPLETE_BOOKING_INTAKE",
   });
-  const parsed = intakeCompletionSchema.safeParse(raw);
-  if (!parsed.success) return { error: "Invalid input." };
-  const data = parsed.data;
-
-  const booking = await db.booking.findUnique({
-    where: { id: bookingId },
-    include: { service: true },
-  });
-  if (!booking) return { error: "Booking not found." };
-  if (booking.status === "CANCELLED")
-    return { error: "This booking has been cancelled." };
-
-  const claimWithHealthFund = data.claimWithHealthFund === "on";
-  const isPregnancyService = booking.service.slug === "pregnancy-massage";
-  const isPregnant = data.pregnancy === "on" || isPregnancyService;
-
-  const hasSignature =
-    !!data.signatureDataUrl &&
-    data.signatureDataUrl.startsWith("data:image/png;base64,");
-  if (!hasSignature)
-    return { error: "Please ask the client to sign the medical form." };
-
-  const requiredIntake: Array<[string | undefined, string]> = [
-    [data.medicalConditions, "medical conditions (write 'none' if none)"],
-    [data.medications, "current medications (write 'none' if none)"],
-    [data.allergies, "allergies (write 'none' if none)"],
-    [data.injuries, "recent injuries / areas to avoid"],
-    [data.emergencyContactName, "emergency contact name"],
-    [data.emergencyContactPhone, "emergency contact phone"],
-  ];
-  for (const [val, label] of requiredIntake) {
-    if (!val || !val.trim()) {
-      return { error: `Please complete the medical form: ${label}.` };
-    }
-  }
-  if (isPregnant) {
-    const weeks = data.pregnancyWeeks ? parseInt(data.pregnancyWeeks, 10) : NaN;
-    if (!Number.isFinite(weeks) || weeks < 1 || weeks > 45) {
-      return { error: "Please enter how many weeks pregnant the client is." };
-    }
-  }
-  if (claimWithHealthFund) {
-    if (!booking.service.healthFundEligible)
-      return { error: "This treatment is not eligible for health fund rebates." };
-    if (!data.healthFundName || !data.healthFundName.trim())
-      return { error: "Please choose the client's health fund." };
-    if (!data.healthFundMemberNumber || !data.healthFundMemberNumber.trim())
-      return { error: "Please enter the client's health fund member number." };
-    if (!data.reasonForTreatment || !data.reasonForTreatment.trim())
-      return { error: "Please describe the reason for treatment." };
-  }
-
-  // Fold the patient demographics staff entered into the client's User
-  // record — only the fields actually filled in, never blank out existing data.
-  const dobDate =
-    data.dob && /^\d{4}-\d{2}-\d{2}$/.test(data.dob) ? new Date(data.dob) : null;
-  const userPatch: Record<string, unknown> = {};
-  if (dobDate && !isNaN(dobDate.getTime())) userPatch.dob = dobDate;
-  if (data.gender) userPatch.gender = data.gender;
-  if (data.gpName) userPatch.gpName = data.gpName;
-  if (data.gpClinic) userPatch.gpClinic = data.gpClinic;
-  if (data.gpPhone) userPatch.gpPhone = data.gpPhone;
-  if (Object.keys(userPatch).length > 0) {
-    await db.user.update({ where: { id: booking.clientId }, data: userPatch });
-  }
-
-  let painScale: number | null = null;
-  if (data.painScale) {
-    const n = parseInt(data.painScale, 10);
-    if (Number.isFinite(n) && n >= 0 && n <= 10) painScale = n;
-  }
-  const pregnancyWeeks =
-    isPregnant && data.pregnancyWeeks
-      ? (() => {
-          const n = parseInt(data.pregnancyWeeks!, 10);
-          return Number.isFinite(n) && n >= 1 && n <= 45 ? n : null;
-        })()
-      : null;
-
-  await db.intakeForm.create({
-    data: {
-      userId: booking.clientId,
-      medicalHistory: data.medicalHistory ?? null,
-      medicalConditions: data.medicalConditions ?? null,
-      medications: data.medications ?? null,
-      allergies: data.allergies ?? null,
-      injuries: data.injuries ?? null,
-      painLocationCodes: data.painLocationCodes ?? null,
-      painScale,
-      painOnset: data.painOnset ?? null,
-      painHistory: data.painHistory ?? null,
-      treatmentGoals: data.treatmentGoals ?? null,
-      pregnancy: isPregnant,
-      pregnancyWeeks,
-      emergencyContactName: data.emergencyContactName ?? null,
-      emergencyContactRelationship: data.emergencyContactRelationship ?? null,
-      emergencyContactPhone: data.emergencyContactPhone ?? null,
-      healthFundName: claimWithHealthFund ? (data.healthFundName ?? null) : null,
-      healthFundMemberNumber: claimWithHealthFund
-        ? (data.healthFundMemberNumber ?? null)
-        : null,
-      reasonForTreatment: claimWithHealthFund
-        ? (data.reasonForTreatment ?? null)
-        : null,
-      consentToTreat: true,
-      consentToStore: true,
-      signedAt: new Date(),
-      signatureDataUrl: data.signatureDataUrl ?? null,
-    },
-  });
-
-  if (booking.claimWithHealthFund !== claimWithHealthFund) {
-    await db.booking.update({
-      where: { id: bookingId },
-      data: { claimWithHealthFund },
-    });
-  }
-
-  await audit({
-    userId: session.user.id,
-    action: "COMPLETE_BOOKING_INTAKE",
-    resource: `Booking:${bookingId}`,
-    metadata: {
-      claimWithHealthFund,
-      isPregnant,
-      ...(claimWithHealthFund
-        ? { healthFundName: data.healthFundName ?? null }
-        : {}),
-    },
-  });
+  if (res.error) return res;
 
   revalidatePath(`/staff/bookings/${bookingId}`);
   revalidatePath("/staff/bookings");

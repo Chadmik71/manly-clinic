@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { bookingsNeedingHealthForm } from "@/lib/booking-intake";
 import {
   Card,
   CardContent,
@@ -56,6 +57,7 @@ export default async function BookingConfirmedPage({
   const isOwner =
     !session?.user || // guest path: we just show a generic confirmation
     session.user.id === booking.client.id;
+  const needsForm = isOwner && (await bookingsNeedingHealthForm([booking])).has(booking.id);
 
   return (
     <div className="container py-12 max-w-2xl">
@@ -71,6 +73,19 @@ export default async function BookingConfirmedPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
+          {needsForm && (
+            <div className="rounded-md border border-primary/40 bg-background p-4">
+              <p className="font-semibold">One more thing: your health form</p>
+              <p className="text-muted-foreground mt-1">
+                Fill it in now (about 3 minutes) so there&apos;s no paperwork when you arrive.
+                We&apos;ve also emailed you the link. You can sign in with a one-tap link
+                sent to your email, with no password needed.
+              </p>
+              <Button asChild className="mt-3">
+                <Link href={`/portal/bookings/${booking.id}/health-form`}>Fill in my health form</Link>
+              </Button>
+            </div>
+          )}
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Treatment</span>

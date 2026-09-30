@@ -18,6 +18,7 @@ import { ServiceVariantPicker } from "./variant-picker";
 import { SlotPicker } from "./slot-picker";
 import { CouplePicker } from "./couple-picker";
 import { DateTabs } from "./date-tabs";
+import { SoonestSlots } from "./soonest-slots";
 import { getDistinctSlotTimes } from "@/lib/booking";
 import { addDays, format, parseISO, isValid } from "date-fns";
 import { sydneyTodayISO } from "@/lib/time";
@@ -271,6 +272,31 @@ export default async function BookPage({
     }
   }
 
+  // "Soonest available": the next few free times from now, across days.
+  // Reuses the already-loaded slots when the picker is showing today, then
+  // walks forward day by day (early exit) until it has enough.
+  const SOONEST_COUNT = 3;
+  const soonest: Date[] = [];
+  if (variant) {
+    const now = Date.now();
+    for (let i = 0; i < 14 && soonest.length < SOONEST_COUNT; i++) {
+      const dayIso = format(addDays(parseISO(todayISO), i), "yyyy-MM-dd");
+      const daySlots =
+        dayIso === dateISO
+          ? slots
+          : await getDistinctSlotTimes({
+              date: parseISO(dayIso),
+              durationMin: variant.durationMin,
+              therapistId: sp.therapist,
+              minTherapists: selectedPartner ? 2 : 1,
+              partnerDurationMin: selectedPartner?.durationMin,
+            });
+      for (const s of daySlots) {
+        if (s.getTime() > now && soonest.length < SOONEST_COUNT) soonest.push(s);
+      }
+    }
+  }
+
   // Build the 14-day picker starting from Sydney today (no past dates).
   const todayDate = parseISO(todayISO);
   const days = Array.from({ length: 14 }).map((_, i) => addDays(todayDate, i));
@@ -323,6 +349,14 @@ export default async function BookPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {variant && (
+              <SoonestSlots
+                slots={soonest.map((s) => s.toISOString())}
+                serviceSlug={service.slug}
+                variantId={variant.id}
+                partnerVariantId={selectedPartnerId ?? undefined}
+              />
+            )}
             <DateTabs
               serviceSlug={service.slug}
               variantId={variant?.id ?? ""}
