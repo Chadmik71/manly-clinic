@@ -20,6 +20,8 @@ export async function setBookingStatus(
   id: string,
   status: string,
   notifyClient?: boolean,
+  /** Optional note saved as the cancel reason, e.g. "client can't make it". */
+  reason?: string,
 ): Promise<{ ok?: boolean; error?: string }> {
   const session = await auth();
   if (
@@ -58,7 +60,9 @@ export async function setBookingStatus(
     where: { id },
     data: {
       status,
-      ...(status === "CANCELLED" ? { cancelledAt: new Date() } : {}),
+      ...(status === "CANCELLED"
+        ? { cancelledAt: new Date(), ...(reason?.trim() ? { cancelReason: reason.trim().slice(0, 300) } : {}) }
+        : {}),
     },
   });
 

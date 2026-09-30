@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, UserX, ExternalLink, User, Phone, MessageSquare, DoorOpen, Repeat, Wallet } from "lucide-react";
+import { CheckCircle2, UserX, ExternalLink, User, Phone, MessageSquare, DoorOpen, Repeat, Wallet, XCircle } from "lucide-react";
 import { CHECKOUT_LABEL, CHECKOUT_METHODS, type CheckoutMethod } from "@/lib/checkout";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
@@ -84,6 +84,9 @@ export function BookingDetailsDialog({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelNotify, setCancelNotify] = useState(true);
+  const [cancelReason, setCancelReason] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [payOpen, setPayOpen] = useState(false);
   const [payMethod, setPayMethod] = useState<CheckoutMethod | null>(null);
@@ -115,6 +118,20 @@ export function BookingDetailsDialog({
   const status = details?.status ?? preview.status;
   const canComplete = status !== "COMPLETED" && status !== "CANCELLED";
   const canNoShow = status !== "NO_SHOW" && status !== "CANCELLED";
+  const canCancel = status === "PENDING" || status === "CONFIRMED";
+
+  function confirmCancel() {
+    setActionError(null);
+    start(async () => {
+      const res = await setBookingStatus(preview.id, "CANCELLED", cancelNotify, cancelReason);
+      if (res.error) {
+        setActionError(res.error);
+      } else {
+        router.refresh();
+        onClose();
+      }
+    });
+  }
 
   function setStatus(next: string) {
     setActionError(null);
@@ -490,6 +507,44 @@ export function BookingDetailsDialog({
               <UserX className="h-4 w-4 mr-1" />
               No-show
             </Button>
+          )}
+          {canCancel && !confirmingCancel && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-red-700 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-900 dark:hover:bg-red-950/40"
+              onClick={() => setConfirmingCancel(true)}
+              disabled={pending}
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              Cancel booking
+            </Button>
+          )}
+          {canCancel && confirmingCancel && (
+            <div className="basis-full w-full rounded-md border border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/30 p-3 space-y-2 text-sm">
+              <p className="font-medium">Cancel this booking?</p>
+              <p className="text-xs text-muted-foreground">The time becomes free again and anyone on the waitlist for that day is told.</p>
+              <input
+                aria-label="Reason for cancelling"
+                className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                placeholder="Reason (optional), e.g. client can't make it"
+                maxLength={300}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+              />
+              <label className="flex items-start gap-2">
+                <input type="checkbox" className="mt-1" checked={cancelNotify} onChange={(e) => setCancelNotify(e.target.checked)} />
+                <span>Email/text the client that it&rsquo;s cancelled</span>
+              </label>
+              <div className="flex gap-2">
+                <Button size="sm" variant="destructive" onClick={confirmCancel} disabled={pending}>
+                  {pending ? "Cancelling…" : "Yes, cancel booking"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setConfirmingCancel(false)} disabled={pending}>
+                  Keep booking
+                </Button>
+              </div>
+            </div>
           )}
           {details && onBookAgain && (
             <Button size="sm" variant="outline" onClick={bookAgain} disabled={pending}>
