@@ -31,6 +31,8 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
             { suburb: { contains: t } },
             { postcode: { contains: t } },
             { notes: { contains: t } },
+            { healthFundName: { contains: t, mode: "insensitive" as const } },
+            { intakeForms: { some: { healthFundName: { contains: t, mode: "insensitive" as const } } } },
             { bookings: { some: { reference: { contains: t.toUpperCase() } } } },
             // No fund member number here: it is encrypted (lib/field-crypto.ts), so it can't be searched.
           ],
@@ -46,7 +48,22 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     { name: "asc" as const };
 
   const [clients, total] = await Promise.all([
-    db.user.findMany({ where, include: { _count: { select: { bookings: true } } }, orderBy, take: 200 }),
+    db.user.findMany({
+      where,
+      include: {
+        _count: { select: { bookings: true } },
+        // Fallback for clients whose fund is only on a health form (older
+        // staff-made claim bookings didn't copy it to the client record).
+        intakeForms: {
+          where: { healthFundName: { not: null } },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { healthFundName: true },
+        },
+      },
+      orderBy,
+      take: 200,
+    }),
     db.user.count({ where }),
   ]);
 
@@ -63,6 +80,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                     <th className="px-4 py-3">Name</th>
                     <th className="px-4 py-3">Email</th>
                     <th className="px-4 py-3">Phone</th>
+                    <th className="px-4 py-3">Health fund</th>
                     <th className="px-4 py-3 text-right">Visits</th>
                     <th className="px-4 py-3 text-right">No-shows</th>
                     <th className="px-4 py-3">Joined</th>
@@ -79,6 +97,9 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                           {synthetic ? <span className="text-muted-foreground italic">no email on file</span> : c.email}
                         </td>
                         <td className="px-4 py-3">{c.phone ?? "—"}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {c.healthFundName || c.intakeForms[0]?.healthFundName || <span className="text-muted-foreground">—</span>}
+                        </td>
                         <td className="px-4 py-3 text-right tabular-nums">{c.visitCount + c._count.bookings}</td>
                         <td className="px-4 py-3 text-right tabular-nums">
                           {c.noShowCount > 0 ? <Badge variant="warning">{c.noShowCount}</Badge> : <span className="text-muted-foreground">0</span>}
@@ -91,7 +112,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                     );
                   })}
                   {clients.length === 0 && (
-                    <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">No clients found.</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">No clients found.</td></tr>
                   )}
                 </tbody>
               </table>

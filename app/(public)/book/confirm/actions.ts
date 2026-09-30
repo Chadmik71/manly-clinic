@@ -733,6 +733,7 @@ export async function createBooking(
         status: "CONFIRMED",
         priceCentsAtBooking: pricing.finalPriceCents,
         claimWithHealthFund,
+        healthFundName: claimWithHealthFund ? (data.healthFundName?.trim() || null) : null,
         voucherCode,
         voucherAppliedCents,
         paidCents: voucherAppliedCents + verifiedDepositCents,

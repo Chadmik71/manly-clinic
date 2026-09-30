@@ -188,6 +188,10 @@ model Booking {
   clientConfirmedAt  DateTime?
   clientConfirmedVia String?
 
+  // Health fund used for THIS visit's claim (clients switch funds, so the
+  // client-level healthFundName isn't enough for the treatment history).
+  healthFundName     String?
+
   // Per-visit clinical notes (SOAP + extras). Captured by the treating
   // therapist after the session. All optional — older bookings, walk-ins,
   // or sessions that skip notes will leave these null.

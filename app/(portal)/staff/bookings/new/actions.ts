@@ -465,6 +465,11 @@ export async function createStaffBooking(
     if (data.gpName) userPatch.gpName = data.gpName;
     if (data.gpClinic) userPatch.gpClinic = data.gpClinic;
     if (data.gpPhone) userPatch.gpPhone = data.gpPhone;
+    // Keep the fund on the client record too (same as the customer booking
+    // flow), so the Clients list shows it and the next claim pre-fills.
+    if (claimWithHealthFund && data.healthFundName?.trim()) userPatch.healthFundName = data.healthFundName.trim();
+    if (claimWithHealthFund && data.healthFundMemberNumber?.trim())
+      userPatch.healthFundMemberNumber = data.healthFundMemberNumber.trim();
     if (Object.keys(userPatch).length > 0) {
       await db.user.update({ where: { id: clientId }, data: userPatch });
     }
@@ -519,6 +524,7 @@ export async function createStaffBooking(
       notes: data.notes ?? null,
       isWalkIn,
       claimWithHealthFund,
+      healthFundName: claimWithHealthFund ? (data.healthFundName?.trim() || null) : null,
     },
   });
 

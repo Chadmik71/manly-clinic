@@ -135,6 +135,11 @@ export async function saveBookingIntake(args: {
   if (data.gpName) userPatch.gpName = data.gpName;
   if (data.gpClinic) userPatch.gpClinic = data.gpClinic;
   if (data.gpPhone) userPatch.gpPhone = data.gpPhone;
+  // Keep the fund on the client record too (same as the customer booking
+  // flow), so the Clients list shows it and the next claim pre-fills.
+  if (claimWithHealthFund && data.healthFundName?.trim()) userPatch.healthFundName = data.healthFundName.trim();
+  if (claimWithHealthFund && data.healthFundMemberNumber?.trim())
+    userPatch.healthFundMemberNumber = data.healthFundMemberNumber.trim();
   if (Object.keys(userPatch).length > 0) {
     await db.user.update({ where: { id: booking.clientId }, data: userPatch });
   }
@@ -184,12 +189,14 @@ export async function saveBookingIntake(args: {
     },
   });
 
-  if (booking.claimWithHealthFund !== claimWithHealthFund) {
-    await db.booking.update({
-      where: { id: args.bookingId },
-      data: { claimWithHealthFund },
-    });
-  }
+  // Record the claim (and which fund it's with) on the visit itself.
+  await db.booking.update({
+    where: { id: args.bookingId },
+    data: {
+      claimWithHealthFund,
+      healthFundName: claimWithHealthFund ? (data.healthFundName?.trim() || null) : null,
+    },
+  });
 
   await audit({
     userId: args.actorUserId,

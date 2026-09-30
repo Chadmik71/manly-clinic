@@ -72,6 +72,19 @@ export default async function ClientClinicalRecord({
 
   const generatedAt = new Date();
   const latestIntake = client.intakeForms[0];
+
+  // Fund per visit. New claim bookings store it on the booking; older ones
+  // fall back to the health form (with a fund) signed closest to that visit.
+  const fundForms = client.intakeForms.filter((f) => f.healthFundName);
+  const visitFund = (b: { claimWithHealthFund: boolean; healthFundName: string | null; startsAt: Date }) => {
+    if (b.healthFundName) return b.healthFundName;
+    if (!b.claimWithHealthFund || fundForms.length === 0) return null;
+    const t = b.startsAt.getTime();
+    const nearest = fundForms.reduce((a, f) =>
+      Math.abs((f.signedAt ?? f.createdAt).getTime() - t) < Math.abs((a.signedAt ?? a.createdAt).getTime() - t) ? f : a,
+    );
+    return nearest.healthFundName;
+  };
   const latestConsent = client.consentRecords[0];
 
   return (
@@ -297,6 +310,15 @@ export default async function ClientClinicalRecord({
                       {formatPrice(b.priceCentsAtBooking)} · {b.status}
                       {b.claimWithHealthFund ? " \u00b7 Health fund claim" : ""}
                     </p>
+                    {(() => {
+                      const fund = visitFund(b);
+                      return fund ? (
+                        <p className="text-xs mt-0.5">
+                          <span className="text-gray-600">Health fund:</span>{" "}
+                          <span className="font-semibold">{fund}</span>
+                        </p>
+                      ) : null;
+                    })()}
                     <p className="text-xs text-gray-600 mt-0.5 font-mono">
                       Ref: {b.reference}
                     </p>
