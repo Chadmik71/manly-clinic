@@ -36,6 +36,22 @@ export function SignaturePad({
   const hasInk = useRef(false);
   const [isEmpty, setIsEmpty] = useState(true);
 
+  // Blank the pad to solid white and set up a black pen. The white is
+  // painted into the image itself (not just shown behind it), so the saved
+  // PNG is black-on-white everywhere: invoices, dark-mode staff screens,
+  // printouts. Works in raw device pixels, then re-applies DPR scaling.
+  function resetPad(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(dpr, dpr);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "#000000";
+  }
+
   // HiDPI-aware canvas setup. Sets the bitmap size to width*dpr so
   // signatures stay sharp on Retina / mobile screens.
   useEffect(() => {
@@ -46,13 +62,7 @@ export function SignaturePad({
     const dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr;
     canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = 2;
-    // Fixed colour (slate-900) so the saved PNG renders legibly regardless
-    // of the (possibly dark) page background.
-    ctx.strokeStyle = "#0f172a";
+    resetPad(ctx, canvas);
   }, [width, height]);
 
   // The drawing space is always width x height, but the canvas is shown at
@@ -121,16 +131,7 @@ export function SignaturePad({
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    // Clear in raw device pixels, then re-establish DPR scaling so the
-    // next stroke draws at the correct resolution.
-    const dpr = window.devicePixelRatio || 1;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.scale(dpr, dpr);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "#0f172a";
+    resetPad(ctx, canvas);
     hasInk.current = false;
     setIsEmpty(true);
     onChange(null);
@@ -139,7 +140,7 @@ export function SignaturePad({
   return (
     <div className="space-y-2">
       <div
-        className="rounded-md border bg-white"
+        className="rounded-md border bg-white overflow-hidden"
         style={{ width: "100%", maxWidth: width, touchAction: "none" }}
       >
         <canvas
@@ -158,6 +159,7 @@ export function SignaturePad({
             height,
             touchAction: "none",
             cursor: disabled ? "not-allowed" : "crosshair",
+            backgroundColor: "#ffffff",
           }}
         />
       </div>
