@@ -3,13 +3,13 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ExternalLink, User, Phone, MessageSquare, DoorOpen, Repeat, Wallet, XCircle } from "lucide-react";
+import { CheckCircle2, ExternalLink, User, Phone, MessageSquare, Repeat, Wallet, XCircle } from "lucide-react";
 import { CHECKOUT_LABEL, CHECKOUT_METHODS, type CheckoutMethod } from "@/lib/checkout";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
-import { setBookingStatus } from "@/app/(portal)/staff/bookings/[id]/actions";
-import { getBookingSummary, recordCheckout, setBookingArrived, type BookingSummary } from "./actions";
+import { assignTherapist, setBookingStatus } from "@/app/(portal)/staff/bookings/[id]/actions";
+import { getBookingSummary, recordCheckout, type BookingSummary } from "./actions";
 import type { QuickBookInitial } from "./quick-book-dialog";
 
 const sydDate = new Intl.DateTimeFormat("en-CA", { timeZone: SYDNEY_TZ });
@@ -97,6 +97,8 @@ export function BookingDetailsDialog({
   const [cancelNotify, setCancelNotify] = useState(true);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelKind, setCancelKind] = useState<CancelKind | null>(null);
+  // Health-fund claims need the treating therapist recorded before completion.
+  const [treatedBy, setTreatedBy] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [payOpen, setPayOpen] = useState(false);
   const [payMethod, setPayMethod] = useState<CheckoutMethod | null>(null);
@@ -108,7 +110,10 @@ export function BookingDetailsDialog({
     getBookingSummary(preview.id)
       .then((res) => {
         if (!live) return;
-        if (res.ok) setDetails(res.booking);
+        if (res.ok) {
+          setDetails(res.booking);
+          setTreatedBy((cur) => cur || res.booking.columnTherapistUserId || "");
+        }
         else setLoadError(res.error);
       })
       .catch(() => live && setLoadError("Couldn't load the booking details."));
@@ -158,27 +163,27 @@ export function BookingDetailsDialog({
     });
   }
 
+  /** Records the treating therapist first when a health-fund claim needs it. */
+  async function ensureTreatingTherapist(): Promise<string | null> {
+    if (!details?.needsTreatingTherapist) return null;
+    if (!treatedBy) return "Choose who did the treatment.";
+    const res = await assignTherapist(preview.id, treatedBy);
+    return res.error ?? null;
+  }
+
   function setStatus(next: string) {
     setActionError(null);
     start(async () => {
+      if (next === "COMPLETED") {
+        const err = await ensureTreatingTherapist();
+        if (err) return setActionError(err);
+      }
       const res = await setBookingStatus(preview.id, next);
       if (res.error) {
         setActionError(res.error);
       } else {
         router.refresh();
         onClose();
-      }
-    });
-  }
-
-  function toggleArrived(arrived: boolean) {
-    setActionError(null);
-    start(async () => {
-      const res = await setBookingArrived(preview.id, arrived);
-      if (res.error) setActionError(res.error);
-      else {
-        setReloadKey((k) => k + 1);
-        router.refresh();
       }
     });
   }
@@ -202,7 +207,8 @@ export function BookingDetailsDialog({
       const res = await recordCheckout(preview.id, payMethod, cents);
       if (res.error) return setActionError(res.error);
       if (payAndComplete && canComplete) {
-        const done = await setBookingStatus(preview.id, "COMPLETED");
+        const tErr = await ensureTreatingTherapist();
+        const done = tErr ? { error: tErr } : await setBookingStatus(preview.id, "COMPLETED");
         if (done.error) {
           setPayOpen(false);
           setReloadKey((k) => k + 1);
@@ -507,20 +513,29 @@ export function BookingDetailsDialog({
         {loadError && <p className="text-sm text-red-600 mt-3">{loadError}</p>}
         {actionError && <p className="text-sm text-red-600 mt-3">{actionError}</p>}
 
+        {details?.needsTreatingTherapist && canComplete && (
+          <label className="mt-4 flex flex-wrap items-center gap-2 rounded-md border border-violet-300 bg-violet-50 dark:border-violet-900 dark:bg-violet-950/30 px-3 py-2 text-sm">
+            <span className="font-medium">Treated by</span>
+            <select
+              aria-label="Treated by"
+              className="rounded-md border bg-background px-2 py-1 text-sm"
+              value={treatedBy}
+              onChange={(e) => setTreatedBy(e.target.value)}
+            >
+              <option value="">Choose…</option>
+              {details.treatingOptions.map((o) => (
+                <option key={o.userId} value={o.userId}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+            <span className="basis-full text-xs text-muted-foreground">
+              Health-fund claim: the fund needs the name of who did the treatment. Saved when you mark it completed.
+            </span>
+          </label>
+        )}
+
         <div className="flex flex-wrap gap-2 mt-5">
-          {details && (status === "PENDING" || status === "CONFIRMED") && (
-            details.arrivedAtIso ? (
-              <Button size="sm" variant="outline" onClick={() => toggleArrived(false)} disabled={pending}>
-                <DoorOpen className="h-4 w-4 mr-1" />
-                Undo arrived
-              </Button>
-            ) : (
-              <Button size="sm" className="bg-sky-600 hover:bg-sky-700 text-white" onClick={() => toggleArrived(true)} disabled={pending}>
-                <DoorOpen className="h-4 w-4 mr-1" />
-                Arrived
-              </Button>
-            )
-          )}
           {canComplete && (
             <Button size="sm" onClick={() => setStatus("COMPLETED")} disabled={pending}>
               <CheckCircle2 className="h-4 w-4 mr-1" />

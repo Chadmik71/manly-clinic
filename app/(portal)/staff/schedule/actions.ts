@@ -87,6 +87,13 @@ export type BookingSummary = {
   serviceId: string;
   variantId: string;
   therapistId: string | null;
+  /** Health-fund claim still missing the treating therapist (needed before
+   *  it can be marked completed). */
+  needsTreatingTherapist: boolean;
+  /** User id of the therapist whose column the booking is in (default pick). */
+  columnTherapistUserId: string | null;
+  /** Staff who can be recorded as the treating therapist. */
+  treatingOptions: { userId: string; name: string }[];
   client: {
     id: string;
     name: string;
@@ -138,6 +145,8 @@ export async function getBookingSummary(
       serviceId: true,
       variantId: true,
       therapistId: true,
+      assignedTherapistId: true,
+      therapist: { select: { userId: true } },
       service: { select: { name: true } },
       variant: { select: { durationMin: true } },
       client: {
@@ -161,6 +170,17 @@ export async function getBookingSummary(
     resource: `Booking:${b.id}`,
     metadata: { booking: b.reference },
   });
+
+  const needsTreatingTherapist = b.claimWithHealthFund && !b.assignedTherapistId;
+  const treatingOptions = needsTreatingTherapist
+    ? (
+        await db.therapist.findMany({
+          where: { active: true },
+          select: { user: { select: { id: true, name: true } } },
+          orderBy: { user: { name: "asc" } },
+        })
+      ).map((t) => ({ userId: t.user.id, name: t.user.name }))
+    : [];
 
   return {
     ok: true,
@@ -188,6 +208,9 @@ export async function getBookingSummary(
       serviceId: b.serviceId,
       variantId: b.variantId,
       therapistId: b.therapistId,
+      needsTreatingTherapist,
+      columnTherapistUserId: b.therapist?.userId ?? null,
+      treatingOptions,
       // Placeholder addresses (no real email on file) aren't worth showing.
       client: { ...b.client, email: isPlaceholderEmail(b.client.email) ? "" : b.client.email },
     },
