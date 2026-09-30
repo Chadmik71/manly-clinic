@@ -261,7 +261,11 @@ Reads, single-row writes/deletes, and `prisma db push` of additive (non-destruct
 
 
 
-- **Pre-fill**: returning customers see their last intake pre-filled, including body-diagram zones (`painLocationCodes`).
+- **Pre-fill**: returning customers see their last intake pre-filled, including body-diagram zones (`painLocationCodes`). Signed-in returning Remedial clients with a complete form get "Nothing has changed, go to signature".
+
+- **Form later**: first-time Remedial clients can choose "Later": the booking is made without a claim plus a consent-only intake, and the full form + signature is completed online at `/portal/bookings/[id]/health-form` (client) or via "Complete medical form" (staff). Both go through `saveBookingIntake` in `lib/booking-intake.ts`, which switches the claim on. "Has a full form" always means `medicalConditions` is non-null **and** non-empty; never test `{ not: null }` alone.
+
+- **Sign-in links**: clients can sign in with a one-tap email link (`lib/magic-link.ts`, NextAuth provider `magic-link`): single-use, 20 minutes, CLIENT only.
 
 
 
