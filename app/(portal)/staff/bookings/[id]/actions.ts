@@ -45,6 +45,12 @@ export async function setBookingStatus(
   // session — the customer-facing slot label "Therapist 1" is not a
   // valid audit answer. The /staff/bookings/[id] page surfaces this rule
   // in a banner before the staff member tries to set the status.
+  // Can't complete a session that hasn't started yet (a mistaken "completed"
+  // on a future booking also locks it from being moved on the calendar).
+  if (status === "COMPLETED" && booking.startsAt.getTime() > Date.now()) {
+    return { error: "This booking hasn't started yet. You can mark it completed once the session has started." };
+  }
+
   if (
     status === "COMPLETED" &&
     booking.claimWithHealthFund &&

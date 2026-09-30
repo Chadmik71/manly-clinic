@@ -132,7 +132,10 @@ export function BookingDetailsDialog({
   }, [onClose]);
 
   const status = details?.status ?? preview.status;
-  const canComplete = status !== "COMPLETED" && status !== "CANCELLED";
+  // A booking can only be completed once its start time has passed (stops a
+  // future booking being "completed" by mistake, which also locks it in place).
+  const started = preview.startsAt.getTime() <= Date.now();
+  const canComplete = started && status !== "COMPLETED" && status !== "CANCELLED";
   // One "Cancel booking" button covers no-shows too; the reason decides the
   // status. A booking already marked no-show can still be switched to a
   // proper cancellation.
