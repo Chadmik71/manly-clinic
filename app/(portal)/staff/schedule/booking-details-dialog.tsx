@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, UserX, ExternalLink, User, Phone, MessageSquare, DoorOpen, Repeat, Wallet, XCircle } from "lucide-react";
+import { CheckCircle2, ExternalLink, User, Phone, MessageSquare, DoorOpen, Repeat, Wallet, XCircle } from "lucide-react";
 import { CHECKOUT_LABEL, CHECKOUT_METHODS, type CheckoutMethod } from "@/lib/checkout";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
@@ -13,6 +13,15 @@ import { getBookingSummary, recordCheckout, setBookingArrived, type BookingSumma
 import type { QuickBookInitial } from "./quick-book-dialog";
 
 const sydDate = new Intl.DateTimeFormat("en-CA", { timeZone: SYDNEY_TZ });
+type CancelKind = "CANT_MAKE_IT" | "NO_SHOW" | "CLINIC" | "REJECTED" | "OTHER";
+const CANCEL_KINDS: { key: CancelKind; label: string; status: "CANCELLED" | "NO_SHOW"; notify: boolean }[] = [
+  { key: "CANT_MAKE_IT", label: "Client can't make it", status: "CANCELLED", notify: true },
+  { key: "NO_SHOW", label: "Didn't turn up (no-show)", status: "NO_SHOW", notify: false },
+  { key: "CLINIC", label: "Clinic cancelled (e.g. staff sick)", status: "CANCELLED", notify: true },
+  { key: "REJECTED", label: "Rejected / refused", status: "CANCELLED", notify: false },
+  { key: "OTHER", label: "Other", status: "CANCELLED", notify: true },
+];
+
 const confirmedWhen = new Intl.DateTimeFormat("en-AU", {
   timeZone: SYDNEY_TZ,
   weekday: "short",
@@ -87,6 +96,7 @@ export function BookingDetailsDialog({
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelNotify, setCancelNotify] = useState(true);
   const [cancelReason, setCancelReason] = useState("");
+  const [cancelKind, setCancelKind] = useState<CancelKind | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [payOpen, setPayOpen] = useState(false);
   const [payMethod, setPayMethod] = useState<CheckoutMethod | null>(null);
@@ -117,13 +127,28 @@ export function BookingDetailsDialog({
 
   const status = details?.status ?? preview.status;
   const canComplete = status !== "COMPLETED" && status !== "CANCELLED";
-  const canNoShow = status !== "NO_SHOW" && status !== "CANCELLED";
-  const canCancel = status === "PENDING" || status === "CONFIRMED";
+  // One "Cancel booking" button covers no-shows too; the reason decides the
+  // status. A booking already marked no-show can still be switched to a
+  // proper cancellation.
+  const canCancel = status === "PENDING" || status === "CONFIRMED" || status === "NO_SHOW";
+  const kinds = CANCEL_KINDS.filter((k) => !(k.status === "NO_SHOW" && status === "NO_SHOW"));
+  const chosen = CANCEL_KINDS.find((k) => k.key === cancelKind) ?? null;
 
   function confirmCancel() {
     setActionError(null);
+    if (!chosen) return setActionError("Choose a reason.");
+    if (chosen.key === "OTHER" && !cancelReason.trim()) return setActionError("Please write the reason.");
+    const note = cancelReason.trim();
     start(async () => {
-      const res = await setBookingStatus(preview.id, "CANCELLED", cancelNotify, cancelReason);
+      const res =
+        chosen.status === "NO_SHOW"
+          ? await setBookingStatus(preview.id, "NO_SHOW")
+          : await setBookingStatus(
+              preview.id,
+              "CANCELLED",
+              cancelNotify,
+              chosen.key === "OTHER" ? note : note ? `${chosen.label}: ${note}` : chosen.label,
+            );
       if (res.error) {
         setActionError(res.error);
       } else {
@@ -502,12 +527,6 @@ export function BookingDetailsDialog({
               Mark completed
             </Button>
           )}
-          {canNoShow && (
-            <Button size="sm" variant="outline" onClick={() => setStatus("NO_SHOW")} disabled={pending}>
-              <UserX className="h-4 w-4 mr-1" />
-              No-show
-            </Button>
-          )}
           {canCancel && !confirmingCancel && (
             <Button
               size="sm"
@@ -522,25 +541,65 @@ export function BookingDetailsDialog({
           )}
           {canCancel && confirmingCancel && (
             <div className="basis-full w-full rounded-md border border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/30 p-3 space-y-2 text-sm">
-              <p className="font-medium">Cancel this booking?</p>
-              <p className="text-xs text-muted-foreground">The time becomes free again and anyone on the waitlist for that day is told.</p>
-              <input
-                aria-label="Reason for cancelling"
-                className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                placeholder="Reason (optional), e.g. client can't make it"
-                maxLength={300}
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-              />
-              <label className="flex items-start gap-2">
-                <input type="checkbox" className="mt-1" checked={cancelNotify} onChange={(e) => setCancelNotify(e.target.checked)} />
-                <span>Email/text the client that it&rsquo;s cancelled</span>
-              </label>
+              <p className="font-medium">Why is this booking cancelled?</p>
+              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Cancel reason">
+                {kinds.map((k) => (
+                  <button
+                    key={k.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={cancelKind === k.key}
+                    onClick={() => {
+                      setCancelKind(k.key);
+                      setCancelNotify(k.notify);
+                    }}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+                      cancelKind === k.key
+                        ? "border-red-600 bg-red-600 text-white"
+                        : "border-red-300 bg-background hover:bg-red-100 dark:hover:bg-red-950/40"
+                    }`}
+                  >
+                    {k.label}
+                  </button>
+                ))}
+              </div>
+              {chosen && (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    {chosen.status === "NO_SHOW"
+                      ? "Marked as a no-show. The time is freed and the waitlist is told."
+                      : "The time becomes free again and anyone on the waitlist for that day is told."}
+                  </p>
+                  <input
+                    aria-label="Reason for cancelling"
+                    className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    placeholder={chosen.key === "OTHER" ? "Write the reason" : "Note (optional)"}
+                    maxLength={250}
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                  />
+                  {chosen.status === "CANCELLED" && (
+                    <label className="flex items-start gap-2">
+                      <input type="checkbox" className="mt-1" checked={cancelNotify} onChange={(e) => setCancelNotify(e.target.checked)} />
+                      <span>Email/text the client that it&rsquo;s cancelled</span>
+                    </label>
+                  )}
+                </>
+              )}
               <div className="flex gap-2">
-                <Button size="sm" variant="destructive" onClick={confirmCancel} disabled={pending}>
-                  {pending ? "Cancelling…" : "Yes, cancel booking"}
+                <Button size="sm" variant="destructive" onClick={confirmCancel} disabled={pending || !chosen}>
+                  {pending ? "Saving…" : chosen?.status === "NO_SHOW" ? "Mark as no-show" : "Yes, cancel booking"}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setConfirmingCancel(false)} disabled={pending}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setConfirmingCancel(false);
+                    setCancelKind(null);
+                    setCancelReason("");
+                  }}
+                  disabled={pending}
+                >
                   Keep booking
                 </Button>
               </div>
