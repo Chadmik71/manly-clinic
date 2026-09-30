@@ -50,6 +50,7 @@ export const ENCRYPTED_FIELDS: ReadonlySet<string> = new Set([
   "gpName",
   "gpClinic",
   "gpPhone",
+  "preferences",
   // Booking (clinical SOAP notes + annotation drawing)
   "noteSubjective",
   "noteObjective",

@@ -47,10 +47,24 @@ async function sendEmail({ to: rawTo, subject, html, text }: EmailArgs): Promise
   }
 }
 
-async function sendSms({ to, body }: SmsArgs): Promise<void> {
+/** True when Twilio keys are set, i.e. texts really go out (not just logged). */
+export function smsConfigured(): boolean {
+  return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM);
+}
+
+/** Twilio needs E.164. Phones are stored as local "04xxxxxxxx" (lib/phone.ts). */
+function toE164(raw: string): string {
+  const p = raw.replace(/[\s\-()]/g, "");
+  if (/^04\d{8}$/.test(p)) return "+61" + p.slice(1);
+  if (/^614\d{8}$/.test(p)) return "+" + p;
+  return p;
+}
+
+async function sendSms({ to: rawTo, body }: SmsArgs): Promise<void> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_FROM;
+  const to = toE164(rawTo);
   if (!sid || !token || !from) {
     console.log("[notify:sms:stub]", { to, body });
     return;
@@ -141,6 +155,9 @@ export async function notifyBookingConfirmed(args: {
   healthFormUrl?: string;
   /** One-tap "book your next session" link (same service and length). */
   rebookUrl?: string;
+  /** Email the clinic a "new booking" heads-up. Off for bookings staff made
+   *  themselves (they already know). Default true. */
+  notifyStaff?: boolean;
 }): Promise<void> {
   const extraText =
     (args.healthFormUrl
@@ -243,7 +260,7 @@ ${CLINIC.phone}`;
   try {
     const staffTo =
       process.env.STAFF_NOTIFICATION_EMAIL || CLINIC.email;
-    if (staffTo) {
+    if (staffTo && args.notifyStaff !== false) {
       const isCouple = !!args.partner;
       const services = isCouple
         ? `${args.serviceName} (${args.durationMin}min) + ${args.partner!.serviceName} (${args.partner!.durationMin}min)`
@@ -374,8 +391,19 @@ export async function notifyBookingReminder(args: {
   startsAt: Date;
   /** Set when the client still hasn't filled in their health form. */
   healthFormUrl?: string;
+  /** "Yes, I'm coming" link (lib/booking-confirm.ts). */
+  confirmUrl?: string;
 }): Promise<void> {
   const subject = `Reminder — your ${args.serviceName} tomorrow`;
+  const confirmText = args.confirmUrl
+    ? `
+
+Coming as planned? Tap to confirm: ${args.confirmUrl}
+Need to change? Call us on ${CLINIC.phone}.`
+    : "";
+  const confirmHtml = args.confirmUrl
+    ? `<p style="margin:16px 0"><a href="${args.confirmUrl}" style="display:inline-block;padding:10px 18px;border-radius:6px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:600">Yes, I&rsquo;m coming</a></p><p style="color:#64748b;font-size:13px">Need to change it? Call us on ${CLINIC.phone}.</p>`
+    : "";
   const formText = args.healthFormUrl
     ? `
 
@@ -392,15 +420,44 @@ Friendly reminder of your ${args.serviceName} on ${fmt(args.startsAt)}.
 Booking reference: ${args.reference}
 ${CLINIC.address.line1}, ${CLINIC.address.suburb}
 
-Need to change it? ${CLINIC.domain}/portal/bookings${formText}`;
-  const html = `<p>Hi ${args.name},</p><p>Reminder of your <strong>${args.serviceName}</strong> on ${fmt(args.startsAt)}.</p><p>Reference <code>${args.reference}</code><br/><a href="${CLINIC.domain}/portal/bookings">Manage</a></p>${formHtml}`;
+Need to change it? ${CLINIC.domain}/portal/bookings${confirmText}${formText}`;
+  const html = `<p>Hi ${args.name},</p><p>Reminder of your <strong>${args.serviceName}</strong> on ${fmt(args.startsAt)}.</p>${confirmHtml}<p>Reference <code>${args.reference}</code><br/><a href="${CLINIC.domain}/portal/bookings">Manage</a></p>${formHtml}`;
   await sendEmail({ to: args.email, subject, html, text });
   if (args.phone) {
+    // Replies go to the Twilio number's webhook (/api/webhooks/twilio/sms).
     await sendSms({
       to: args.phone,
-      body: `${CLINIC.name}: reminder ${args.serviceName} ${fmtShort(args.startsAt)}. Ref ${args.reference}.`,
+      body: `${CLINIC.name}: reminder ${args.serviceName} ${fmtShort(args.startsAt)}. Reply C to confirm, or call ${CLINIC.phone} to change.`,
     });
   }
+}
+
+/** A client texted back something other than "C" (e.g. "running late"):
+ *  pass it on to the clinic inbox so it isn't lost in the Twilio console. */
+export async function notifyClinicSmsReply(args: {
+  fromPhone: string;
+  clientName: string | null;
+  body: string;
+  nextBooking: string | null;
+}): Promise<void> {
+  const to = process.env.STAFF_NOTIFICATION_EMAIL || CLINIC.email;
+  if (!to) return;
+  const who = args.clientName ? `${args.clientName} (${args.fromPhone})` : args.fromPhone;
+  const subject = `Text reply from ${who}`;
+  const text = `${who} replied to a text from ${CLINIC.name}:
+
+"${args.body}"
+
+${args.nextBooking ? `Their next booking: ${args.nextBooking}` : "No upcoming booking found for this number."}
+
+Reply to them by text or call from the clinic phone.`;
+  const html = `<p><strong>${escHtml(who)}</strong> replied to a text from ${escHtml(CLINIC.name)}:</p><blockquote style="margin:8px 0;padding:8px 12px;border-left:3px solid #0f766e;background:#f8fafc">${escHtml(args.body)}</blockquote><p>${args.nextBooking ? `Their next booking: ${escHtml(args.nextBooking)}` : "No upcoming booking found for this number."}</p><p style="color:#64748b;font-size:12px">Reply to them by text or call from the clinic phone.</p>`;
+  await sendEmail({ to, subject, html, text });
+}
+
+/** Formats a booking time the same way texts do ("Thu 30 Apr 7:00 pm"). */
+export function smsTime(d: Date): string {
+  return fmtShort(d);
 }
 
 /** One-tap sign-in link (clients who'd rather not use a password). */
@@ -489,6 +546,7 @@ export async function notifyPostVisitFollowUp(args: {
 }): Promise<void> {
   const firstName = (args.name || "").trim().split(/\s+/)[0] || "there";
   const bookUrl = `${CLINIC.domain}/book?service=${args.serviceSlug}&variant=${args.variantId}`;
+  const reviewUrl = `https://search.google.com/local/writereview?placeid=${CLINIC.googlePlaceId}`;
   const subject = `Thanks for visiting ${CLINIC.name}`;
   const text = `Hi ${firstName},
 
@@ -496,9 +554,12 @@ Thanks for coming in for your ${args.serviceName}! If you'd like to book your ne
 
 ${bookUrl}
 
+Enjoyed your visit? A quick Google review helps other people find us:
+${reviewUrl}
+
 ${CLINIC.name}
 ${CLINIC.phone}`;
-  const html = `<p>Hi ${firstName},</p><p>Thanks for coming in for your <strong>${args.serviceName}</strong>! If you&rsquo;d like to book your next session, here&rsquo;s a one-tap link straight back to it:</p><p><a href="${bookUrl}">Book ${args.serviceName} again</a></p><p style="color:#64748b;font-size:12px">${CLINIC.name} &middot; ${CLINIC.phone}</p>`;
+  const html = `<p>Hi ${firstName},</p><p>Thanks for coming in for your <strong>${args.serviceName}</strong>! If you&rsquo;d like to book your next session, here&rsquo;s a one-tap link straight back to it:</p><p><a href="${bookUrl}">Book ${args.serviceName} again</a></p><p>Enjoyed your visit? A quick Google review helps other people find us.</p><p><a href="${reviewUrl}" style="display:inline-block;padding:8px 16px;border-radius:6px;border:1px solid #0f766e;color:#0f766e;text-decoration:none;font-weight:600">&#9733; Leave us a Google review</a></p><p style="color:#64748b;font-size:12px">${CLINIC.name} &middot; ${CLINIC.phone}</p>`;
   await sendEmail({ to: args.email, subject, html, text });
 }
 

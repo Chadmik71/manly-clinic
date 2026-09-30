@@ -48,6 +48,10 @@ model User {
   lastReviewRequestAt    DateTime?
   // Throttles the "haven't seen you in a while" lapsed-client nudge.
   lastLapsedNudgeAt      DateTime?
+  // Staff-entered treatment preferences shown on booking cards, e.g. "firm
+  // pressure, avoid left shoulder". Separate from `notes` (import-owned).
+  // Encrypted at rest (lib/field-crypto.ts), since it can mention injuries.
+  preferences            String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -178,6 +182,11 @@ model Booking {
   checkoutCents   Int?
   checkoutAt      DateTime?
   checkoutById    String?
+
+  // Client said "yes, I'm coming" from the reminder: the email button
+  // (/confirm-booking/[token]) or an SMS reply. Via: EMAIL | SMS.
+  clientConfirmedAt  DateTime?
+  clientConfirmedVia String?
 
   // Per-visit clinical notes (SOAP + extras). Captured by the treating
   // therapist after the session. All optional — older bookings, walk-ins,

@@ -9,7 +9,12 @@ import { bookingReference } from "@/lib/utils";
 import {
   BOOKING_LATEST_END_MIN,
   BOOKING_EARLIEST_START_MIN,
+  CLINIC,
 } from "@/lib/clinic";
+import { notifyBookingConfirmed, smsConfigured } from "@/lib/notify";
+import { isPlaceholderEmail } from "@/lib/placeholder-email";
+import { normalisePhone } from "@/lib/phone";
+import { bookingsNeedingHealthForm } from "@/lib/booking-intake";
 import { revalidatePath } from "next/cache";
 import { sydneyDateOf, sydneyDow, sydneyLocalToUtc } from "@/lib/time";
 
@@ -78,6 +83,12 @@ const schema = z.object({
   gpName: z.string().max(120).optional(),
   gpClinic: z.string().max(200).optional(),
   gpPhone: z.string().max(40).optional(),
+  // "on" = email/text the client a confirmation (phone bookings). Staff untick
+  // it for a walk-in who is standing at the counter.
+  sendConfirmation: z.string().optional(),
+  // "on" = client agreed (asked by staff) to occasional texts/emails such as
+  // the post-visit thank-you and Google review request (Spam Act opt-in).
+  marketingConsent: z.string().optional(),
 });
 
 // Server-side client search for the booking-create form. Mirrors the
@@ -296,7 +307,7 @@ export async function getClientPrefill(clientId: string): Promise<{
 
 export async function createStaffBooking(
   fd: FormData,
-): Promise<{ ok?: boolean; error?: string; reference?: string }> {
+): Promise<{ ok?: boolean; error?: string; reference?: string; notified?: string }> {
   const session = await auth();
   if (
     !session?.user ||
@@ -428,7 +439,7 @@ export async function createStaffBooking(
         data: {
           email,
           name: data.walkInName,
-          phone: data.walkInPhone || null,
+          phone: data.walkInPhone ? normalisePhone(data.walkInPhone) : null,
           passwordHash: tempPassword,
           role: "CLIENT",
         },
@@ -578,7 +589,59 @@ export async function createStaffBooking(
         : {}),
     },
   });
+  if (data.marketingConsent === "on") {
+    await db.user.update({
+      where: { id: clientId },
+      data: { marketingConsent: true, marketingConsentAt: new Date() },
+    });
+  }
+
+  // Confirmation to the client (phone bookings). Email only when there's a
+  // real address; text when there's a phone and Twilio is set up.
+  let notified: string | undefined;
+  if (data.sendConfirmation === "on") {
+    const client = await db.user.findUnique({
+      where: { id: clientId },
+      select: { name: true, email: true, phone: true },
+    });
+    if (client) {
+      const needsForm = await bookingsNeedingHealthForm([
+        {
+          id: booking.id,
+          clientId,
+          createdAt: booking.createdAt,
+          status: booking.status,
+          service: { healthFundEligible: variant.service.healthFundEligible, slug: variant.service.slug },
+        },
+      ]);
+      await notifyBookingConfirmed({
+        email: client.email,
+        phone: client.phone,
+        name: client.name,
+        reference,
+        serviceName: variant.service.name,
+        durationMin: variant.durationMin,
+        startsAt,
+        healthFormUrl: needsForm.has(booking.id)
+          ? `${CLINIC.domain}/portal/bookings/${booking.id}/health-form`
+          : undefined,
+        notifyStaff: false,
+      });
+      const channels = [
+        !isPlaceholderEmail(client.email) ? "email" : null,
+        client.phone && smsConfigured() ? "text" : null,
+      ].filter(Boolean);
+      notified = channels.length ? channels.join(" and ") : "none";
+      await audit({
+        userId: session.user.id,
+        action: "BOOKING_CONFIRMATION_SENT",
+        resource: `Booking:${booking.id}`,
+        metadata: { channels: notified },
+      });
+    }
+  }
+
   revalidatePath("/staff/bookings");
   revalidatePath("/staff/schedule");
-  return { ok: true, reference };
+  return { ok: true, reference, notified };
 }

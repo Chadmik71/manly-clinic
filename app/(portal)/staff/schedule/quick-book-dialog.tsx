@@ -48,7 +48,7 @@ export function QuickBookDialog({
   services: QuickBookService[];
   therapists: { id: string; name: string }[];
   onClose: () => void;
-  onBooked: (reference: string, date: string) => void;
+  onBooked: (reference: string, date: string, notified?: string) => void;
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +71,8 @@ export function QuickBookDialog({
   const [therapistId, setTherapistId] = useState(initial.therapistId);
   const [notes, setNotes] = useState("");
   const [consent, setConsent] = useState(false);
+  const [sendConfirmation, setSendConfirmation] = useState(true);
+  const [marketingOk, setMarketingOk] = useState(false);
   const searchSeq = useRef(0);
 
   // Keep the duration valid when the service changes.
@@ -135,10 +137,12 @@ export function QuickBookDialog({
     fd.set("therapistId", therapistId);
     if (notes.trim()) fd.set("notes", notes.trim());
     fd.set("consentToTreat", "on");
+    if (sendConfirmation) fd.set("sendConfirmation", "on");
+    if (marketingOk) fd.set("marketingConsent", "on");
     start(async () => {
       const res = await createStaffBooking(fd);
       if (res.error) setError(res.error);
-      else if (res.reference) onBooked(res.reference, date);
+      else if (res.reference) onBooked(res.reference, date, res.notified);
     });
   }
 
@@ -297,6 +301,20 @@ export function QuickBookDialog({
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" className="mt-1" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
           <span>The client consents to receiving treatment.</span>
+        </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={sendConfirmation} onChange={(e) => setSendConfirmation(e.target.checked)} />
+          <span>
+            Send the client a confirmation (email and/or text).
+            <span className="block text-xs text-muted-foreground">Untick for a walk-in who is here now.</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={marketingOk} onChange={(e) => setMarketingOk(e.target.checked)} />
+          <span>
+            Client is happy to get an occasional message from us (thank-you and review request after a visit).
+            <span className="block text-xs text-muted-foreground">Ask them first. Leave unticked if unsure.</span>
+          </span>
         </label>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

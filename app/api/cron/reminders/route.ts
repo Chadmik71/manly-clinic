@@ -7,6 +7,7 @@ import { requireCronAuth } from "@/lib/cron-auth";
 import { withDbRetry } from "@/lib/db-retry";
 import { bookingsNeedingHealthForm } from "@/lib/booking-intake";
 import { CLINIC } from "@/lib/clinic";
+import { bookingConfirmUrl } from "@/lib/booking-confirm";
 import { sydneyDateOf, sydneyDayBoundsUtc, sydneyTodayISO } from "@/lib/time";
 
 // Sends a reminder for every booking on tomorrow's Sydney date that hasn't
@@ -74,6 +75,7 @@ export async function GET(req: Request) {
       healthFormUrl: needsForm.has(b.id)
         ? `${CLINIC.domain}/portal/bookings/${b.id}/health-form`
         : undefined,
+      confirmUrl: bookingConfirmUrl(b.id),
     });
     await audit({
       userId: null,

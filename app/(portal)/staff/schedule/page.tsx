@@ -83,7 +83,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       include: {
         service: true,
         variant: true,
-        client: { select: { id: true, name: true, phone: true } },
+        client: { select: { id: true, name: true, phone: true, preferences: true } },
       },
       orderBy: { startsAt: "asc" },
     }),

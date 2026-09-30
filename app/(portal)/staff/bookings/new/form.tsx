@@ -39,7 +39,7 @@ export function NewBookingForm({
 }: {
   action: (
     formData: FormData,
-  ) => Promise<{ ok?: boolean; error?: string; reference?: string }>;
+  ) => Promise<{ ok?: boolean; error?: string; reference?: string; notified?: string }>;
   clients: Client[];
   services: Service[];
   therapists: Therapist[];
@@ -248,7 +248,14 @@ export function NewBookingForm({
       const res = await action(fd);
       if (res?.error) setError(res.error);
       else if (res?.reference) {
-        setSuccess(`Booking ${res.reference} created.`);
+        setSuccess(
+          `Booking ${res.reference} created.` +
+            (res.notified === "none"
+              ? " No confirmation sent: no email or mobile on file."
+              : res.notified
+                ? ` Confirmation sent by ${res.notified}.`
+                : ""),
+        );
         (e.target as HTMLFormElement).reset();
         setClaiming(false);
         setSignatureDataUrl(null);
@@ -878,6 +885,23 @@ export function NewBookingForm({
           </p>
         </div>
       )}
+
+      <div className="space-y-2 rounded-md border bg-card p-4 text-sm">
+        <label className="flex items-start gap-2">
+          <input type="checkbox" name="sendConfirmation" defaultChecked className="mt-1" />
+          <span>
+            Send the client a confirmation (email and/or text).
+            <span className="block text-xs text-muted-foreground">Untick for a walk-in who is here now.</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2">
+          <input type="checkbox" name="marketingConsent" className="mt-1" />
+          <span>
+            Client is happy to get an occasional message from us (thank-you and review request after a visit).
+            <span className="block text-xs text-muted-foreground">Ask them first. Leave unticked if unsure.</span>
+          </span>
+        </label>
+      </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {success && <p className="text-sm text-emerald-600">{success}</p>}

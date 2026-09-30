@@ -82,6 +82,8 @@ export type BookingSummary = {
   arrivedAtIso: string | null;
   checkoutMethod: string | null;
   checkoutCents: number | null;
+  clientConfirmedAtIso: string | null;
+  clientConfirmedVia: string | null;
   serviceId: string;
   variantId: string;
   therapistId: string | null;
@@ -92,6 +94,7 @@ export type BookingSummary = {
     phone: string | null;
     visitCount: number;
     noShowCount: number;
+    preferences: string | null;
   };
 };
 
@@ -130,6 +133,8 @@ export async function getBookingSummary(
       arrivedAt: true,
       checkoutMethod: true,
       checkoutCents: true,
+      clientConfirmedAt: true,
+      clientConfirmedVia: true,
       serviceId: true,
       variantId: true,
       therapistId: true,
@@ -143,6 +148,7 @@ export async function getBookingSummary(
           phone: true,
           visitCount: true,
           noShowCount: true,
+          preferences: true,
         },
       },
     },
@@ -177,6 +183,8 @@ export async function getBookingSummary(
       arrivedAtIso: b.arrivedAt ? b.arrivedAt.toISOString() : null,
       checkoutMethod: b.checkoutMethod,
       checkoutCents: b.checkoutCents,
+      clientConfirmedAtIso: b.clientConfirmedAt ? b.clientConfirmedAt.toISOString() : null,
+      clientConfirmedVia: b.clientConfirmedVia,
       serviceId: b.serviceId,
       variantId: b.variantId,
       therapistId: b.therapistId,

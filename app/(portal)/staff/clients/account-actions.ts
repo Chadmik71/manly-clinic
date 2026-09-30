@@ -111,3 +111,31 @@ export async function sendPortalInvite(
   });
   return { ok: true, sentTo: client.email };
 }
+
+/**
+ * Staff-entered treatment preferences ("firm pressure, avoid left shoulder"),
+ * shown on the client's booking cards. Encrypted at rest (lib/field-crypto).
+ */
+export async function setClientPreferences(
+  clientId: string,
+  text: string,
+): Promise<{ ok?: boolean; error?: string }> {
+  const user = await requireStaff();
+  if (!user) return { error: "Forbidden." };
+  const parsed = z.string().max(300).safeParse(text.trim());
+  if (!parsed.success) return { error: "Please keep it under 300 characters." };
+  const client = await db.user.findUnique({ where: { id: clientId }, select: { role: true } });
+  if (!client || client.role !== "CLIENT") return { error: "Client not found." };
+  await db.user.update({
+    where: { id: clientId },
+    data: { preferences: parsed.data || null },
+  });
+  await audit({
+    userId: user.id,
+    action: "CLIENT_PREFERENCES_UPDATED",
+    resource: `User:${clientId}`,
+  });
+  revalidateClient(clientId);
+  revalidatePath("/staff/schedule");
+  return { ok: true };
+}

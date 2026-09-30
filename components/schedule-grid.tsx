@@ -37,7 +37,7 @@ type Booking = {
   priceCentsAtBooking: number;
   service: { name: string; category: string };
   variant: { id: string; durationMin: number };
-  client: { id: string; name: string; phone: string | null };
+  client: { id: string; name: string; phone: string | null; preferences?: string | null };
   therapistId: string | null;
   /** True if the client has no prior CONFIRMED/COMPLETED bookings — this is
    *  their first visit. Surfaced as a "NEW" badge on the card so therapists
@@ -50,6 +50,8 @@ type Booking = {
   claimWithHealthFund?: boolean;
   arrivedAt?: Date | null;
   checkoutMethod?: string | null;
+  /** Client tapped "Yes, I'm coming" / replied C to the reminder. */
+  clientConfirmedAt?: Date | null;
   /** Medical-form sections the client changed since their last visit
    *  (e.g. "Medications"). Non-empty shows a "Health update" badge. */
   healthChanges?: string[];
@@ -142,7 +144,7 @@ export function ScheduleGrid({
 }) {
   const router = useRouter();
   const [quickBook, setQuickBook] = useState<QuickBookInitial | null>(null);
-  const [booked, setBooked] = useState<{ reference: string; date: string } | null>(null);
+  const [booked, setBooked] = useState<{ reference: string; date: string; notified?: string } | null>(null);
   const [openBooking, setOpenBooking] = useState<BookingPreview | null>(null);
   const dayStartMin = DAY_START_HOUR * 60;
   const dayEndMin = DAY_END_HOUR * 60;
@@ -765,6 +767,7 @@ export function ScheduleGrid({
                   const resizing = resize?.booking.id === b.id;
                   const shownHeight = resizing ? resize!.durationMin * MIN_PX : height;
                   const arrived = !!b.arrivedAt && (b.status === "PENDING" || b.status === "CONFIRMED");
+                  const clientConfirmed = !!b.clientConfirmedAt && (b.status === "PENDING" || b.status === "CONFIRMED");
                   return (
                     <div
                       key={b.id}
@@ -840,8 +843,18 @@ export function ScheduleGrid({
                         <div className="opacity-80 truncate">
                           {b.variant.durationMin} min {b.service.name}
                         </div>
-                        {(b.needsIntakeForm || (b.healthChanges?.length ?? 0) > 0 || arrived || !!b.checkoutMethod || b.claimWithHealthFund) && (
+                        {b.client.preferences && (
+                          <div className="truncate italic opacity-80" title={b.client.preferences}>
+                            ★ {b.client.preferences}
+                          </div>
+                        )}
+                        {(b.needsIntakeForm || (b.healthChanges?.length ?? 0) > 0 || arrived || !!b.checkoutMethod || b.claimWithHealthFund || (clientConfirmed && !arrived)) && (
                           <div className="mt-0.5 flex flex-wrap gap-1">
+                            {clientConfirmed && !arrived && (
+                              <span className="inline-block rounded-sm bg-teal-700 text-white text-[9px] font-bold uppercase px-1 py-px tracking-wider" title="The client confirmed they're coming">
+                                ✓ Confirmed
+                              </span>
+                            )}
                             {arrived && (
                               <span className="inline-block rounded-sm bg-sky-600 text-white text-[9px] font-bold uppercase px-1 py-px tracking-wider">
                                 Arrived
@@ -930,9 +943,9 @@ export function ScheduleGrid({
           services={services}
           therapists={therapists.filter((t) => t.isActive !== false).map((t) => ({ id: t.id, name: t.name }))}
           onClose={() => setQuickBook(null)}
-          onBooked={(reference, date) => {
+          onBooked={(reference, date, notified) => {
             setQuickBook(null);
-            setBooked({ reference, date });
+            setBooked({ reference, date, notified });
             router.refresh();
           }}
         />
@@ -954,6 +967,13 @@ export function ScheduleGrid({
           <span>
             ✓ Booked <span className="font-mono">{booked.reference}</span>
             {booked.date !== dateStr ? ` for ${booked.date}` : ""}
+            {booked.notified && (
+              <span className="block text-xs text-muted-foreground">
+                {booked.notified === "none"
+                  ? "No confirmation sent: no email or mobile on file."
+                  : `Confirmation sent by ${booked.notified}.`}
+              </span>
+            )}
           </span>
           {booked.date !== dateStr && (
             <a href={`/staff/schedule?date=${booked.date}`} className="text-primary font-medium hover:underline">

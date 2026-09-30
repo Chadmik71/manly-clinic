@@ -13,6 +13,15 @@ import { getBookingSummary, recordCheckout, setBookingArrived, type BookingSumma
 import type { QuickBookInitial } from "./quick-book-dialog";
 
 const sydDate = new Intl.DateTimeFormat("en-CA", { timeZone: SYDNEY_TZ });
+const confirmedWhen = new Intl.DateTimeFormat("en-AU", {
+  timeZone: SYDNEY_TZ,
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
 const sydTime = new Intl.DateTimeFormat("en-GB", { timeZone: SYDNEY_TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
 /** What the calendar card already knows, so the pop-up opens instantly. */
@@ -304,6 +313,23 @@ export function BookingDetailsDialog({
                     {" "}· {details.client.noShowCount} no-show{details.client.noShowCount === 1 ? "" : "s"}
                   </span>
                 )}
+              </dd>
+            </>
+          )}
+
+          {details?.client.preferences && (
+            <>
+              <dt className="text-muted-foreground">Preferences</dt>
+              <dd className="min-w-0 whitespace-pre-wrap">{details.client.preferences}</dd>
+            </>
+          )}
+
+          {details?.clientConfirmedAtIso && (
+            <>
+              <dt className="text-muted-foreground">Confirmed</dt>
+              <dd className="min-w-0 text-teal-700 dark:text-teal-400">
+                ✓ Client confirmed {details.clientConfirmedVia === "SMS" ? "by text" : "by email"},{" "}
+                {confirmedWhen.format(new Date(details.clientConfirmedAtIso))}
               </dd>
             </>
           )}

@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { formatPrice, therapistInternalName } from "@/lib/utils";
 import { isPlaceholderEmail } from "@/lib/placeholder-email";
 import { ClientAccountSection } from "@/components/client-account-card";
+import { ClientPreferences } from "@/components/client-preferences";
 
 // Sydney calendar time for booking.startsAt (UTC in DB; Vercel runs in UTC).
 const SYD_DATE_TIME = new Intl.DateTimeFormat("en-AU", {
@@ -106,6 +107,7 @@ export default async function ClientProfile({
                 )
               }
             />
+            <ClientPreferences clientId={client.id} initial={client.preferences} />
             {client.notes && (
               <div>
                 <div className="text-muted-foreground text-xs uppercase tracking-wide mt-3">
