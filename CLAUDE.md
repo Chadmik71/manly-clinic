@@ -371,6 +371,8 @@ The 3 columns above were pushed to production on 2026-05-30 (`prisma db push` re
 
 - **`.env.example` SQLite hint is stale** — the line `DATABASE_URL="file:./dev.db"` predates the Postgres migration. `schema.prisma` is `provider = "postgresql"`, so SQLite won't even start. Use a Neon dev branch.
 
+- **Killing `next dev` mid-write can corrupt `.next/dev/types/routes.d.ts`**, and the next `npm run build` then prints TS errors from that file (not from your code). Delete `.next/dev` and rebuild, and gate pushes on the build's **exit code**, not a grep of its output (a grep pipeline can hide a failed build).
+
 - **TaskStop doesn't reach `next dev` grandchild processes on Windows** — stopping the bash task that spawned `npm run dev` leaves the actual `node` workers running. They hold port 3000 and the Prisma query-engine DLL, so the next `npm run dev` falls through to :3001 and a follow-up `npx prisma generate` fails with `EPERM … rename query_engine-windows.dll.node.tmp`. Run `Get-Process node | Stop-Process -Force` between dev-server runs (or before `prisma generate`) to clear the orphans.
 
 
