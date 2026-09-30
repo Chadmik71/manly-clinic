@@ -204,6 +204,9 @@ export function ScheduleGrid({
     } catch {
       // pointer already released
     }
+    // A short buzz tells a phone user the booking has been picked up.
+    if (d.pointerType !== "mouse") navigator.vibrate?.(25);
+    lastPointer.current = { x: d.startX, y: d.startY };
     setDrag({ ...d });
   }
 
@@ -246,9 +249,45 @@ export function ScheduleGrid({
       }
     }
     e.preventDefault();
+    lastPointer.current = { x: e.clientX, y: e.clientY };
     d.target = dropTargetAt(e.clientX, e.clientY, d);
     setDrag({ ...d });
   }
+
+  // While dragging, scroll when the pointer nears an edge, so a phone (which
+  // shows only one or two staff columns) can reach the others and other times.
+  const lastPointer = useRef<{ x: number; y: number } | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const dragActive = !!drag?.active;
+  useEffect(() => {
+    if (!dragActive) return;
+    const EDGE = 48;
+    const STEP = 14;
+    const id = window.setInterval(() => {
+      const d = dragRef.current;
+      const pt = lastPointer.current;
+      const sc = scrollRef.current;
+      if (!d?.active || !pt || !sc) return;
+      const r = sc.getBoundingClientRect();
+      let dx = 0;
+      if (pt.x < r.left + EDGE + 64) dx = -STEP; // 64px time gutter on the left
+      else if (pt.x > r.right - EDGE) dx = STEP;
+      let dy = 0;
+      if (pt.y < EDGE) dy = -STEP;
+      else if (pt.y > window.innerHeight - EDGE) dy = STEP;
+      const beforeX = sc.scrollLeft;
+      const beforeY = window.scrollY;
+      if (dx) sc.scrollLeft += dx;
+      if (dy) window.scrollBy(0, dy);
+      if (sc.scrollLeft !== beforeX || window.scrollY !== beforeY) {
+        d.target = dropTargetAt(pt.x, pt.y, d);
+        setDrag({ ...d });
+      }
+    }, 30);
+    return () => window.clearInterval(id);
+    // dropTargetAt only reads layout and props that don't change mid-drag.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragActive]);
 
   function endDrag(e: React.PointerEvent<HTMLElement>, cancelled: boolean) {
     clearLongPress();
@@ -469,7 +508,7 @@ export function ScheduleGrid({
       ref={gridRef}
       className={`border rounded-md bg-card overflow-hidden ${drag?.active ? "cursor-grabbing select-none" : ""}`}
     >
-      <div className="overflow-x-auto overflow-y-hidden">
+      <div ref={scrollRef} className="overflow-x-auto overflow-y-hidden">
         <div
           className="grid"
           style={{
@@ -743,6 +782,11 @@ export function ScheduleGrid({
                         onPointerMove={onCardPointerMove}
                         onPointerUp={(e) => endDrag(e, false)}
                         onPointerCancel={(e) => endDrag(e, true)}
+                        onContextMenu={(e) => {
+                          // A long touch opens the phone's link menu, which
+                          // cancels the drag. Mouse right-click is unaffected.
+                          if (dragRef.current && dragRef.current.pointerType !== "mouse") e.preventDefault();
+                        }}
                         title={canDrag(b) ? "Click for details · drag to move" : undefined}
                         onClick={(e) => {
                           if (suppressClick.current) {
@@ -774,6 +818,9 @@ export function ScheduleGrid({
                           background: `hsl(var(--bk-${c}-bg))`,
                           borderLeftColor: `hsl(var(--bk-${c}-border))`,
                           color: `hsl(var(--bk-${c}-text))`,
+                          // Press-and-hold is how phones start a drag, so stop
+                          // the link preview / text selection taking it over.
+                          ...(canDrag(b) ? { WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" } : {}),
                         }}
                       >
                         <div className="font-semibold pr-7">
