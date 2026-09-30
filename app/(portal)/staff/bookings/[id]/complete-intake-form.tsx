@@ -9,7 +9,7 @@ import { SignaturePad } from "@/components/signature-pad";
 import { BodyDiagram } from "@/components/body-diagram";
 import { HEALTH_FUNDS, MEDICAL_HISTORY_GROUPS, GENDER_OPTIONS } from "@/lib/intake";
 
-type Prefill = {
+export type Prefill = {
   user: {
     dob: string;
     gender: string;
@@ -46,6 +46,7 @@ export function CompleteIntakeForm({
   prefill,
   action,
   audience = "staff",
+  onDone,
 }: {
   bookingId: string;
   /** "client" when the client fills it in themselves (online health form). */
@@ -54,6 +55,8 @@ export function CompleteIntakeForm({
   isPregnancyService: boolean;
   prefill: Prefill;
   action: (bookingId: string, fd: FormData) => Promise<{ ok?: boolean; error?: string }>;
+  /** Called after a successful save (e.g. the tablet thank-you screen). */
+  onDone?: () => void;
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +133,10 @@ export function CompleteIntakeForm({
     start(async () => {
       const res = await action(bookingId, fd);
       if (res?.error) setError(res.error);
-      else if (res?.ok) setDone(true);
+      else if (res?.ok) {
+        setDone(true);
+        onDone?.();
+      }
     });
   }
 

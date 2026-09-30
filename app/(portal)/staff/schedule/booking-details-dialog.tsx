@@ -8,6 +8,7 @@ import { CHECKOUT_LABEL, CHECKOUT_METHODS, type CheckoutMethod } from "@/lib/che
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
+import { HandToClientButton } from "@/components/hand-to-client-button";
 import { assignTherapist, setBookingStatus } from "@/app/(portal)/staff/bookings/[id]/actions";
 import { getBookingSummary, recordCheckout, type BookingSummary } from "./actions";
 import type { QuickBookInitial } from "./quick-book-dialog";
@@ -306,8 +307,11 @@ export function BookingDetailsDialog({
             <div className="font-semibold text-amber-800 dark:text-amber-300">Medical form needed</div>
             <div className="text-muted-foreground">
               Fill it in with the client when they arrive: open the full booking and use
-              &ldquo;Complete medical form&rdquo;. They sign on the screen.
+              &ldquo;Complete medical form&rdquo;, or hand the tablet to the client to fill in themselves.
             </div>
+            {(status === "PENDING" || status === "CONFIRMED") && (
+              <HandToClientButton bookingId={preview.id} size="sm" className="mt-2" />
+            )}
           </div>
         )}
 

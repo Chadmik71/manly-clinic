@@ -25,6 +25,7 @@ import { EditAppointmentForm } from "./edit-appointment-form";
 import { EditWalkInClientForm } from "./edit-walkin-client-form";
 import { AnnotatedDiagramSection } from "./annotated-diagram-section";
 import { EditInternalNotesForm } from "./edit-internal-notes-form";
+import { HandToClientButton } from "@/components/hand-to-client-button";
 import { CompleteIntakeForm } from "./complete-intake-form";
 import { parseHistory, historyLabel } from "@/lib/intake";
 import { diffIntakes } from "@/lib/intake-changes";
@@ -362,6 +363,13 @@ export default async function StaffBookingDetail({
                 the medical form with them on this screen and get their
                 signature below.
               </p>
+              <div className="mb-4 rounded-md border bg-muted/40 p-3 text-sm">
+                <p className="mb-2">
+                  Or let the client fill it in themselves: this opens a screen with <b>only their form</b> and
+                  locks the tablet until you unlock it with your password.
+                </p>
+                <HandToClientButton bookingId={b.id} size="sm" />
+              </div>
               <CompleteIntakeForm
                 bookingId={b.id}
                 healthFundEligible={b.service.healthFundEligible}

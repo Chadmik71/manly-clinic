@@ -18,6 +18,8 @@ const MAINTENANCE_ALLOW_PREFIXES = [
   // "Yes, I'm coming" link in reminder emails (must work for clients even
   // while the public site is offline).
   "/confirm-booking",
+  // Shop-tablet client mode (health form handed to the client).
+  "/kiosk",
   // Stripe webhook lives at /api/stripe/webhook. The /api/webhooks prefix
   // is kept for any future webhook routes (Twilio status callbacks, etc.).
   "/api/stripe/webhook",
@@ -107,6 +109,22 @@ function maintenanceResponse(): NextResponse {
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
+
+  // Shop tablet in client mode (lib/kiosk.ts): while a client holds it, every
+  // staff / account / data address leads back to their own form. Sign-in and
+  // /kiosk (form + staff unlock) stay reachable.
+  const kioskToken = req.cookies.get("mrt_kiosk")?.value;
+  if (
+    kioskToken &&
+    (pathname.startsWith("/staff") ||
+      pathname.startsWith("/portal") ||
+      (pathname.startsWith("/api") && !pathname.startsWith("/api/auth")))
+  ) {
+    if (pathname.startsWith("/api")) {
+      return NextResponse.json({ error: "Device is in client mode." }, { status: 423 });
+    }
+    return NextResponse.redirect(new URL(`/kiosk/${encodeURIComponent(kioskToken)}`, req.url));
+  }
 
   // Maintenance mode — checked first, before any auth redirects.
   if (
