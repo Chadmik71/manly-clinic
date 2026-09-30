@@ -416,7 +416,10 @@ export async function createStaffBooking(
   if (data.mode === "existing") {
     if (!data.clientId) return { error: "Pick a client." };
     const u = await db.user.findUnique({ where: { id: data.clientId } });
-    if (!u || u.role !== "CLIENT") return { error: "Client not found." };
+    // Staff and the owner get treatments too (e.g. "Book again" on a booking
+    // someone made while signed in as themselves), so any account can be the
+    // client here. Client search only ever offers CLIENT accounts.
+    if (!u) return { error: "Client not found." };
     clientId = u.id;
   } else {
     if (!data.walkInName) return { error: "Walk-in name required." };
