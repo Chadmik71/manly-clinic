@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getAvailableSlots } from "@/lib/booking";
 import { audit } from "@/lib/audit";
+import { CHECKOUT_METHODS } from "@/lib/checkout";
 import { isPlaceholderEmail } from "@/lib/placeholder-email";
 
 /**
@@ -78,6 +79,12 @@ export type BookingSummary = {
   isCouple: boolean;
   notes: string | null;
   cancelReason: string | null;
+  arrivedAtIso: string | null;
+  checkoutMethod: string | null;
+  checkoutCents: number | null;
+  serviceId: string;
+  variantId: string;
+  therapistId: string | null;
   client: {
     id: string;
     name: string;
@@ -120,6 +127,12 @@ export async function getBookingSummary(
       coupleGroupId: true,
       notes: true,
       cancelReason: true,
+      arrivedAt: true,
+      checkoutMethod: true,
+      checkoutCents: true,
+      serviceId: true,
+      variantId: true,
+      therapistId: true,
       service: { select: { name: true } },
       variant: { select: { durationMin: true } },
       client: {
@@ -161,8 +174,80 @@ export async function getBookingSummary(
       isCouple: b.coupleGroupId != null,
       notes: b.notes,
       cancelReason: b.cancelReason,
+      arrivedAtIso: b.arrivedAt ? b.arrivedAt.toISOString() : null,
+      checkoutMethod: b.checkoutMethod,
+      checkoutCents: b.checkoutCents,
+      serviceId: b.serviceId,
+      variantId: b.variantId,
+      therapistId: b.therapistId,
       // Placeholder addresses (no real email on file) aren't worth showing.
       client: { ...b.client, email: isPlaceholderEmail(b.client.email) ? "" : b.client.email },
     },
   };
+}
+
+async function requireStaffUser() {
+  const session = await auth();
+  if (!session?.user || (session.user.role !== "STAFF" && session.user.role !== "ADMIN")) return null;
+  return session.user;
+}
+
+/** Front-desk check-in: mark (or unmark) the client as arrived. */
+export async function setBookingArrived(
+  bookingId: string,
+  arrived: boolean,
+): Promise<{ ok?: boolean; error?: string }> {
+  const user = await requireStaffUser();
+  if (!user) return { error: "Unauthorized" };
+  const b = await db.booking.findUnique({ where: { id: bookingId }, select: { status: true } });
+  if (!b) return { error: "Booking not found." };
+  if (arrived && b.status !== "PENDING" && b.status !== "CONFIRMED") {
+    return { error: "Only upcoming bookings can be checked in." };
+  }
+  await db.booking.update({ where: { id: bookingId }, data: { arrivedAt: arrived ? new Date() : null } });
+  await audit({
+    userId: user.id,
+    action: arrived ? "BOOKING_ARRIVED" : "BOOKING_ARRIVED_UNDO",
+    resource: `Booking:${bookingId}`,
+  });
+  return { ok: true };
+}
+
+
+
+/**
+ * Record the payment taken at the clinic at checkout (method + amount), or
+ * clear it with method null. Separate from the online deposit (paidCents).
+ */
+export async function recordCheckout(
+  bookingId: string,
+  method: string | null,
+  cents: number,
+): Promise<{ ok?: boolean; error?: string }> {
+  const user = await requireStaffUser();
+  if (!user) return { error: "Unauthorized" };
+  const b = await db.booking.findUnique({ where: { id: bookingId }, select: { status: true } });
+  if (!b) return { error: "Booking not found." };
+  if (b.status === "CANCELLED") return { error: "This booking is cancelled." };
+  if (method === null) {
+    await db.booking.update({
+      where: { id: bookingId },
+      data: { checkoutMethod: null, checkoutCents: null, checkoutAt: null, checkoutById: null },
+    });
+    await audit({ userId: user.id, action: "CHECKOUT_CLEARED", resource: `Booking:${bookingId}` });
+    return { ok: true };
+  }
+  if (!(CHECKOUT_METHODS as readonly string[]).includes(method)) return { error: "Choose how they paid." };
+  if (!Number.isInteger(cents) || cents < 0 || cents > 1_000_000) return { error: "Enter a valid amount." };
+  await db.booking.update({
+    where: { id: bookingId },
+    data: { checkoutMethod: method, checkoutCents: cents, checkoutAt: new Date(), checkoutById: user.id },
+  });
+  await audit({
+    userId: user.id,
+    action: "CHECKOUT_RECORDED",
+    resource: `Booking:${bookingId}`,
+    metadata: { method, cents },
+  });
+  return { ok: true };
 }

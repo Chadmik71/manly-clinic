@@ -12,6 +12,11 @@ import {
   type BookingPreview,
 } from "@/app/(portal)/staff/schedule/booking-details-dialog";
 import { MoveBookingDialog } from "@/app/(portal)/staff/schedule/move-booking-dialog";
+import {
+  QuickBookDialog,
+  type QuickBookInitial,
+  type QuickBookService,
+} from "@/app/(portal)/staff/schedule/quick-book-dialog";
 import { updateBookingDetails } from "@/app/(portal)/staff/bookings/[id]/actions";
 
 const DAY_START_HOUR = 8;
@@ -41,6 +46,10 @@ type Booking = {
   /** Remedial/pregnancy booking still waiting on the full medical form
    *  (e.g. booked over the phone). Shown as a "Form needed" badge. */
   needsIntakeForm?: boolean;
+  serviceId?: string;
+  claimWithHealthFund?: boolean;
+  arrivedAt?: Date | null;
+  checkoutMethod?: string | null;
   /** Medical-form sections the client changed since their last visit
    *  (e.g. "Medications"). Non-empty shows a "Health update" badge. */
   healthChanges?: string[];
@@ -111,6 +120,7 @@ export function ScheduleGrid({
   addTimeOffAction,
   toggleActiveAction,
   removeTimeOffAction,
+  services,
 }: {
   date: Date;
   therapists: Therapist[];
@@ -126,8 +136,13 @@ export function ScheduleGrid({
   removeTimeOffAction?: (
     fd: FormData,
   ) => Promise<{ ok?: boolean; error?: string }>;
+  /** Active services with lengths. Enables the quick-booking panel and
+   *  stretching a booking to another length. */
+  services?: QuickBookService[];
 }) {
   const router = useRouter();
+  const [quickBook, setQuickBook] = useState<QuickBookInitial | null>(null);
+  const [booked, setBooked] = useState<{ reference: string; date: string } | null>(null);
   const [openBooking, setOpenBooking] = useState<BookingPreview | null>(null);
   const dayStartMin = DAY_START_HOUR * 60;
   const dayEndMin = DAY_END_HOUR * 60;
@@ -351,9 +366,9 @@ export function ScheduleGrid({
     e: React.MouseEvent<HTMLDivElement>,
     t: Therapist,
   ) {
-    if (!dateStr || !t.isWorking) return;
+    if (!dateStr || !t.isWorking || suppressClick.current) return;
     const target = e.target as HTMLElement;
-    if (target.closest('a, button, [role="menu"]')) return;
+    if (target.closest('a, button, [role="menu"], [role="separator"]')) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
     if (y < 0) return;
@@ -383,9 +398,70 @@ export function ScheduleGrid({
     const h = Math.floor(rounded / 60);
     const m = rounded % 60;
     const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    if (services && services.length > 0) {
+      setQuickBook({ date: dateStr, time: timeStr, therapistId: t.id });
+      return;
+    }
     router.push(
       `/staff/bookings/new?date=${encodeURIComponent(dateStr)}&therapistId=${encodeURIComponent(t.id)}&time=${encodeURIComponent(timeStr)}`,
     );
+  }
+
+  // ---- Stretch a booking (drag its bottom edge) to another length --------
+  // Snaps to the lengths that service actually offers (e.g. 30/45/60/90).
+  type ResizeState = { booking: Booking; pointerId: number; startY: number; variantId: string; durationMin: number };
+  const [resize, setResize] = useState<ResizeState | null>(null);
+  const [pendingResize, setPendingResize] = useState<{ booking: Booking; variant: { id: string; durationMin: number; priceCents: number } } | null>(null);
+  const variantsFor = (b: Booking) =>
+    services?.find((sv) => sv.id === b.serviceId)?.variants.slice().sort((x, y) => x.durationMin - y.durationMin) ?? [];
+
+  function onResizeDown(e: React.PointerEvent<HTMLElement>, b: Booking) {
+    if (e.button !== 0 || !canDrag(b) || variantsFor(b).length < 2) return;
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+    setResize({ booking: b, pointerId: e.pointerId, startY: e.clientY, variantId: b.variant.id, durationMin: b.variant.durationMin });
+  }
+
+  function onResizeMove(e: React.PointerEvent<HTMLElement>) {
+    if (!resize || e.pointerId !== resize.pointerId) return;
+    e.preventDefault();
+    const wanted = resize.booking.variant.durationMin + (e.clientY - resize.startY) / MIN_PX;
+    const options = variantsFor(resize.booking);
+    const best = options.reduce((a, v) => (Math.abs(v.durationMin - wanted) < Math.abs(a.durationMin - wanted) ? v : a), options[0]);
+    if (best && best.id !== resize.variantId) setResize({ ...resize, variantId: best.id, durationMin: best.durationMin });
+  }
+
+  function onResizeUp(e: React.PointerEvent<HTMLElement>) {
+    if (!resize || e.pointerId !== resize.pointerId) return;
+    const r = resize;
+    setResize(null);
+    suppressClick.current = true;
+    window.setTimeout(() => (suppressClick.current = false), 50);
+    if (r.variantId === r.booking.variant.id) return;
+    const v = variantsFor(r.booking).find((x) => x.id === r.variantId);
+    if (v) setPendingResize({ booking: r.booking, variant: v });
+  }
+
+  async function confirmResize(): Promise<{ error?: string }> {
+    if (!pendingResize || !dateStr) return { error: "Nothing to change." };
+    const { booking, variant } = pendingResize;
+    const startMin = minutesFromMidnight(booking.startsAt);
+    const hh = String(Math.floor(startMin / 60)).padStart(2, "0");
+    const mm = String(startMin % 60).padStart(2, "0");
+    const res = await updateBookingDetails(booking.id, {
+      startsAt: `${dateStr}T${hh}:${mm}`,
+      therapistId: booking.therapistId ?? "",
+      variantId: variant.id,
+    });
+    if (res.error) return { error: res.error };
+    setPendingResize(null);
+    router.refresh();
+    return {};
   }
 
   return (
@@ -612,6 +688,12 @@ export function ScheduleGrid({
                                 height: `${30 * MIN_PX}px`,
                               }}
                               title={`Book at ${minToLabel(cellMin)} with ${t.name}`}
+                              onClick={(ev) => {
+                                if (!services || services.length === 0) return;
+                                if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return;
+                                ev.preventDefault();
+                                setQuickBook({ date: dateStr, time: timeStr, therapistId: t.id });
+                              }}
                             />
                           );
                         })}
@@ -641,13 +723,16 @@ export function ScheduleGrid({
                   const c = paletteFor(b.service.category, b.status);
                   const cancelled = b.status === "CANCELLED" || b.status === "NO_SHOW";
                   const beingDragged = drag?.active && drag.booking.id === b.id;
+                  const resizing = resize?.booking.id === b.id;
+                  const shownHeight = resizing ? resize!.durationMin * MIN_PX : height;
+                  const arrived = !!b.arrivedAt && (b.status === "PENDING" || b.status === "CONFIRMED");
                   return (
                     <div
                       key={b.id}
-                      className={`absolute left-1 right-1 ${cancelled ? "opacity-60" : ""} ${beingDragged ? "opacity-40" : ""}`}
+                      className={`group/card absolute left-1 right-1 ${cancelled ? "opacity-60" : ""} ${beingDragged ? "opacity-40" : ""} ${resizing ? "z-20" : ""} ${arrived ? "rounded-md ring-2 ring-sky-500 ring-offset-1" : ""}`}
                       style={{
                         top: `${top + 1}px`,
-                        height: `${height - 2}px`,
+                        height: `${shownHeight - 2}px`,
                       }}
                     >
                       <Link
@@ -708,8 +793,23 @@ export function ScheduleGrid({
                         <div className="opacity-80 truncate">
                           {b.variant.durationMin} min {b.service.name}
                         </div>
-                        {(b.needsIntakeForm || (b.healthChanges?.length ?? 0) > 0) && (
+                        {(b.needsIntakeForm || (b.healthChanges?.length ?? 0) > 0 || arrived || !!b.checkoutMethod || b.claimWithHealthFund) && (
                           <div className="mt-0.5 flex flex-wrap gap-1">
+                            {arrived && (
+                              <span className="inline-block rounded-sm bg-sky-600 text-white text-[9px] font-bold uppercase px-1 py-px tracking-wider">
+                                Arrived
+                              </span>
+                            )}
+                            {b.checkoutMethod && (
+                              <span className="inline-block rounded-sm bg-emerald-700 text-white text-[9px] font-bold uppercase px-1 py-px tracking-wider">
+                                Paid
+                              </span>
+                            )}
+                            {b.claimWithHealthFund && (
+                              <span className="inline-block rounded-sm bg-violet-600 text-white text-[9px] font-bold uppercase px-1 py-px tracking-wider">
+                                HICAPS
+                              </span>
+                            )}
                             {b.needsIntakeForm && (
                               <span className="inline-block rounded-sm bg-amber-500 text-white text-[9px] font-bold uppercase px-1 py-px tracking-wider">
                                 Form needed
@@ -736,6 +836,25 @@ export function ScheduleGrid({
                           status={b.status}
                         />
                       </div>
+                      {resizing && (
+                        <div className="absolute bottom-3 right-2 z-30 rounded bg-primary px-1.5 py-0.5 text-[11px] font-semibold text-primary-foreground pointer-events-none">
+                          {resize!.durationMin} min
+                        </div>
+                      )}
+                      {canDrag(b) && variantsFor(b).length > 1 && (
+                        <div
+                          role="separator"
+                          aria-label="Drag to change length"
+                          title="Drag to change length"
+                          className="absolute left-2 right-2 bottom-0 h-2.5 cursor-ns-resize flex items-end justify-center group touch-none"
+                          onPointerDown={(e) => onResizeDown(e, b)}
+                          onPointerMove={onResizeMove}
+                          onPointerUp={onResizeUp}
+                          onPointerCancel={() => setResize(null)}
+                        >
+                          <span className="mb-0.5 h-1 w-8 rounded-full bg-black/40 opacity-0 transition-opacity group-hover/card:opacity-100" />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -748,7 +867,56 @@ export function ScheduleGrid({
         <BookingDetailsDialog
           preview={openBooking}
           onClose={() => setOpenBooking(null)}
+          onBookAgain={
+            services && services.length > 0
+              ? (initial) => {
+                  setOpenBooking(null);
+                  setQuickBook(initial);
+                }
+              : undefined
+          }
         />
+      )}
+      {quickBook && services && (
+        <QuickBookDialog
+          initial={quickBook}
+          services={services}
+          therapists={therapists.filter((t) => t.isActive !== false).map((t) => ({ id: t.id, name: t.name }))}
+          onClose={() => setQuickBook(null)}
+          onBooked={(reference, date) => {
+            setQuickBook(null);
+            setBooked({ reference, date });
+            router.refresh();
+          }}
+        />
+      )}
+      {pendingResize && (
+        <MoveBookingDialog
+          title="Change the length?"
+          confirmLabel="Change length"
+          clientName={pendingResize.booking.client.name}
+          serviceLabel={pendingResize.booking.service.name}
+          fromLabel={`${pendingResize.booking.variant.durationMin} min · ${formatPrice(pendingResize.booking.priceCentsAtBooking)}`}
+          toLabel={`${pendingResize.variant.durationMin} min · ${formatPrice(pendingResize.variant.priceCents)}`}
+          onConfirm={confirmResize}
+          onClose={() => setPendingResize(null)}
+        />
+      )}
+      {booked && (
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-md border bg-background shadow-lg px-4 py-3 text-sm flex items-center gap-3" role="status">
+          <span>
+            ✓ Booked <span className="font-mono">{booked.reference}</span>
+            {booked.date !== dateStr ? ` for ${booked.date}` : ""}
+          </span>
+          {booked.date !== dateStr && (
+            <a href={`/staff/schedule?date=${booked.date}`} className="text-primary font-medium hover:underline">
+              View that day
+            </a>
+          )}
+          <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="Dismiss" onClick={() => setBooked(null)}>
+            ×
+          </button>
+        </div>
       )}
       {pendingMove && (
         <MoveBookingDialog

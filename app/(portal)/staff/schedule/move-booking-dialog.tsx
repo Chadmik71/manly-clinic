@@ -15,9 +15,13 @@ export function MoveBookingDialog({
   fromLabel,
   toLabel,
   warning,
+  title = "Move this booking?",
+  confirmLabel = "Move booking",
   onConfirm,
   onClose,
 }: {
+  title?: string;
+  confirmLabel?: string;
   clientName: string;
   serviceLabel: string;
   fromLabel: string;
@@ -59,7 +63,7 @@ export function MoveBookingDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="move-booking-title" className="text-lg font-semibold mb-1">
-          Move this booking?
+          {title}
         </h2>
         <p className="text-sm text-muted-foreground mb-4">
           {clientName} · {serviceLabel}
@@ -81,7 +85,7 @@ export function MoveBookingDialog({
             Cancel
           </Button>
           <Button type="button" onClick={confirm} disabled={pending}>
-            {pending ? "Moving…" : "Move booking"}
+            {pending ? "Saving…" : confirmLabel}
           </Button>
         </div>
       </div>

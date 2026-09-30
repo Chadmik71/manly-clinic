@@ -125,20 +125,26 @@ export default async function MyBookings() {
                       </Link>
                     </Button>
                   )}
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/portal/bookings/${b.id}/reschedule`}>
-                      Reschedule
-                    </Link>
-                  </Button>
-                  {refundEligible(b) && (
-                    <RefundRequestButton id={b.id} action={requestRefund} />
+                  {/* Only still-active bookings can be moved or cancelled
+                      (staff may mark one completed before its start time). */}
+                  {(b.status === "PENDING" || b.status === "CONFIRMED") && (
+                    <>
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`/portal/bookings/${b.id}/reschedule`}>
+                          Reschedule
+                        </Link>
+                      </Button>
+                      {refundEligible(b) && (
+                        <RefundRequestButton id={b.id} action={requestRefund} />
+                      )}
+                      <CancelBookingButton
+                        id={b.id}
+                        startsAt={b.startsAt}
+                        priceCents={b.priceCentsAtBooking}
+                        action={cancelBooking}
+                      />
+                    </>
                   )}
-                  <CancelBookingButton
-                    id={b.id}
-                    startsAt={b.startsAt}
-                    priceCents={b.priceCentsAtBooking}
-                    action={cancelBooking}
-                  />
                 </div>
               </CardContent>
             </Card>

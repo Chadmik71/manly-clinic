@@ -14,6 +14,7 @@ import {
 } from "@/app/(portal)/staff/therapists/[id]/actions";
 import { diffIntakes } from "@/lib/intake-changes";
 import { BlockTimeDialog } from "./block-time-dialog";
+import { TodayTasks, type DayTask } from "./today-tasks";
 import { WalkinFinderDialog } from "./walkin-finder-dialog";
 
 export const metadata = { title: "Calendar" };
@@ -191,6 +192,41 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     healthChanges: b.status === "NO_SHOW" ? [] : healthChangesFor(b.clientId),
   }));
 
+  // ---- Services for the quick-booking panel and length changes ----------
+  const services = await db.service.findMany({
+    where: { active: true, category: { not: "ADD_ON" } },
+    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      healthFundEligible: true,
+      variants: { select: { id: true, durationMin: true, priceCents: true }, orderBy: { durationMin: "asc" } },
+    },
+  });
+
+  // ---- "To do" list for this day (+ yesterday's no-shows) ----------------
+  const hhmm = new Intl.DateTimeFormat("en-AU", { timeZone: SYDNEY_TZ, hour: "numeric", minute: "2-digit", hour12: true });
+  const [py, pm, pd] = dateStr.split("-").map(Number);
+  const prevDateStr = new Date(Date.UTC(py, pm - 1, pd - 1)).toISOString().slice(0, 10);
+  const prev = sydneyDayBounds(prevDateStr);
+  const yesterdayNoShows = await db.booking.findMany({
+    where: { status: "NO_SHOW", startsAt: { gte: prev.start, lte: prev.end } },
+    select: { id: true, startsAt: true, client: { select: { name: true } }, service: { select: { name: true } } },
+    orderBy: { startsAt: "asc" },
+  });
+  const tasks: DayTask[] = [];
+  const task = (kind: DayTask["kind"], b: { id: string; startsAt: Date; client: { name: string }; service: { name: string } }) =>
+    tasks.push({ kind, bookingId: b.id, time: hhmm.format(b.startsAt).toLowerCase(), clientName: b.client.name, detail: b.service.name });
+  for (const b of bookingsWithBadge) {
+    const active = b.status === "PENDING" || b.status === "CONFIRMED";
+    if (b.needsIntakeForm) task("form", b);
+    if (b.healthChanges.length > 0 && active) task("health", b);
+    if (b.claimWithHealthFund && !b.assignedTherapistId && b.status !== "CANCELLED" && b.status !== "NO_SHOW") task("claim", b);
+    if (b.status === "COMPLETED" && !b.checkoutMethod) task("unpaid", b);
+  }
+  for (const b of yesterdayNoShows) task("noshow", b);
+
   // Today's tally — what's actually happening today, at a glance. Counts
   // and dollars are computed off the same bookings list the grid is
   // rendering so they stay in sync.
@@ -274,6 +310,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             tone="muted"
           />
         </div>
+        <TodayTasks tasks={tasks} isToday={dateStr === todayInSydney()} />
         {therapists.length === 0 ? (
           <div className="rounded-md border bg-card p-8 text-sm text-muted-foreground text-center">
             No active therapists. Add one in Therapists.
@@ -284,6 +321,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             dateStr={dateStr}
             therapists={therapists}
             bookings={bookingsWithBadge}
+            services={services}
             // Quick-actions menu (add break, toggle active) and the
             // click-to-remove-time-off behaviour are admin-only — non-admin
             // STAFF still see the schedule, just without the mutation UI.

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireCronAuth } from "@/lib/cron-auth";
 import { withDbRetry } from "@/lib/db-retry";
+import { CHECKOUT_LABEL, CHECKOUT_METHODS } from "@/lib/checkout";
 import {
   notifyDailyReport,
   type DailyReportBooking,
@@ -49,6 +50,7 @@ export async function GET(req: Request) {
         status: true,
         priceCentsAtBooking: true,
         claimWithHealthFund: true,
+        checkoutMethod: true,
       },
     }),
   );
@@ -72,6 +74,23 @@ export async function GET(req: Request) {
       (s, b) => s + (b.priceCentsAtBooking ?? 0),
       0,
     ),
+  };
+
+  // ----- Takings recorded at checkout today (by when the payment was taken) -----
+  const paidToday = await withDbRetry(() =>
+    db.booking.findMany({
+      where: { checkoutAt: { gte: today.start, lt: today.end }, checkoutMethod: { not: null } },
+      select: { checkoutMethod: true, checkoutCents: true },
+    }),
+  );
+  const byMethod = CHECKOUT_METHODS.map((m) => {
+    const rows = paidToday.filter((p) => p.checkoutMethod === m);
+    return { label: CHECKOUT_LABEL[m], cents: rows.reduce((s, p) => s + (p.checkoutCents ?? 0), 0), count: rows.length };
+  }).filter((m) => m.count > 0);
+  const takings = {
+    totalCents: byMethod.reduce((s, m) => s + m.cents, 0),
+    byMethod,
+    completedUnpaid: todayBookings.filter((b) => b.status === "COMPLETED" && !b.checkoutMethod).length,
   };
 
   // ----- Tomorrow's roster -----
@@ -155,6 +174,7 @@ export async function GET(req: Request) {
     hicaps,
     newSignups,
     anomalies: { stalePastConfirmed, upcomingWithoutTherapist },
+    takings,
   });
 
   // Piggyback the post-visit Google review SMS run on this daily schedule.

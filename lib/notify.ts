@@ -696,6 +696,12 @@ export async function notifyDailyReport(args: {
     stalePastConfirmed: number;
     upcomingWithoutTherapist: number;
   };
+  /** Payments recorded at the clinic today (checkout), by method. */
+  takings?: {
+    totalCents: number;
+    byMethod: { label: string; cents: number; count: number }[];
+    completedUnpaid: number;
+  };
 }): Promise<void> {
   const {
     to,
@@ -758,6 +764,17 @@ export async function notifyDailyReport(args: {
   <table style="font-size:14px;margin:8px 0;border-collapse:collapse;">
     <tr><td style="padding:2px 12px 2px 0;color:#666;">Bookings</td><td><strong>${today.bookings}</strong></td></tr>
     <tr><td style="padding:2px 12px 2px 0;color:#666;">Gross revenue</td><td><strong>${fmtAud(today.grossRevenueCents)}</strong></td></tr>
+    ${args.takings
+      ? `<tr><td style="padding:2px 12px 2px 0;color:#666;">Taken at the clinic</td><td><strong>${fmtAud(args.takings.totalCents)}</strong>${
+          args.takings.byMethod.length
+            ? " (" + args.takings.byMethod.map((m) => `${m.label} ${fmtAud(m.cents)}`).join(", ") + ")"
+            : ""
+        }</td></tr>${
+          args.takings.completedUnpaid > 0
+            ? `<tr><td style="padding:2px 12px 2px 0;color:#666;">Completed, payment not recorded</td><td><strong style="color:#b45309">${args.takings.completedUnpaid}</strong></td></tr>`
+            : ""
+        }`
+      : ""}
     <tr><td style="padding:2px 12px 2px 0;color:#666;">Completed</td><td>${today.completed}</td></tr>
     <tr><td style="padding:2px 12px 2px 0;color:#666;">No-shows</td><td>${today.noShows}</td></tr>
     <tr><td style="padding:2px 12px 2px 0;color:#666;">Cancellations</td><td>${today.cancellations}</td></tr>
@@ -788,7 +805,13 @@ export async function notifyDailyReport(args: {
 
 TODAY'S SNAPSHOT
   Bookings:       ${today.bookings}
-  Gross revenue:  ${fmtAud(today.grossRevenueCents)}
+  Gross revenue:  ${fmtAud(today.grossRevenueCents)}${
+    args.takings
+      ? `\n  Taken at clinic: ${fmtAud(args.takings.totalCents)}${
+          args.takings.byMethod.length ? " (" + args.takings.byMethod.map((m) => `${m.label} ${fmtAud(m.cents)}`).join(", ") + ")" : ""
+        }${args.takings.completedUnpaid > 0 ? `\n  Completed, payment not recorded: ${args.takings.completedUnpaid}` : ""}`
+      : ""
+  }
   Completed:      ${today.completed}
   No-shows:       ${today.noShows}
   Cancellations:  ${today.cancellations}

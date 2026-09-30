@@ -166,6 +166,19 @@ model Booking {
   // Null = not yet sent; set prevents the daily cron from re-asking.
   reviewRequestSentAt DateTime?
 
+  // Front-desk check-in: when staff marked the client as arrived. Kept out
+  // of `status` on purpose — many checks (clashes, reminders, auto-complete)
+  // key on PENDING/CONFIRMED, and an extra status value would slip past them.
+  arrivedAt       DateTime?
+
+  // Payment taken at the clinic at checkout (separate from the online
+  // deposit in paidCents). Method: CASH | CARD | HICAPS | VOUCHER | OTHER.
+  // checkoutById is the staff User.id (denormalised, no FK, like decidedById).
+  checkoutMethod  String?
+  checkoutCents   Int?
+  checkoutAt      DateTime?
+  checkoutById    String?
+
   // Per-visit clinical notes (SOAP + extras). Captured by the treating
   // therapist after the session. All optional — older bookings, walk-ins,
   // or sessions that skip notes will leave these null.
