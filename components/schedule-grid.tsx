@@ -52,6 +52,8 @@ type Booking = {
   checkoutMethod?: string | null;
   /** Client tapped "Yes, I'm coming" / replied C to the reminder. */
   clientConfirmedAt?: Date | null;
+  /** Note to the therapist (from the booking form or staff). */
+  notes?: string | null;
   /** Medical-form sections the client changed since their last visit
    *  (e.g. "Medications"). Non-empty shows a "Health update" badge. */
   healthChanges?: string[];
@@ -843,6 +845,11 @@ export function ScheduleGrid({
                         <div className="opacity-80 truncate">
                           {b.variant.durationMin} min {b.service.name}
                         </div>
+                        {b.notes?.trim() && (
+                          <div className="line-clamp-2 whitespace-pre-wrap break-words font-medium" title={b.notes}>
+                            📝 {b.notes.trim()}
+                          </div>
+                        )}
                         {b.client.preferences && (
                           <div className="truncate italic opacity-80" title={b.client.preferences}>
                             ★ {b.client.preferences}
