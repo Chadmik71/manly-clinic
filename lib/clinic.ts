@@ -18,7 +18,7 @@ export const CLINIC = {
   // Australian Privacy Act / APP context
   abn: "82 669 994 183",
   legalName: "Manly Remedial Clinic Pty Ltd",
-  privacyOfficerEmail: "privacy@manlyremedialthai.com.au",
+  privacyOfficerEmail: "info@manlyremedialthai.com.au", // privacy@ mailbox not set up; requests go to the main inbox
   domain: "https://www.manlyremedialthai.com.au",
   // Bare host (no www, no protocol) used for outbound email FROM addresses.
   // Resend verified the apex domain only, so FROM must be bookings@manlyremedialthai.com.au

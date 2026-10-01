@@ -1,13 +1,31 @@
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { PortalShell } from "@/components/portal-shell";
-import { Download } from "lucide-react";
+import { FileText, Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CLINIC } from "@/lib/clinic";
-import { format } from "date-fns";
+import { consentLabel } from "@/lib/consent-label";
 
 export const metadata = { title: "Data & privacy" };
+
+// Sydney time, not the server's (Vercel runs in UTC).
+const SYD = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+const SYD_DATE = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Sydney",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
 
 export default async function DataPage() {
   const session = (await auth())!;
@@ -17,65 +35,77 @@ export default async function DataPage() {
     take: 50,
   });
 
+  const latest = (type: string) => consents.find((c) => c.type === type && c.granted);
+  const treat = latest("TREATMENT");
+  const store = latest("HEALTH_INFO_STORAGE");
+  const mail = (subject: string) => `mailto:${CLINIC.privacyOfficerEmail}?subject=${encodeURIComponent(subject)}`;
+
   return (
     <PortalShell title="Data &amp; privacy" user={session.user} section="client">
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Your rights</CardTitle>
+          <CardTitle>Your information</CardTitle>
           <CardDescription>
-            Under the Australian Privacy Principles you can access, correct, or
-            request deletion of your information at any time.
+            Your details and health information are private. You can see everything we hold about you,
+            and ask us to correct or delete it at any time.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <a href="/api/portal/export"><Download className="h-4 w-4" /> Download my data (JSON)</a>
-          </Button>
-          <Button asChild variant="outline">
-            <a href={`mailto:${CLINIC.privacyOfficerEmail}?subject=Deletion%20request`}>
-              Request deletion
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href="/portal/data/summary">
+                <FileText className="h-4 w-4" /> See all my information
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <a href={mail("Please correct my information")}>
+                <Pencil className="h-4 w-4" /> Ask for a correction
+              </a>
+            </Button>
+            <Button asChild variant="outline">
+              <a href={mail("Please delete my information")}>
+                <Trash2 className="h-4 w-4" /> Ask for deletion
+              </a>
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            By law we keep treatment and health records for 7 years after your last visit. Anything else
+            can be deleted when you ask. Questions? Email {CLINIC.privacyOfficerEmail} or call {CLINIC.phone}.
+          </p>
+          <p className="text-xs">
+            <a href="/api/portal/export" className="text-muted-foreground underline">
+              Download as a data file (for software)
             </a>
-          </Button>
-          <Button asChild variant="outline">
-            <a href={`mailto:${CLINIC.privacyOfficerEmail}?subject=Correction%20request`}>
-              Request correction
-            </a>
-          </Button>
+          </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Consent history</CardTitle>
-          <CardDescription>
-            Every consent you grant is timestamped and stored as proof of
-            informed consent.
-          </CardDescription>
+          <CardTitle>What you agreed to</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3 text-sm">
           {consents.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No consent records yet.</p>
+            <p className="text-muted-foreground">No records yet.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="text-xs uppercase text-muted-foreground">
-                <tr className="text-left">
-                  <th className="py-2">Date</th>
-                  <th>Type</th>
-                  <th>Version</th>
-                  <th>Granted</th>
-                </tr>
-              </thead>
-              <tbody>
-                {consents.map((c) => (
-                  <tr key={c.id} className="border-t">
-                    <td className="py-2">{format(c.createdAt, "d MMM yyyy, h:mm a")}</td>
-                    <td>{c.type.replace(/_/g, " ").toLowerCase()}</td>
-                    <td>{c.version}</td>
-                    <td>{c.granted ? "Yes" : "No"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <>
+              {(treat || store) && (
+                <p>
+                  ✓ You agreed to {[treat && "treatment", store && "us storing your health information"].filter(Boolean).join(" and ")}
+                  {" "}(latest {SYD_DATE.format((treat ?? store)!.createdAt)}).
+                </p>
+              )}
+              <details>
+                <summary className="cursor-pointer text-muted-foreground">Show full history</summary>
+                <ul className="mt-2 space-y-1">
+                  {consents.map((c) => (
+                    <li key={c.id}>
+                      {SYD.format(c.createdAt)}: {consentLabel(c.type)} ({c.granted ? "agreed" : "not agreed"})
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </>
           )}
         </CardContent>
       </Card>
