@@ -460,6 +460,51 @@ export function smsTime(d: Date): string {
   return fmtShort(d);
 }
 
+/**
+ * Sent after a client chooses a password from a link: "your online account is
+ * ready" the first time (from an invite), "your password was changed" after
+ * that. Either way it tells the real owner if someone else did it.
+ */
+export async function notifyPasswordSet(args: {
+  email: string;
+  name: string;
+  firstTime: boolean;
+}): Promise<void> {
+  const firstName = (args.name || "").trim().split(/\s+/)[0] || "there";
+  const login = `${CLINIC.domain}/login`;
+  const subject = args.firstTime
+    ? `Your ${CLINIC.name} online account is ready`
+    : `Your ${CLINIC.name} password was changed`;
+  const intro = args.firstTime
+    ? `Your online account is set up. You can now:`
+    : `Your password was just changed. You can sign in with your new password.`;
+  const perks = [
+    "Book online any time, with your details and health form already filled in",
+    "See, change or cancel your upcoming bookings",
+    "Update your health form before a visit",
+  ];
+  const warn = `Didn't do this? Please call us on ${CLINIC.phone} straight away.`;
+  const text = `Hi ${firstName},
+
+${intro}
+${args.firstTime ? perks.map((p) => `  • ${p}`).join("\n") + "\n" : ""}
+Sign in: ${login}
+Your sign-in email: ${args.email}
+
+${warn}
+
+${CLINIC.name}
+${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}`;
+  const html = `<p>Hi ${escHtml(firstName)},</p>
+<p>${escHtml(intro)}</p>
+${args.firstTime ? `<ul style="margin:8px 0;padding-left:20px">${perks.map((p) => `<li>${escHtml(p)}</li>`).join("")}</ul>` : ""}
+<p><a href="${login}" style="display:inline-block;padding:10px 18px;border-radius:6px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:600">Sign in</a></p>
+<p style="color:#64748b;font-size:13px">Your sign-in email: ${escHtml(args.email)}</p>
+<p style="color:#64748b;font-size:13px">${escHtml(warn)}</p>
+<p style="color:#64748b;font-size:12px">${escHtml(CLINIC.name)} · ${escHtml(CLINIC.address.line1)}, ${escHtml(CLINIC.address.suburb)} · ${escHtml(CLINIC.phone)}</p>`;
+  await sendEmail({ to: args.email, subject, html, text });
+}
+
 /** One-tap sign-in link (clients who'd rather not use a password). */
 export async function notifyMagicLink(args: {
   email: string;
