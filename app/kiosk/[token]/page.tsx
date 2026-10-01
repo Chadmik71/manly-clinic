@@ -5,7 +5,20 @@ import { CLINIC } from "@/lib/clinic";
 import { verifyKioskToken } from "@/lib/kiosk";
 import { bookingsNeedingHealthForm, getIntakePrefill } from "@/lib/booking-intake";
 import { sydneyDateLong, sydneyTimeShort } from "@/lib/time";
-import { KioskForm } from "./kiosk-form";
+import { KioskDone, KioskForm } from "./kiosk-form";
+import { isPlaceholderEmail } from "@/lib/placeholder-email";
+
+function accountOffer(c: { role: string; email: string }) {
+  if (c.role !== "CLIENT") return null;
+  return isPlaceholderEmail(c.email)
+    ? { needsEmail: true, maskedEmail: null }
+    : { needsEmail: false, maskedEmail: maskEmail(c.email) };
+}
+
+function maskEmail(email: string): string {
+  const [user, domain] = email.split("@");
+  return `${user.slice(0, 1)}${"*".repeat(Math.max(2, user.length - 1))}@${domain}`;
+}
 
 export const metadata = { title: "Health form", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -20,7 +33,7 @@ export default async function KioskPage({ params }: { params: Promise<{ token: s
   const b = t
     ? await db.booking.findUnique({
         where: { id: t.bookingId },
-        include: { service: true, variant: true, client: { select: { name: true } } },
+        include: { service: true, variant: true, client: { select: { name: true, email: true, role: true } } },
       })
     : null;
 
@@ -30,7 +43,9 @@ export default async function KioskPage({ params }: { params: Promise<{ token: s
   } else if (b.status !== "PENDING" && b.status !== "CONFIRMED") {
     body = <Message title="Please hand the tablet back to staff" text="This booking is no longer upcoming." />;
   } else if (!(await bookingsNeedingHealthForm([b])).has(b.id)) {
-    body = <Message title="✓ Your health form is done" text="Thank you! Please hand the tablet back to staff." />;
+    // Form saved: same hand-back screen as right after saving, with the
+    // optional account link while the link is still valid.
+    body = <KioskDone token={token} account={t.expired ? null : accountOffer(b.client)} />;
   } else if (t.expired) {
     body = <Message title="This form has timed out" text="Please hand the tablet back to staff so they can open it again." />;
   } else {
@@ -49,6 +64,7 @@ export default async function KioskPage({ params }: { params: Promise<{ token: s
           healthFundEligible={b.service.healthFundEligible}
           isPregnancyService={b.service.slug === "pregnancy-massage"}
           prefill={prefill}
+          account={accountOffer(b.client)}
         />
       </>
     );
