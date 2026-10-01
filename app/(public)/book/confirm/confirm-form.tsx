@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { SignaturePad } from "@/components/signature-pad";
+import { YesNoField } from "@/components/yes-no-field";
 import { BodyDiagram } from "@/components/body-diagram";
 import {
   MEDICAL_HISTORY_GROUPS,
@@ -703,17 +704,15 @@ export function ConfirmForm({
               </div>
             </div>
           ))}
-          <div className="space-y-1.5 pt-2">
-            <Label htmlFor="medicalConditions">
-              Other conditions or detail
-              {intakeRequired && <span className="text-destructive ml-1">*</span>}
-            </Label>
-            <Textarea
+          <div className="pt-2">
+            <YesNoField
               id="medicalConditions"
               name="medicalConditions"
+              label="Other conditions or detail"
+              question="Any other medical conditions we should know about?"
               required={intakeRequired}
-              defaultValue={intakeDefaults?.medicalConditions ?? ""}
-              placeholder="Anything else we should know? Write 'none' if not applicable."
+              defaultValue={intakeDefaults?.medicalConditions}
+              placeholder="Tell us about it"
             />
           </div>
         </CardContent>
@@ -726,32 +725,24 @@ export function ConfirmForm({
         <SectionHeader step={stepNo(4)} title="Medications &amp; allergies" />
         <CardContent className="pb-5">
           <FieldGrid>
-            <div className="space-y-1.5">
-              <Label htmlFor="medications">
-                Current medications
-                {intakeRequired && <span className="text-destructive ml-1">*</span>}
-              </Label>
-              <Textarea
-                id="medications"
-                name="medications"
-                required={intakeRequired}
-                defaultValue={intakeDefaults?.medications ?? ""}
-                placeholder="e.g. blood thinners, paracetamol. Write 'none' if none."
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="allergies">
-                Allergies
-                {intakeRequired && <span className="text-destructive ml-1">*</span>}
-              </Label>
-              <Textarea
-                id="allergies"
-                name="allergies"
-                required={intakeRequired}
-                defaultValue={intakeDefaults?.allergies ?? ""}
-                placeholder="oils, latex, nuts… Write 'none' if none."
-              />
-            </div>
+            <YesNoField
+              id="medications"
+              name="medications"
+              label="Current medications"
+              question="Are you taking any medications?"
+              required={intakeRequired}
+              defaultValue={intakeDefaults?.medications}
+              placeholder="e.g. blood thinners, paracetamol"
+            />
+            <YesNoField
+              id="allergies"
+              name="allergies"
+              label="Allergies"
+              question="Do you have any allergies (oils, latex, nuts…)?"
+              required={intakeRequired}
+              defaultValue={intakeDefaults?.allergies}
+              placeholder="What are you allergic to?"
+            />
           </FieldGrid>
         </CardContent>
       </Card>
@@ -808,16 +799,16 @@ export function ConfirmForm({
                 placeholder="e.g. 2 weeks ago, after a fall"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="injuries">Recent injuries / areas to avoid {intakeRequired && <span className="text-destructive ml-1">*</span>}</Label>
-              <Input
-                id="injuries"
-                name="injuries"
-                required={intakeRequired}
-                defaultValue={intakeDefaults?.injuries ?? ""}
-                placeholder="recent surgery, sprains, scars to avoid"
-              />
-            </div>
+            <YesNoField
+              id="injuries"
+              name="injuries"
+              label="Recent injuries / areas to avoid"
+              question="Any recent injuries, surgery or areas to avoid?"
+              required={intakeRequired}
+              defaultValue={intakeDefaults?.injuries}
+              placeholder="recent surgery, sprains, scars to avoid"
+              multiline={false}
+            />
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="painHistory">
                 Aggravating / relieving factors &amp; previous treatment
@@ -882,24 +873,22 @@ export function ConfirmForm({
             )}
             <div className={safetyFloorOpen ? "" : "hidden"}>
               <FieldGrid>
-                <div className="space-y-1.5">
-                  <Label htmlFor="allergies">Allergies</Label>
-                  <Textarea
-                    id="allergies"
-                    name="allergies"
-                    defaultValue={intakeDefaults?.allergies ?? ""}
-                    placeholder="oils, latex, nuts… Leave blank if none."
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="injuries">Recent injuries / areas to avoid</Label>
-                  <Textarea
-                    id="injuries"
-                    name="injuries"
-                    defaultValue={intakeDefaults?.injuries ?? ""}
-                    placeholder="recent surgery, sprains, scars to avoid. Leave blank if none."
-                  />
-                </div>
+                <YesNoField
+                  id="allergies"
+                  name="allergies"
+                  label="Allergies"
+                  question="Do you have any allergies (oils, latex, nuts…)?"
+                  defaultValue={intakeDefaults?.allergies}
+                  placeholder="What are you allergic to?"
+                />
+                <YesNoField
+                  id="injuries"
+                  name="injuries"
+                  label="Recent injuries / areas to avoid"
+                  question="Any recent injuries, surgery or areas to avoid?"
+                  defaultValue={intakeDefaults?.injuries}
+                  placeholder="recent surgery, sprains, scars to avoid"
+                />
               </FieldGrid>
             </div>
           </CardContent>

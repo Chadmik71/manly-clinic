@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatPrice, formatDuration } from "@/lib/utils";
 import { SignaturePad } from "@/components/signature-pad";
+import { YesNoField } from "@/components/yes-no-field";
 import { BodyDiagram } from "@/components/body-diagram";
 import {
   HEALTH_FUNDS,
@@ -660,47 +661,37 @@ export function NewBookingForm({
                 </div>
               </div>
             ))}
-            <div className="space-y-1.5">
-              <Label htmlFor="medicalConditions">
-                Other conditions or detail{" "}
-                <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                id="medicalConditions"
-                name="medicalConditions"
-                required
-                defaultValue={prefill?.intake?.medicalConditions ?? ""}
-                placeholder="Anything else we should know? Write 'none' if not applicable."
-              />
-            </div>
+            <YesNoField
+              id="medicalConditions"
+              name="medicalConditions"
+              label="Other conditions or detail"
+              question="Any other medical conditions we should know about?"
+              required
+              defaultValue={prefill?.intake?.medicalConditions}
+              placeholder="Tell us about it"
+            />
           </div>
 
           {/* Medications + allergies */}
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="medications">
-                Current medications <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                id="medications"
-                name="medications"
-                required
-                defaultValue={prefill?.intake?.medications ?? ""}
-                placeholder="e.g. blood thinners. Write 'none' if none."
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="allergies">
-                Allergies <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                id="allergies"
-                name="allergies"
-                required
-                defaultValue={prefill?.intake?.allergies ?? ""}
-                placeholder="oils, latex, nuts… Write 'none' if none."
-              />
-            </div>
+            <YesNoField
+              id="medications"
+              name="medications"
+              label="Current medications"
+              question="Are you taking any medications?"
+              required
+              defaultValue={prefill?.intake?.medications}
+              placeholder="e.g. blood thinners, paracetamol"
+            />
+            <YesNoField
+              id="allergies"
+              name="allergies"
+              label="Allergies"
+              question="Do you have any allergies (oils, latex, nuts…)?"
+              required
+              defaultValue={prefill?.intake?.allergies}
+              placeholder="What are you allergic to?"
+            />
           </div>
 
           {/* Presenting complaint */}
@@ -745,19 +736,16 @@ export function NewBookingForm({
                   placeholder="e.g. 2 weeks ago, after a fall"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="injuries">
-                  Recent injuries / areas to avoid{" "}
-                  <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="injuries"
-                  name="injuries"
-                  required
-                  defaultValue={prefill?.intake?.injuries ?? ""}
-                  placeholder="recent surgery, sprains, scars to avoid. 'none' if none."
-                />
-              </div>
+              <YesNoField
+                id="injuries"
+                name="injuries"
+                label="Recent injuries / areas to avoid"
+                question="Any recent injuries, surgery or areas to avoid?"
+                required
+                defaultValue={prefill?.intake?.injuries}
+                placeholder="recent surgery, sprains, scars to avoid"
+                multiline={false}
+              />
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="painHistory">
                   Aggravating / relieving factors &amp; previous treatment
