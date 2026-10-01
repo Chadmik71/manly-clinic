@@ -1,3 +1,4 @@
+import { AddToPhoneCard } from "@/components/add-to-phone-card";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
@@ -202,6 +203,7 @@ export default async function BookingConfirmedPage({
           Book another session
         </Link>
       </div>
+      <AddToPhoneCard className="mt-6" />
     </div>
   );
 }

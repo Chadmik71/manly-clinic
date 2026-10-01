@@ -20,6 +20,8 @@ const MAINTENANCE_ALLOW_PREFIXES = [
   "/confirm-booking",
   // Shop-tablet client mode (health form handed to the client).
   "/kiosk",
+  // "Add us to your phone" steps (linked from confirmation emails).
+  "/app",
   // Stripe webhook lives at /api/stripe/webhook. The /api/webhooks prefix
   // is kept for any future webhook routes (Twilio status callbacks, etc.).
   "/api/stripe/webhook",

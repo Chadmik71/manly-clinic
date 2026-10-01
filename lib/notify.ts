@@ -169,12 +169,16 @@ No time? That's fine, you can fill it in when you arrive.`
       : "") +
     (args.rebookUrl ? `
 
-Book your next session: ${args.rebookUrl}` : "");
+Book your next session: ${args.rebookUrl}` : "") +
+    `
+
+Book faster next time: add us to your phone's home screen (no app store needed): ${CLINIC.domain}/app`;
   const extraHtml =
     (args.healthFormUrl
       ? `<p style="margin:12px 0;padding:10px 12px;border:1px solid #99d5cf;border-radius:6px;background:#effaf8"><strong>Before your visit:</strong> please <a href="${args.healthFormUrl}">complete your health form</a> (about 3 minutes). It saves time at the clinic. No time? You can fill it in when you arrive.</p>`
       : "") +
-    (args.rebookUrl ? `<p><a href="${args.rebookUrl}">Book your next session</a></p>` : "");
+    (args.rebookUrl ? `<p><a href="${args.rebookUrl}">Book your next session</a></p>` : "") +
+    `<p style="color:#334155">📱 Book faster next time: <a href="${CLINIC.domain}/app">add us to your phone's home screen</a> (no app store needed).</p>`;
   // Couple bookings get a different layout that lists both treatments and
   // both references in a single email. Solo path falls through unchanged.
   if (args.partner) {

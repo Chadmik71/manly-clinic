@@ -1,3 +1,4 @@
+import { AddToPhoneCard } from "@/components/add-to-phone-card";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -139,6 +140,7 @@ export default async function PortalHome() {
           ))}
         </div>
       )}
+      <AddToPhoneCard className="mt-6" />
     </PortalShell>
   );
 }
