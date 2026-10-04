@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ClientsSearch } from "./clients-search";
+import { audit } from "@/lib/audit";
 
 export const metadata = { title: "Clients" };
 
@@ -66,6 +67,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     }),
     db.user.count({ where }),
   ]);
+  await audit({
+    userId: session.user.id,
+    action: "VIEW_CLIENT_LIST",
+    metadata: { search: q ?? null, sort, results: total },
+  });
 
   return (
     <StaffShell user={session.user} topbar={<span className="text-foreground font-medium">Clients</span>}>

@@ -5,12 +5,37 @@ import type { NextConfig } from "next";
  * conservative -- strong enough to defend against the common web threats
  * (clickjacking, MIME sniffing, downgrade attacks, browser-side feature
  * abuse) without breaking Next.js, Tailwind, or the embedded Google
- * reviews photos. CSP is intentionally NOT set here yet -- Next.js needs
- * nonces or unsafe-inline to render its inline runtime, and a strict
- * CSP requires per-deploy verification. Add it as a follow-up when there
- * is time to test it properly.
+ * reviews photos.
  */
+
+/**
+ * Content-Security-Policy. Scripts may only come from this site, Stripe
+ * (card form) and Vercel Analytics; no plugins, no <base> hijack, forms
+ * only post back here, and nobody can frame the site. Next.js renders an
+ * inline bootstrap script, so script-src keeps 'unsafe-inline' (a nonce CSP
+ * would force every page to render dynamically). Google review photos and
+ * other https images are allowed. Dev adds 'unsafe-eval' + websockets for
+ * React Refresh / HMR.
+ */
+const isDev = process.env.NODE_ENV !== "production";
+const csp = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://js.stripe.com https://va.vercel-scripts.com`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  `connect-src 'self' https://*.stripe.com https://*.stripe.network https://va.vercel-scripts.com${isDev ? " ws: wss:" : ""}`,
+  "frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  ...(isDev ? [] : ["upgrade-insecure-requests"]),
+].join("; ");
+
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: csp },
   // Force HTTPS for two years, including subdomains, and signal preload
   // eligibility (submit the domain at hstspreload.org to lock it in).
   {
