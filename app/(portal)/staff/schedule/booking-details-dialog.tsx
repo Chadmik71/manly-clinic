@@ -3,15 +3,15 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ExternalLink, User, Phone, MessageSquare, Repeat, Wallet, XCircle } from "lucide-react";
+import { CheckCircle2, ExternalLink, User, Phone, MessageSquare, Pencil, Repeat, Wallet, XCircle } from "lucide-react";
 import { CHECKOUT_LABEL, CHECKOUT_METHODS, type CheckoutMethod } from "@/lib/checkout";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { sydneyTimeShort, SYDNEY_TZ } from "@/lib/time";
 import { HandToClientButton } from "@/components/hand-to-client-button";
-import { assignTherapist, setBookingStatus } from "@/app/(portal)/staff/bookings/[id]/actions";
+import { assignTherapist, setBookingStatus, updateBookingDetails } from "@/app/(portal)/staff/bookings/[id]/actions";
 import { getBookingSummary, recordCheckout, type BookingSummary } from "./actions";
-import type { QuickBookInitial } from "./quick-book-dialog";
+import type { QuickBookInitial, QuickBookService } from "./quick-book-dialog";
 
 const sydDate = new Intl.DateTimeFormat("en-CA", { timeZone: SYDNEY_TZ });
 type CancelKind = "CANT_MAKE_IT" | "NO_SHOW" | "CLINIC" | "REJECTED" | "OTHER";
@@ -83,11 +83,14 @@ export function BookingDetailsDialog({
   preview,
   onClose,
   onBookAgain,
+  services,
 }: {
   preview: BookingPreview;
   onClose: () => void;
   /** Opens the quick-booking panel pre-filled for the same time next week. */
   onBookAgain?: (initial: QuickBookInitial) => void;
+  /** Active services with lengths. Enables "Change" on the service line. */
+  services?: QuickBookService[];
 }) {
   const router = useRouter();
   const [details, setDetails] = useState<BookingSummary | null>(null);
@@ -105,6 +108,19 @@ export function BookingDetailsDialog({
   const [payMethod, setPayMethod] = useState<CheckoutMethod | null>(null);
   const [payAmount, setPayAmount] = useState("");
   const [payAndComplete, setPayAndComplete] = useState(true);
+  // Change service (e.g. booked "any massage" by phone, turns out to be
+  // remedial). `shown` keeps the pop-up current after a change, since the
+  // card preview it opened with is a snapshot.
+  const [shown, setShown] = useState({
+    serviceName: preview.serviceName,
+    durationMin: preview.durationMin,
+    priceCents: preview.priceCents,
+    endsAt: preview.endsAt,
+  });
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [changeServiceId, setChangeServiceId] = useState("");
+  const [changeVariantId, setChangeVariantId] = useState("");
+  const [changeNotice, setChangeNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -226,6 +242,61 @@ export function BookingDetailsDialog({
     });
   }
 
+  const canChangeService =
+    !!details && !!services && services.length > 0 && (status === "PENDING" || status === "CONFIRMED");
+  const changeService = services?.find((s) => s.id === changeServiceId);
+  const changeVariant = changeService?.variants.find((v) => v.id === changeVariantId);
+
+  /** Picks the length closest to the current one when switching service. */
+  function pickService(id: string) {
+    const svc = services?.find((s) => s.id === id);
+    setChangeServiceId(id);
+    if (!svc || svc.variants.length === 0) return setChangeVariantId("");
+    const closest = svc.variants.reduce((best, v) =>
+      Math.abs(v.durationMin - shown.durationMin) < Math.abs(best.durationMin - shown.durationMin) ? v : best,
+    );
+    setChangeVariantId(closest.id);
+  }
+
+  function openChange() {
+    if (!details) return;
+    setActionError(null);
+    setChangeNotice(null);
+    setChangeServiceId(details.serviceId);
+    setChangeVariantId(details.variantId);
+    setChangeOpen(true);
+  }
+
+  function saveChange() {
+    if (!details || !changeService || !changeVariant) return setActionError("Choose a service and length.");
+    setActionError(null);
+    const svc = changeService;
+    const v = changeVariant;
+    start(async () => {
+      const res = await updateBookingDetails(preview.id, {
+        startsAt: `${sydDate.format(preview.startsAt)}T${sydTime.format(preview.startsAt)}`,
+        therapistId: details.therapistId ?? "",
+        variantId: v.id,
+      });
+      if (res.error) return setActionError(res.error);
+      setShown({
+        serviceName: svc.name,
+        durationMin: v.durationMin,
+        priceCents: v.priceCents,
+        endsAt: new Date(preview.startsAt.getTime() + v.durationMin * 60_000),
+      });
+      setChangeNotice(
+        res.notice ??
+          (svc.healthFundEligible && !details.claimWithHealthFund
+            ? "Claiming on their health fund? Open the full booking and use \u201cComplete medical form\u201d to add the claim."
+            : null),
+      );
+      setChangeOpen(false);
+      setReloadKey((k) => k + 1);
+      router.refresh();
+    });
+  }
+
   function bookAgain() {
     if (!details || !onBookAgain) return;
     const nextWeek = new Date(preview.startsAt.getTime() + 7 * 24 * 3600 * 1000);
@@ -241,11 +312,11 @@ export function BookingDetailsDialog({
   }
 
   const dateLabel = dateFmt.format(preview.startsAt);
-  const timeLabel = `${sydneyTimeShort(preview.startsAt)} – ${sydneyTimeShort(preview.endsAt)}`;
+  const timeLabel = `${sydneyTimeShort(preview.startsAt)} – ${sydneyTimeShort(shown.endsAt)}`;
   const balanceCents = details
     ? Math.max(0, details.priceCents - details.paidCents - details.voucherAppliedCents)
     : null;
-  const priceLabel = formatPrice(preview.priceCents);
+  const priceLabel = formatPrice(shown.priceCents);
   const paidLabel = details ? formatPrice(details.paidCents) : "";
   const voucherLabel = details ? formatPrice(details.voucherAppliedCents) : "";
   const balanceLabel = balanceCents != null ? formatPrice(balanceCents) : "";
@@ -391,7 +462,21 @@ export function BookingDetailsDialog({
 
           <dt className="text-muted-foreground">Service</dt>
           <dd className="min-w-0">
-            {preview.durationMin} min {preview.serviceName}
+            <span className="flex flex-wrap items-center gap-2">
+              <span>
+                {shown.durationMin} min {shown.serviceName}
+              </span>
+              {canChangeService && !changeOpen && (
+                <button
+                  type="button"
+                  onClick={openChange}
+                  disabled={pending}
+                  className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs hover:bg-accent"
+                >
+                  <Pencil className="h-3 w-3" /> Change
+                </button>
+              )}
+            </span>
           </dd>
 
           <dt className="text-muted-foreground">Price</dt>
@@ -429,6 +514,66 @@ export function BookingDetailsDialog({
             </>
           )}
         </dl>
+
+        {changeOpen && services && (
+          <div className="mt-4 rounded-md border p-3 text-sm space-y-2">
+            {/* Service first, then its lengths, side by side on one line. */}
+            <div className="flex gap-2">
+              <label className="min-w-0 flex-1 space-y-1">
+                <span className="block text-xs font-medium text-muted-foreground">Service</span>
+                <select
+                  value={changeServiceId}
+                  onChange={(e) => pickService(e.target.value)}
+                  className="h-10 w-full rounded-md border bg-background px-2 text-sm"
+                >
+                  {services.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="w-36 shrink-0 space-y-1">
+                <span className="block text-xs font-medium text-muted-foreground">Length</span>
+                <select
+                  value={changeVariantId}
+                  onChange={(e) => setChangeVariantId(e.target.value)}
+                  className="h-10 w-full rounded-md border bg-background px-2 text-sm tabular-nums"
+                >
+                  {changeService?.variants.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.durationMin} min · {formatPrice(v.priceCents)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {changeVariant && (
+              <p className="text-xs text-muted-foreground">
+                Same start time, ends{" "}
+                {sydneyTimeShort(new Date(preview.startsAt.getTime() + changeVariant.durationMin * 60_000))}. Price{" "}
+                {formatPrice(changeVariant.priceCents)}.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={saveChange}
+                disabled={pending || !changeVariant || changeVariant.id === details?.variantId}
+              >
+                {pending ? "Saving…" : "Save change"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setChangeOpen(false)} disabled={pending}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+        {changeNotice && (
+          <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+            {changeNotice}
+          </p>
+        )}
 
         {!details && !loadError && (
           <p className="text-xs text-muted-foreground mt-3">Loading details…</p>

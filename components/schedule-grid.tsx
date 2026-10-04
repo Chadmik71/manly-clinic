@@ -934,6 +934,7 @@ export function ScheduleGrid({
         <BookingDetailsDialog
           preview={openBooking}
           onClose={() => setOpenBooking(null)}
+          services={services}
           onBookAgain={
             services && services.length > 0
               ? (initial) => {
