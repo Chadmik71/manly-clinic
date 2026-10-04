@@ -13,6 +13,7 @@ import {
   removeTimeOffFromSchedule,
 } from "@/app/(portal)/staff/therapists/[id]/actions";
 import { diffIntakes } from "@/lib/intake-changes";
+import { sydneyDayBoundsUtc } from "@/lib/time";
 import { BlockTimeDialog } from "./block-time-dialog";
 import { TodayTasks, type DayTask } from "./today-tasks";
 import { WalkinFinderDialog } from "./walkin-finder-dialog";
@@ -26,27 +27,13 @@ function todayInSydney(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: SYDNEY_TZ }).format(new Date());
 }
 
-// Get Sydney UTC offset hours (+10 AEST or +11 AEDT) for a given date
-function sydneyOffsetHours(date: Date): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: SYDNEY_TZ,
-    timeZoneName: "longOffset",
-  }).formatToParts(date);
-  const tz = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+10:00";
-  const m = tz.match(/GMT([+-])(\d+)(?::(\d+))?/);
-  if (!m) return 10;
-  const sign = m[1] === "+" ? 1 : -1;
-  const h = parseInt(m[2], 10);
-  const mm = m[3] ? parseInt(m[3], 10) : 0;
-  return sign * (h + mm / 60);
-}
-
-// Convert Sydney midnight on dateStr to a UTC Date instant
+// Convert Sydney midnight on dateStr to a UTC Date instant. Uses the shared
+// DST-safe helper: sampling the offset at UTC midnight picked the wrong offset
+// on daylight-saving changeover days and showed the previous day.
 function sydneyDayBounds(dateStr: string): { start: Date; end: Date; date: Date; dow: number } {
-  const utcMidnight = new Date(`${dateStr}T00:00:00Z`);
-  const offset = sydneyOffsetHours(utcMidnight);
-  const start = new Date(utcMidnight.getTime() - offset * 3600 * 1000);
-  const end = new Date(start.getTime() + 24 * 3600 * 1000 - 1);
+  const bounds = sydneyDayBoundsUtc(dateStr);
+  const start = bounds.start;
+  const end = new Date(bounds.end.getTime() - 1);
   // Day-of-week computed from Sydney's local date
   const [y, m, d] = dateStr.split("-").map(Number);
   // Use UTC date construction so getUTCDay reflects the Sydney calendar date
