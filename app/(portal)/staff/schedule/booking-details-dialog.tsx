@@ -330,7 +330,7 @@ export function BookingDetailsDialog({
       onClick={onClose}
     >
       <div
-        className="bg-background w-full sm:max-w-md rounded-t-lg sm:rounded-lg p-5 shadow-xl border max-h-[85vh] overflow-y-auto"
+        className="bg-background w-full sm:max-w-[34rem] rounded-t-lg sm:rounded-lg p-5 shadow-xl border max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 mb-4">
