@@ -103,7 +103,8 @@ export async function GET(req: Request) {
       orderBy: { startsAt: "asc" },
       include: {
         service: { select: { name: true } },
-        client: { select: { name: true } },
+        variant: { select: { durationMin: true } },
+        client: { select: { name: true, phone: true } },
         therapist: { include: { user: { select: { name: true } } } },
       },
     }),
@@ -111,8 +112,12 @@ export async function GET(req: Request) {
 
   const tomorrowList: DailyReportBooking[] = tomorrowRows.map((b) => ({
     time: sydneyTimeShort(b.startsAt),
+    endTime: sydneyTimeShort(b.endsAt),
+    durationMin: b.variant.durationMin,
     client: b.client.name,
+    phone: b.client.phone,
     service: b.service.name,
+    claim: b.claimWithHealthFund,
     therapist:
       b.assignedTherapistName ??
       b.therapist?.user?.name ??

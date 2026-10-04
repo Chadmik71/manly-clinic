@@ -783,9 +783,16 @@ function escHtml(s: string): string {
 
 export type DailyReportBooking = {
   time: string;
+  /** Sydney end time, e.g. "10:00 AM". */
+  endTime: string;
+  durationMin: number;
   client: string;
+  /** Client's phone, so staff can still ring them if the app is down. */
+  phone: string | null;
   service: string;
   therapist: string | null;
+  /** Health-fund (HICAPS) claim booking. */
+  claim: boolean;
 };
 
 export async function notifyDailyReport(args: {
@@ -832,7 +839,7 @@ export async function notifyDailyReport(args: {
         <thead>
           <tr style="text-align:left;border-bottom:1px solid #ddd;color:#666;">
             <th style="padding:6px 8px;">Time</th>
-            <th style="padding:6px 8px;">Client</th>
+            <th style="padding:6px 8px;">Client / phone</th>
             <th style="padding:6px 8px;">Service</th>
             <th style="padding:6px 8px;">Therapist</th>
           </tr>
@@ -842,9 +849,17 @@ export async function notifyDailyReport(args: {
             .map(
               (b) => `
             <tr style="border-bottom:1px solid #f0f0f0;">
-              <td style="padding:6px 8px;">${escHtml(b.time)}</td>
-              <td style="padding:6px 8px;">${escHtml(b.client)}</td>
-              <td style="padding:6px 8px;">${escHtml(b.service)}</td>
+              <td style="padding:6px 8px;white-space:nowrap;">${escHtml(b.time)}–${escHtml(b.endTime)}<br><span style="color:#666;font-size:12px;">${b.durationMin} min</span></td>
+              <td style="padding:6px 8px;">${escHtml(b.client)}${
+                b.phone
+                  ? `<br><a href="tel:${escHtml(b.phone.replace(/\s+/g, ""))}" style="color:#0f766e;font-size:13px;">${escHtml(b.phone)}</a>`
+                  : ""
+              }</td>
+              <td style="padding:6px 8px;">${escHtml(b.service)}${
+                b.claim
+                  ? ` <span style="background:#7c3aed;color:#fff;border-radius:3px;padding:0 4px;font-size:11px;font-weight:bold;">HICAPS</span>`
+                  : ""
+              }</td>
               <td style="padding:6px 8px;">${escHtml(b.therapist ?? "—")}</td>
             </tr>`,
             )
@@ -891,6 +906,7 @@ export async function notifyDailyReport(args: {
   </table>
 
   <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:20px;">Tomorrow's bookings — ${escHtml(tomorrowDateLong)}</h2>
+  <p style="font-size:12px;color:#888;margin:4px 0;">Keep this email as a backup: if the internet or the app is down tomorrow, this is the day's list.</p>
   ${tomorrowRowsHtml}
 
   <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:20px;">HiCAPS claims today</h2>
@@ -932,7 +948,7 @@ ${tomorrow.length === 0
     : tomorrow
         .map(
           (b) =>
-            `  ${b.time}  ${b.client.padEnd(22)} ${b.service.padEnd(28)} ${b.therapist ?? "—"}`,
+            `  ${b.time}-${b.endTime} (${b.durationMin} min)  ${b.client}${b.phone ? ` ${b.phone}` : ""} · ${b.service}${b.claim ? " [HICAPS]" : ""} · ${b.therapist ?? "—"}`,
         )
         .join("\n")}
 
