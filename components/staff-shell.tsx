@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, ListChecks, Users, Stethoscope, Settings, Wrench, LogOut, ChevronLeft, ChevronRight, Clock, BarChart3, Gift, UserCircle, LayoutGrid, Undo2, Bell } from "lucide-react";
+import { CalendarDays, ListChecks, Users, Stethoscope, Settings, Wrench, LogOut, ChevronLeft, ChevronRight, Clock, BarChart3, Gift, UserCircle, LayoutGrid, Undo2, Bell, Phone } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ const RAIL: Array<{
   { href: "/staff/reports", label: "Reports", icon: BarChart3 },
   { href: "/staff/vouchers", label: "Vouchers", icon: Gift },
   { href: "/staff/waitlist", label: "Waitlist", icon: Bell },
+  { href: "/staff/calls", label: "Calls", icon: Phone },
   { href: "/staff/therapists", label: "Therapists", icon: Stethoscope, adminOnly: true },
   { href: "/staff/slots", label: "Slots", icon: LayoutGrid, adminOnly: true },
   { href: "/staff/services", label: "Services", icon: Settings },

@@ -8,6 +8,8 @@ import type { ModelMessage } from "ai";
 import { db } from "@/lib/db";
 import { runPhoneTurn } from "@/lib/phone-agent/agent";
 import { findTimes, phoneServiceCatalogue } from "@/lib/phone-agent/booking";
+import { GREETING } from "@/lib/phone-agent/prompt";
+import { callOutcome, readableTranscript } from "@/lib/phone-agent/transcript";
 import { sydneyTodayISO } from "@/lib/time";
 
 const prodHost = readFileSync(".env.local", "utf8").match(/DATABASE_URL_PROD=.*?@([^/]+)/)?.[1];
@@ -194,8 +196,22 @@ async function main() {
   assert.equal(turn.result.hangUp, true, "end_call hangs up");
   assert.equal(turn.result.say, "Thanks for calling, bye!", "goodbye spoken alongside the tool call is kept");
 
+  const transcript = JSON.stringify(turn.history);
+  const lines = readableTranscript(transcript);
+  assert.equal(lines[0].text, GREETING, "staff transcript starts with the greeting");
+  assert.ok(lines.some((l) => l.kind === "caller" && l.text === "Can I get a remedial tomorrow?"));
+  assert.ok(lines.some((l) => l.kind === "assistant" && l.text === "You're booked."));
+  assert.ok(lines.some((l) => l.kind === "action" && l.text.includes(`(${first.value.reference})`)), "booking shown with its reference");
+  assert.ok(lines.some((l) => l.kind === "action" && l.text.startsWith("Booking not made:")), "refused booking shown");
+  assert.ok(lines.some((l) => l.kind === "action" && l.text.includes('"Wants to cancel Friday"')), "message shown");
+  assert.equal(lines.at(-1)?.text, "Hung up");
+  call = await db.phoneCall.findUniqueOrThrow({ where: { callSid } });
+  assert.equal(callOutcome({ ...call, transcript }), "Booked");
+  assert.equal(callOutcome({ ...call, bookingRefs: null, transcript }), "Message taken");
+  assert.equal(callOutcome({ ...call, bookingRefs: null, transcript: null, teamNotified: true }), "Missed call email");
+
   await cleanUp();
-  console.log("PASS phone agent: find times, book, no duplicate, per-call limit, message, hang up");
+  console.log("PASS phone agent: find times, book, no duplicate, per-call limit, message, hang up, staff transcript");
 }
 
 main()
