@@ -42,7 +42,7 @@ Single owner-operator (Mick). Production handles real patient data.
 
 
 
-- **SMS**: Twilio
+- **SMS + phone assistant calls**: Telnyx (`lib/telnyx-webhook.ts` checks webhook signatures)
 
 
 
@@ -194,7 +194,7 @@ Reads, single-row writes/deletes, and `prisma db push` of additive (non-destruct
 
 
 
-- `lib/notify.ts` — Resend email + Twilio SMS; couple-aware `notifyBookingConfirmed`
+- `lib/notify.ts` — Resend email + Telnyx SMS; couple-aware `notifyBookingConfirmed`
 
 
 

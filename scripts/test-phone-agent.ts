@@ -1,5 +1,5 @@
 // Drives the phone assistant's tools with a scripted (fake) model against the
-// DEV database and checks what lands in the calendar. No AI key, Twilio or
+// DEV database and checks what lands in the calendar. No AI key, Telnyx or
 // email needed. Run: npx tsx scripts/test-phone-agent.ts
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -15,7 +15,8 @@ if (!process.env.DATABASE_URL || (prodHost && process.env.DATABASE_URL.includes(
   throw new Error("Refusing to run: DATABASE_URL is missing or points at production.");
 }
 delete process.env.RESEND_API_KEY;
-delete process.env.TWILIO_AUTH_TOKEN;
+delete process.env.TELNYX_API_KEY;
+delete process.env.TELNYX_PUBLIC_KEY;
 
 const usage = {
   inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },

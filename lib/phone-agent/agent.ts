@@ -92,7 +92,7 @@ export async function runPhoneTurn(args: {
     tools,
     stopWhen: [isStepCount(6), () => hangUp],
     maxOutputTokens: 300,
-    // Twilio drops the call if the webhook takes ~15s; fail first so the
+    // The phone company gives up on a slow webhook (~15s); fail first so the
     // caller hears an apology and the team gets an email instead.
     abortSignal: AbortSignal.timeout(11_000),
     providerOptions: GATEWAY_OPTIONS,

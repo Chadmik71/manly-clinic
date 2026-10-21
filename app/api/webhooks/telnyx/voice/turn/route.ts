@@ -2,11 +2,11 @@ import type { ModelMessage } from "ai";
 import { db } from "@/lib/db";
 import { CLINIC } from "@/lib/clinic";
 import { notifyClinicUnfinishedCall } from "@/lib/notify";
-import { readTwilioRequest } from "@/lib/twilio-webhook";
+import { readTelnyxRequest } from "@/lib/telnyx-webhook";
 import { runPhoneTurn } from "@/lib/phone-agent/agent";
-import { speakAndHangUp, speakAndListen } from "@/lib/phone-agent/twiml";
+import { speakAndHangUp, speakAndListen } from "@/lib/phone-agent/texml";
 
-// Each time the caller finishes speaking, Twilio posts what they said here
+// Each time the caller finishes speaking, Telnyx posts what they said here
 // (SpeechResult) and plays back whatever we answer.
 
 export const maxDuration = 60;
@@ -16,15 +16,16 @@ const MAX_SILENT_TURNS = 2;
 const WEBSITE = CLINIC.domain.replace("https://www.", "");
 
 export async function POST(req: Request) {
-  const checked = await readTwilioRequest(req);
+  const checked = await readTelnyxRequest(req);
   if (!checked.ok) return checked.response;
-  const callSid = checked.params.get("CallSid");
+  const params = new URLSearchParams(checked.body);
+  const callSid = params.get("CallSid");
   if (!callSid) return new Response("Missing CallSid", { status: 400 });
 
   const call = await db.phoneCall.findUnique({ where: { callSid } });
   if (!call) return speakAndHangUp("Sorry, something went wrong. Please call back.");
 
-  const heard = (checked.params.get("SpeechResult") ?? "").trim();
+  const heard = (params.get("SpeechResult") ?? "").trim();
   if (!heard) {
     const silentTurns = call.silentTurns + 1;
     await db.phoneCall.update({ where: { callSid }, data: { silentTurns } });

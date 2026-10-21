@@ -1,39 +1,50 @@
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { CLINIC } from "@/lib/clinic";
-import { readTwilioRequest, twimlResponse, xmlEscape } from "@/lib/twilio-webhook";
+import { readTelnyxRequest } from "@/lib/telnyx-webhook";
 import { normalisePhone } from "@/lib/phone";
 import { confirmBookingByClient } from "@/lib/booking-confirm";
-import { notifyClinicSmsReply, smsTime } from "@/lib/notify";
+import { notifyClinicSmsReply, sendSms, smsTime } from "@/lib/notify";
 
-// Incoming texts to the clinic's Twilio number (set this URL as the number's
-// "A message comes in" webhook: https://<domain>/api/webhooks/twilio/sms).
+// Incoming texts to the clinic's Telnyx number (set this URL as the messaging
+// profile's webhook: https://<domain>/api/webhooks/telnyx/sms).
 //
 // "C" / "YES" confirms the sender's next booking in the coming 2 days (the
 // reminder goes out the evening before). Anything else is emailed to the
-// clinic. Twilio itself handles STOP / START / HELP opt-out keywords.
+// clinic. Telnyx itself handles STOP / START / HELP opt-out keywords.
 //
-// Every request must carry a valid X-Twilio-Signature (HMAC-SHA1 of the URL +
-// sorted POST params, keyed with TWILIO_AUTH_TOKEN); without the token set the
-// route refuses everything.
+// The same webhook also receives delivery reports for texts we send
+// (message.sent, message.finalized); only message.received is acted on.
 
 const CONFIRM_WORDS = new Set(["c", "confirm", "confirmed", "y", "yes", "ok", "okay"]);
-const TWILIO_KEYWORDS = new Set(["stop", "stopall", "unsubscribe", "cancel", "end", "quit", "start", "unstop", "help", "info"]);
+const OPT_OUT_KEYWORDS = new Set(["stop", "stopall", "unsubscribe", "cancel", "end", "quit", "start", "unstop", "help", "info"]);
 
-function twiml(message?: string): Response {
-  return twimlResponse(message ? `<Message>${xmlEscape(message)}</Message>` : "");
-}
+type MessageEvent = {
+  data?: { event_type?: string; payload?: { from?: { phone_number?: string }; text?: string } };
+};
+
+const done = () => new Response(null, { status: 200 });
 
 export async function POST(req: Request) {
-  const checked = await readTwilioRequest(req);
+  const checked = await readTelnyxRequest(req);
   if (!checked.ok) return checked.response;
-  const params = checked.params;
 
-  const from = normalisePhone(params.get("From"));
-  const text = (params.get("Body") ?? "").trim();
+  let event: MessageEvent;
+  try {
+    event = JSON.parse(checked.body);
+  } catch {
+    return new Response("Bad JSON", { status: 400 });
+  }
+  if (event.data?.event_type !== "message.received") return done();
+
+  const from = normalisePhone(event.data.payload?.from?.phone_number);
+  const text = (event.data.payload?.text ?? "").trim();
   const word = text.toLowerCase().replace(/[^a-z]/g, "");
-  if (!from) return twiml();
-  if (TWILIO_KEYWORDS.has(word)) return twiml();
+  if (!from || OPT_OUT_KEYWORDS.has(word)) return done();
+  const reply = async (body: string) => {
+    await sendSms({ to: from, body });
+    return done();
+  };
 
   // Phones typed in by staff may be stored with spaces ("0412 345 678"), so
   // compare normalised numbers across the (few) bookings in the next 2 days.
@@ -56,13 +67,13 @@ export async function POST(req: Request) {
 
   if (CONFIRM_WORDS.has(word)) {
     if (!next) {
-      return twiml(`${CLINIC.name}: we couldn't find an upcoming booking for this number. Please call ${CLINIC.phone}.`);
+      return reply(`${CLINIC.name}: we couldn't find an upcoming booking for this number. Please call ${CLINIC.phone}.`);
     }
     const res = await confirmBookingByClient(next.id, "SMS");
     if (res.ok) {
-      return twiml(`${CLINIC.name}: thanks, you're confirmed for ${smsTime(next.startsAt)}. See you then!`);
+      return reply(`${CLINIC.name}: thanks, you're confirmed for ${smsTime(next.startsAt)}. See you then!`);
     }
-    return twiml(`${CLINIC.name}: please call ${CLINIC.phone} about your booking.`);
+    return reply(`${CLINIC.name}: please call ${CLINIC.phone} about your booking.`);
   }
 
   // Any other reply: forward to the clinic so a person can answer it.
@@ -81,5 +92,5 @@ export async function POST(req: Request) {
     resource: next ? `Booking:${next.id}` : undefined,
     metadata: { from },
   });
-  return twiml(`${CLINIC.name}: thanks, we've passed your message on. For anything urgent please call ${CLINIC.phone}.`);
+  return reply(`${CLINIC.name}: thanks, we've passed your message on. For anything urgent please call ${CLINIC.phone}.`);
 }

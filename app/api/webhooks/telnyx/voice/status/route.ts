@@ -1,17 +1,18 @@
 import { db } from "@/lib/db";
 import { notifyClinicUnfinishedCall } from "@/lib/notify";
-import { readTwilioRequest } from "@/lib/twilio-webhook";
+import { readTelnyxRequest } from "@/lib/telnyx-webhook";
 
-// Twilio's "Call status changes" webhook. When a call ends without a booking
+// The TeXML application's status callback. When a call ends without a booking
 // or a message, email the clinic so the caller still gets a call back.
 
 const ENDED = new Set(["completed", "busy", "no-answer", "failed", "canceled"]);
 
 export async function POST(req: Request) {
-  const checked = await readTwilioRequest(req);
+  const checked = await readTelnyxRequest(req);
   if (!checked.ok) return checked.response;
-  const callSid = checked.params.get("CallSid");
-  const status = checked.params.get("CallStatus") ?? "";
+  const params = new URLSearchParams(checked.body);
+  const callSid = params.get("CallSid");
+  const status = params.get("CallStatus") ?? "";
   if (!callSid || !ENDED.has(status)) return new Response(null, { status: 204 });
 
   const call = await db.phoneCall.findUnique({ where: { callSid } });

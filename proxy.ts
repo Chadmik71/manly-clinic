@@ -23,7 +23,7 @@ const MAINTENANCE_ALLOW_PREFIXES = [
   // "Add us to your phone" steps (linked from confirmation emails).
   "/app",
   // Stripe webhook lives at /api/stripe/webhook. The /api/webhooks prefix
-  // is kept for any future webhook routes (Twilio status callbacks, etc.).
+  // is kept for any future webhook routes (Telnyx call and text webhooks).
   "/api/stripe/webhook",
   "/api/webhooks",
 ];

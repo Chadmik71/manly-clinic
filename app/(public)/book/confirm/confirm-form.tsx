@@ -149,7 +149,7 @@ export function ConfirmForm({
   /** Runtime DB-backed setting from ClinicSetting. When false, the booking
    *  flow bypasses the deposit step entirely. */
   depositsEnabled: boolean;
-  /** True when SMS sending is configured (Twilio env vars set), so the
+  /** True when SMS sending is configured (Telnyx env vars set), so the
    *  confirmation modal only promises an SMS that will actually be sent. */
   smsEnabled?: boolean;
 }) {

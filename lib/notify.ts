@@ -1,4 +1,4 @@
-// Notification dispatcher. Uses Resend (email) and Twilio (SMS) when their
+// Notification dispatcher. Uses Resend (email) and Telnyx (SMS) when their
 // API keys are present in env, otherwise logs to console. Failures never
 // throw — notifications are best-effort and must not block bookings.
 
@@ -47,12 +47,12 @@ async function sendEmail({ to: rawTo, subject, html, text }: EmailArgs): Promise
   }
 }
 
-/** True when Twilio keys are set, i.e. texts really go out (not just logged). */
+/** True when Telnyx keys are set, i.e. texts really go out (not just logged). */
 export function smsConfigured(): boolean {
-  return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM);
+  return !!(process.env.TELNYX_API_KEY && process.env.TELNYX_FROM);
 }
 
-/** Twilio needs E.164. Phones are stored as local "04xxxxxxxx" (lib/phone.ts). */
+/** Telnyx needs E.164. Phones are stored as local "04xxxxxxxx" (lib/phone.ts). */
 function toE164(raw: string): string {
   const p = raw.replace(/[\s\-()]/g, "");
   if (/^04\d{8}$/.test(p)) return "+61" + p.slice(1);
@@ -60,28 +60,20 @@ function toE164(raw: string): string {
   return p;
 }
 
-async function sendSms({ to: rawTo, body }: SmsArgs): Promise<void> {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_FROM;
+export async function sendSms({ to: rawTo, body }: SmsArgs): Promise<void> {
+  const apiKey = process.env.TELNYX_API_KEY;
+  const from = process.env.TELNYX_FROM;
   const to = toE164(rawTo);
-  if (!sid || !token || !from) {
+  if (!apiKey || !from) {
     console.log("[notify:sms:stub]", { to, body });
     return;
   }
   try {
-    const auth = Buffer.from(`${sid}:${token}`).toString("base64");
-    const res = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
-      {
-        method: "POST",
-        headers: {
-          authorization: `Basic ${auth}`,
-          "content-type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({ To: to, From: from, Body: body }),
-      },
-    );
+    const res = await fetch("https://api.telnyx.com/v2/messages", {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({ from, to, text: body }),
+    });
     if (!res.ok) {
       console.error("[notify:sms] non-ok", res.status, await res.text());
     }
@@ -428,7 +420,7 @@ Need to change it? ${CLINIC.domain}/portal/bookings${confirmText}${formText}`;
   const html = `<p>Hi ${args.name},</p><p>Reminder of your <strong>${args.serviceName}</strong> on ${fmt(args.startsAt)}.</p>${confirmHtml}<p>Reference <code>${args.reference}</code><br/><a href="${CLINIC.domain}/portal/bookings">Manage</a></p>${formHtml}`;
   await sendEmail({ to: args.email, subject, html, text });
   if (args.phone) {
-    // Replies go to the Twilio number's webhook (/api/webhooks/twilio/sms).
+    // Replies go to the Telnyx messaging webhook (/api/webhooks/telnyx/sms).
     await sendSms({
       to: args.phone,
       body: `${CLINIC.name}: reminder ${args.serviceName} ${fmtShort(args.startsAt)}. Reply C to confirm, or call ${CLINIC.phone} to change.`,
@@ -437,7 +429,7 @@ Need to change it? ${CLINIC.domain}/portal/bookings${confirmText}${formText}`;
 }
 
 /** A client texted back something other than "C" (e.g. "running late"):
- *  pass it on to the clinic inbox so it isn't lost in the Twilio console. */
+ *  pass it on to the clinic inbox so it isn't lost in the Telnyx portal. */
 export async function notifyClinicSmsReply(args: {
   fromPhone: string;
   clientName: string | null;
@@ -606,7 +598,7 @@ ${CLINIC.address.line1}, ${CLINIC.address.suburb}`;
 /**
  * Post-visit Google review request — SMS only. Sent the day after a completed
  * session to customers who opted into marketing/news (Spam Act 2003 consent).
- * Includes a one-tap link to the clinic's Google review dialog. Twilio
+ * Includes a one-tap link to the clinic's Google review dialog. Telnyx
  * auto-handles the STOP keyword, but we spell it out for compliance.
  */
 export async function notifyReviewRequest(args: {

@@ -4,7 +4,7 @@
 // booking id plus an HMAC (AUTH_SECRET), so it can't be guessed or pointed at
 // someone else's booking. The page needs a button press (not the GET) so mail
 // link scanners can't confirm on the client's behalf.
-// SMS: a "C" reply reaches /api/webhooks/twilio/sms, which confirms the
+// SMS: a "C" reply reaches /api/webhooks/telnyx/sms, which confirms the
 // sender's next upcoming booking.
 
 import crypto from "node:crypto";

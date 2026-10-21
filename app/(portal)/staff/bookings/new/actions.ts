@@ -606,7 +606,7 @@ export async function createStaffBooking(
   }
 
   // Confirmation to the client (phone bookings). Email only when there's a
-  // real address; text when there's a phone and Twilio is set up.
+  // real address; text when there's a phone and Telnyx is set up.
   let notified: string | undefined;
   if (data.sendConfirmation === "on") {
     const client = await db.user.findUnique({

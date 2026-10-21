@@ -10,8 +10,8 @@ import { audit } from "@/lib/audit";
 
 /**
  * Send a one-off sample of the post-visit review SMS to a chosen number, so an
- * admin can preview it on a real handset. ADMIN-only. Uses the same Twilio
- * path as the live cron, so it only actually sends when Twilio is configured
+ * admin can preview it on a real handset. ADMIN-only. Uses the same Telnyx
+ * path as the live cron, so it only actually sends when Telnyx is configured
  * (i.e. in production).
  */
 export async function sendTestReviewSms(
@@ -35,7 +35,7 @@ export async function sendTestReviewSms(
     return { ok: true };
   } catch (err) {
     console.error("[sendTestReviewSms] send failed", err);
-    return { ok: false, error: "Failed to send. Check Twilio settings / server logs." };
+    return { ok: false, error: "Failed to send. Check Telnyx settings / server logs." };
   }
 }
 

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { formatPrice, formatDuration } from "@/lib/utils";
 import { applyHolidaySurcharge } from "@/lib/holidays";
+import { smsConfigured } from "@/lib/notify";
 import { ConfirmForm } from "./confirm-form";
 import { NotYouLink } from "./not-you-link";
 import { createBooking } from "./actions";
@@ -297,11 +298,7 @@ export default async function ConfirmPage({
         partnerVariantSummary={partnerVariantSummary}
         signedInEmail={signedInEmail}
         depositsEnabled={clinicSettings.depositsEnabled}
-        smsEnabled={
-          !!process.env.TWILIO_ACCOUNT_SID &&
-          !!process.env.TWILIO_AUTH_TOKEN &&
-          !!process.env.TWILIO_FROM
-        }
+        smsEnabled={smsConfigured()}
         bookingSummary={{
           serviceName: service.name,
           durationLabel: formatDuration(variant.durationMin),
