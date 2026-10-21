@@ -1,7 +1,7 @@
-import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { CLINIC } from "@/lib/clinic";
+import { readTwilioRequest, twimlResponse, xmlEscape } from "@/lib/twilio-webhook";
 import { normalisePhone } from "@/lib/phone";
 import { confirmBookingByClient } from "@/lib/booking-confirm";
 import { notifyClinicSmsReply, smsTime } from "@/lib/notify";
@@ -21,43 +21,13 @@ const CONFIRM_WORDS = new Set(["c", "confirm", "confirmed", "y", "yes", "ok", "o
 const TWILIO_KEYWORDS = new Set(["stop", "stopall", "unsubscribe", "cancel", "end", "quit", "start", "unstop", "help", "info"]);
 
 function twiml(message?: string): Response {
-  const body = message
-    ? `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${message
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")}</Message></Response>`
-    : `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
-  return new Response(body, { headers: { "content-type": "text/xml" } });
-}
-
-function expectedSignature(url: string, params: URLSearchParams, token: string): string {
-  const keys = [...new Set(params.keys())].sort();
-  let data = url;
-  for (const k of keys) for (const v of params.getAll(k)) data += k + v;
-  return crypto.createHmac("sha1", token).update(data).digest("base64");
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
+  return twimlResponse(message ? `<Message>${xmlEscape(message)}</Message>` : "");
 }
 
 export async function POST(req: Request) {
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  if (!token) return new Response("SMS not configured", { status: 503 });
-
-  const raw = await req.text();
-  const params = new URLSearchParams(raw);
-  const sig = req.headers.get("x-twilio-signature") ?? "";
-
-  // Twilio signs the exact public URL it called. Behind Vercel req.url is
-  // normally that URL; also accept the canonical domain in case of a proxy hop.
-  const path = new URL(req.url).pathname;
-  const candidates = [req.url, `${CLINIC.domain}${path}`];
-  if (!sig || !candidates.some((u) => safeEqual(sig, expectedSignature(u, params, token)))) {
-    return new Response("Invalid signature", { status: 403 });
-  }
+  const checked = await readTwilioRequest(req);
+  if (!checked.ok) return checked.response;
+  const params = checked.params;
 
   const from = normalisePhone(params.get("From"));
   const text = (params.get("Body") ?? "").trim();

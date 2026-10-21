@@ -26,6 +26,7 @@
     "@stripe/stripe-js": "^9.3.1",
     "@types/pdfkit": "^0.17.6",
     "@vercel/analytics": "^2.0.1",
+    "ai": "^7.0.148",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",

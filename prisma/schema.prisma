@@ -467,3 +467,21 @@ model ClinicSetting {
   updatedAt             DateTime  @updatedAt
   updatedBy             String?                            // User.id of admin who last changed it
 }
+// One row per call answered by the AI phone assistant (lib/phone-agent).
+// `transcript` is the model conversation as JSON, encrypted like health
+// fields because callers sometimes volunteer health details anyway.
+model PhoneCall {
+  id            String    @id @default(cuid())
+  callSid       String    @unique
+  fromPhone     String?
+  transcript    String?
+  bookingRefs   String?   // comma-separated Booking.reference values made on this call
+  teamNotified  Boolean   @default(false) // a message or missed-call email went to the clinic
+  turnCount     Int       @default(0)
+  silentTurns   Int       @default(0)
+  endedAt       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([createdAt])
+}

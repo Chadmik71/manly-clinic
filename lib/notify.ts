@@ -459,6 +459,47 @@ Reply to them by text or call from the clinic phone.`;
   await sendEmail({ to, subject, html, text });
 }
 
+/** The phone assistant took a message for the team (lib/phone-agent). */
+export async function notifyClinicPhoneMessage(args: {
+  name: string;
+  phone: string;
+  message: string;
+  callerId: string | null;
+}): Promise<void> {
+  const to = process.env.STAFF_NOTIFICATION_EMAIL || CLINIC.email;
+  if (!to) return;
+  const callerIdLine = args.callerId && args.callerId !== args.phone ? `Called from: ${args.callerId}` : "";
+  const subject = `Phone message from ${args.name} (${args.phone})`;
+  const text = `The phone assistant took a message:
+
+Name: ${args.name}
+Call back on: ${args.phone}
+${callerIdLine}
+
+"${args.message}"`;
+  const html = `<p>The phone assistant took a message:</p><p><strong>${escHtml(args.name)}</strong><br>Call back on: <a href="tel:${escHtml(args.phone)}">${escHtml(args.phone)}</a>${callerIdLine ? `<br>${escHtml(callerIdLine)}` : ""}</p><blockquote style="margin:8px 0;padding:8px 12px;border-left:3px solid #0f766e;background:#f8fafc">${escHtml(args.message)}</blockquote>`;
+  await sendEmail({ to, subject, html, text });
+}
+
+/** A call to the phone assistant ended with no booking and no message (the
+ *  caller hung up, or the assistant failed), so the team can call back. */
+export async function notifyClinicUnfinishedCall(args: {
+  callerId: string | null;
+  reason: string;
+}): Promise<void> {
+  const to = process.env.STAFF_NOTIFICATION_EMAIL || CLINIC.email;
+  if (!to) return;
+  const who = args.callerId ?? "a withheld number";
+  const subject = `Missed call from ${who}`;
+  const text = `${args.reason}
+
+Caller: ${who}
+
+Consider calling them back.`;
+  const html = `<p>${escHtml(args.reason)}</p><p>Caller: <strong>${escHtml(who)}</strong></p><p style="color:#64748b;font-size:12px">Consider calling them back.</p>`;
+  await sendEmail({ to, subject, html, text });
+}
+
 /** Formats a booking time the same way texts do ("Thu 30 Apr 7:00 pm"). */
 export function smsTime(d: Date): string {
   return fmtShort(d);

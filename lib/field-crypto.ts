@@ -60,6 +60,8 @@ export const ENCRYPTED_FIELDS: ReadonlySet<string> = new Set([
   "noteTechniques",
   "noteOutcome",
   "noteAnnotationsPng",
+  // PhoneCall (AI phone assistant conversation)
+  "transcript",
 ]);
 
 /** Parts of Prisma args that describe filtering/shape, not stored values. */
