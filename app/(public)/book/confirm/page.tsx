@@ -18,6 +18,7 @@ import { ConfirmForm } from "./confirm-form";
 import { NotYouLink } from "./not-you-link";
 import { createBooking } from "./actions";
 import { getClinicSettingsSafe } from "@/lib/clinic-settings";
+import { serviceNeedsHealthForm } from "@/lib/booking-intake";
 
 // Sydney-aware formatters (Vercel runtime is UTC, clinic is Australia/Sydney).
 const SYD_DATE = new Intl.DateTimeFormat("en-AU", {
@@ -90,10 +91,13 @@ export default async function ConfirmPage({
   const partnerVariant = sp.partner
     ? await db.serviceVariant.findUnique({
         where: { id: sp.partner },
-        include: { service: { select: { name: true } } },
+        include: { service: { select: { name: true, slug: true, healthFundEligible: true } } },
       })
     : null;
   const validPartnerVariantId = partnerVariant && variant ? sp.partner : null;
+  // Remedial / Pregnancy partners get their own client record and health form.
+  const partnerNeedsContact =
+    !!validPartnerVariantId && !!partnerVariant && serviceNeedsHealthForm(partnerVariant.service);
   if (!service || !variant) redirect("/book");
 
   const starts = new Date(sp.starts);
@@ -298,6 +302,7 @@ export default async function ConfirmPage({
         guestDefaults={guestDefaults}
         partnerVariantId={validPartnerVariantId}
         partnerVariantSummary={partnerVariantSummary}
+        partnerNeedsContact={partnerNeedsContact}
         signedInEmail={signedInEmail}
         depositsEnabled={clinicSettings.depositsEnabled}
         smsEnabled={smsConfigured()}

@@ -29,7 +29,8 @@ function sydneyMinuteOfDay(d: Date): number {
   return h * 60 + m;
 }
 
-import { notifyBookingConfirmed } from "@/lib/notify";
+import { notifyBookingConfirmed, notifyPartnerBooked } from "@/lib/notify";
+import { serviceNeedsHealthForm } from "@/lib/booking-intake";
 import { headers, cookies } from "next/headers";
 import { normalisePhone, isAuMobile } from "@/lib/phone";
 import { findOrCreateUserForGuest } from "@/lib/user-merge";
@@ -85,6 +86,11 @@ const schema = z.object({
   // partnerName is optional but encouraged so reception knows who’s arriving.
   partnerVariantId: z.string().optional(),
   partnerName: z.string().max(120).optional(),
+  // Asked only when the partner's treatment needs a health form (Remedial /
+  // Pregnancy): the partner then gets their own client record and fills in
+  // their own form, instead of being filed under the booker.
+  partnerEmail: z.string().max(254).optional(),
+  partnerPhone: z.string().max(40).optional(),
 
   // Guest contact details (when no session). Required at runtime; we
   // validate them after we know whether a session exists.
@@ -378,18 +384,46 @@ export async function createBooking(
       error: "Please enter the partner’s name for the couple booking.",
     };
   }
-  let partnerVariant: { id: string; durationMin: number; priceCents: number; serviceId: string; service: { name: string } } | null = null;
+  let partnerVariant: {
+    id: string;
+    durationMin: number;
+    priceCents: number;
+    serviceId: string;
+    service: { name: string; slug: string; healthFundEligible: boolean };
+  } | null = null;
   let partnerEndsAt = endsAt;
   let partnerEndMinutes = endMinutes;
   if (isCouple && data.partnerVariantId) {
     const pv = await db.serviceVariant.findUnique({
       where: { id: data.partnerVariantId },
-      include: { service: { select: { name: true } } },
+      include: { service: { select: { name: true, slug: true, healthFundEligible: true } } },
     });
     if (!pv) return { error: "Partner service not found." };
     partnerVariant = pv;
     partnerEndsAt = addMinutes(startsAt, pv.durationMin);
     partnerEndMinutes = sydneyMinuteOfDay(partnerEndsAt);
+  }
+  const partnerNeedsOwnRecord = !!partnerVariant && serviceNeedsHealthForm(partnerVariant.service);
+  let partnerEmail = "";
+  let partnerPhone = "";
+  if (partnerNeedsOwnRecord) {
+    const em = z.string().trim().toLowerCase().email().safeParse(data.partnerEmail ?? "");
+    if (!em.success) {
+      return { error: "Please enter your partner’s email so we can send them their health form." };
+    }
+    partnerEmail = em.data;
+    if (partnerEmail === clientEmail.toLowerCase().trim()) {
+      return {
+        error:
+          "Your partner needs their own email address. Each person has their own health record.",
+      };
+    }
+    if (nonEmpty(data.partnerPhone)) {
+      partnerPhone = normalisePhone(data.partnerPhone!);
+      if (!isAuMobile(partnerPhone)) {
+        return { error: "Please enter a valid Australian mobile for your partner, or leave it blank." };
+      }
+    }
   }
 
   // Clinic-wide policy: bookings must finish by 8:00 pm and start no
@@ -716,6 +750,32 @@ export async function createBooking(
     voucherAppliedCents = Math.min(v.balanceCents, pricing.finalPriceCents);
   }
 
+  // Partner's own client record (Remedial / Pregnancy partner halves). Same
+  // matching rules as a guest booking: existing client by email, then by a
+  // unique mobile, else a new record. Their saved details are never shown to
+  // the booker; the partner sees them only when they open their own form.
+  let partnerUserId: string | null = null;
+  if (partnerNeedsOwnRecord && isCouple && partnerVariant && partnerCandidate) {
+    const pm = await findOrCreateUserForGuest({
+      name: data.partnerName!.trim(),
+      email: partnerEmail,
+      phone: partnerPhone,
+    });
+    if (pm.userId === clientUserId) {
+      return {
+        error:
+          "Your partner’s details match your own account. Please enter their own email and mobile.",
+      };
+    }
+    partnerUserId = pm.userId;
+    await audit({
+      userId: pm.userId,
+      action: pm.isNew ? "PARTNER_CREATE_USER" : "PARTNER_MATCH_EXISTING_USER",
+      resource: `User:${pm.userId}`,
+      metadata: { matchedBy: pm.matchedBy, bookedBy: clientUserId },
+    });
+  }
+
   const reference = bookingReference();
   // Couple bookings get a shared coupleGroupId so the two halves can be
   // linked for cancellation prompts, audit trails, and staff UI surfacing.
@@ -723,6 +783,7 @@ export async function createBooking(
     isCouple && partnerVariant && partnerCandidate ? crypto.randomUUID() : null;
 
   let bookingId: string;
+  let partnerBookingId: string | null = null;
   try {
     await db.$transaction(async (tx) => {
     const created = await tx.booking.create({
@@ -755,10 +816,12 @@ export async function createBooking(
       const partnerNotes =
         (data.partnerName ? `Couple booking — partner: ${data.partnerName}` : "Couple booking — partner half") +
         (data.notes ? `\n\n${data.notes}` : "");
-      await tx.booking.create({
+      const partnerCreated = await tx.booking.create({
         data: {
           reference: `${reference}-P`,
-          clientId: clientUserId,
+          // Remedial / Pregnancy partners own their half; others stay filed
+          // under the booker with the partner's name in the notes.
+          clientId: partnerUserId ?? clientUserId,
           serviceId: partnerVariant.serviceId,
           variantId: partnerVariant.id,
           therapistId: partnerCandidate.id,
@@ -777,10 +840,14 @@ export async function createBooking(
           voucherCode: null,
           voucherAppliedCents: 0,
           paidCents: 0,
-          notes: partnerNotes,
+          notes: partnerUserId
+            ? `Couple booking with ${clientName} (${reference})` + (data.notes ? `\n\n${data.notes}` : "")
+            : partnerNotes,
           coupleGroupId,
         },
+        select: { id: true },
       });
+      partnerBookingId = partnerCreated.id;
     }
   });
   } catch (err) {
@@ -871,6 +938,21 @@ export async function createBooking(
           }
         : undefined,
   });
+
+  // The partner's own confirmation, with a link to fill in their health form.
+  if (partnerUserId && partnerBookingId && partnerVariant) {
+    await notifyPartnerBooked({
+      email: partnerEmail,
+      phone: partnerPhone || null,
+      name: data.partnerName!.trim(),
+      bookedByName: clientName,
+      reference: `${reference}-P`,
+      serviceName: partnerVariant.service.name,
+      durationMin: partnerVariant.durationMin,
+      startsAt,
+      healthFormUrl: `${CLINIC.domain}/login?from=${encodeURIComponent(`/portal/bookings/${partnerBookingId}/health-form`)}&link=1&email=${encodeURIComponent(partnerEmail)}`,
+    });
+  }
 
   // Drop a 1-year cookie remembering this booking so the next visit to
   // /book can offer a one-tap "Book {Service} again" path. For guest

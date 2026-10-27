@@ -309,6 +309,11 @@ export async function getIntakePrefill(clientId: string): Promise<IntakePrefill>
   };
 }
 
+/** Remedial (health-fund eligible) and Pregnancy treatments need the full health form. */
+export function serviceNeedsHealthForm(service: { healthFundEligible: boolean; slug: string }): boolean {
+  return service.healthFundEligible || service.slug === "pregnancy-massage";
+}
+
 type BookingForFormCheck = {
   id: string;
   clientId: string;
@@ -329,8 +334,7 @@ export async function bookingsNeedingHealthForm(
 ): Promise<Set<string>> {
   const candidates = bookings.filter(
     (b) =>
-      (b.status === "PENDING" || b.status === "CONFIRMED") &&
-      (b.service.healthFundEligible || b.service.slug === "pregnancy-massage"),
+      (b.status === "PENDING" || b.status === "CONFIRMED") && serviceNeedsHealthForm(b.service),
   );
   if (candidates.length === 0) return new Set();
   const clientIds = [...new Set(candidates.map((b) => b.clientId))];

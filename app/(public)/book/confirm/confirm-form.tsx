@@ -111,6 +111,7 @@ export function ConfirmForm({
   signedInEmail,
   partnerVariantId,
   partnerVariantSummary,
+  partnerNeedsContact = false,
   bookingSummary,
   depositsEnabled,
   smsEnabled = false,
@@ -136,6 +137,9 @@ export function ConfirmForm({
   partnerVariantId?: string | null;
   /** Optional human-readable partner-side summary, e.g. "Deep Tissue — 60 min ($120)". */
   partnerVariantSummary?: string | null;
+  /** Partner's treatment needs a health form (Remedial / Pregnancy): ask for
+   *  their email (+ optional mobile) so they get their own record and form. */
+  partnerNeedsContact?: boolean;
   /** Display strings shown in the "Confirm your booking?" modal. */
   bookingSummary: {
     serviceName: string;
@@ -319,6 +323,16 @@ export function ConfirmForm({
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    // Checked before any deposit is taken, so the customer fixes it first.
+    if (partnerNeedsContact) {
+      const f = new FormData(e.currentTarget);
+      const own = String(f.get("guestEmail") ?? signedInEmail ?? "").trim().toLowerCase();
+      const theirs = String(f.get("partnerEmail") ?? "").trim().toLowerCase();
+      if (own && theirs === own) {
+        setError("Your partner needs their own email address. Each person has their own health record.");
+        return;
+      }
+    }
     if (depositsActive && !paymentIntentId && paymentStage !== "paying") {
       fetchPaymentIntent();
       return;
@@ -944,7 +958,7 @@ export function ConfirmForm({
                     type="radio"
                     name="pregnancy"
                     value="on"
-                    required
+                    required={!hideIntake}
                     checked={pregnant === true}
                     onChange={() => setPregnant(true)}
                   />
@@ -955,7 +969,7 @@ export function ConfirmForm({
                     type="radio"
                     name="pregnancy"
                     value="off"
-                    required
+                    required={!hideIntake}
                     checked={pregnant === false}
                     onChange={() => setPregnant(false)}
                   />
@@ -1252,6 +1266,39 @@ export function ConfirmForm({
               maxLength={120}
               placeholder="Partner’s full name"
             />
+            {partnerNeedsContact && (
+              <>
+                <p className="text-xs text-muted-foreground pt-1">
+                  Your partner’s treatment needs their own health form. We’ll email
+                  them a link to fill it in (and claim on their health fund if they
+                  have one). You don’t need to fill it in for them.
+                </p>
+                <div className="grid gap-3 pt-2 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="partnerEmail">
+                      Partner’s email <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="partnerEmail"
+                      name="partnerEmail"
+                      type="email"
+                      required
+                      maxLength={254}
+                      placeholder="partner@example.com"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="partnerPhone">Partner’s mobile (optional)</Label>
+                    <Input
+                      id="partnerPhone"
+                      name="partnerPhone"
+                      type="tel"
+                      placeholder="0412 345 678"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       )}

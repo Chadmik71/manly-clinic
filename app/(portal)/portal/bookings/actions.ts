@@ -7,7 +7,7 @@ import {
   CANCEL_FEE_THRESHOLD_HOURS,
   CANCEL_FEE_PERCENT,
 } from "@/lib/clinic";
-import { notifyBookingCancelled } from "@/lib/notify";
+import { notifyBookingCancelled, notifyClinicCoupleHalfCancelled } from "@/lib/notify";
 import { matchAndNotifyWaitlist } from "@/lib/waitlist";
 import { sydneyDateOf } from "@/lib/time";
 
@@ -81,6 +81,18 @@ export async function cancelBooking(
     startsAt: b.startsAt,
     feeCents,
   });
+  if (b.coupleGroupId) {
+    const other = await db.booking.findFirst({
+      where: { coupleGroupId: b.coupleGroupId, id: { not: b.id } },
+      select: { reference: true, status: true, client: { select: { name: true } } },
+    });
+    await notifyClinicCoupleHalfCancelled({
+      name: b.client.name,
+      reference: b.reference,
+      startsAt: b.startsAt,
+      otherHalf: other ? { name: other.client.name, reference: other.reference, status: other.status } : null,
+    });
+  }
   await matchAndNotifyWaitlist({ date: sydneyDateOf(b.startsAt), serviceId: b.serviceId });
   revalidatePath("/portal/bookings");
   revalidatePath("/portal");

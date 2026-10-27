@@ -278,6 +278,60 @@ ${CLINIC.phone}`;
   }
 }
 
+/**
+ * Couple booking: the partner's own confirmation (Remedial / Pregnancy
+ * partners, who have their own client record). Carries their health-form
+ * link; the booker's details stay out of it apart from their name.
+ */
+export async function notifyPartnerBooked(args: {
+  email: string;
+  phone: string | null;
+  name: string;
+  bookedByName: string;
+  reference: string;
+  serviceName: string;
+  durationMin: number;
+  startsAt: Date;
+  healthFormUrl: string;
+}): Promise<void> {
+  const subject = `You're booked in — ${args.reference}`;
+  const manageUrl = `${CLINIC.domain}/login?from=${encodeURIComponent("/portal/bookings")}&link=1&email=${encodeURIComponent(args.email)}`;
+  const text = `Hi ${args.name},
+
+${args.bookedByName} has booked you in for a couple massage at ${CLINIC.name}.
+
+Your treatment: ${args.serviceName} (${args.durationMin} min)
+When: ${fmt(args.startsAt)}
+Booking reference: ${args.reference}
+
+Before your visit: please complete your health form (about 3 minutes). You can also claim on your health fund there:
+${args.healthFormUrl}
+No time? That's fine, you can fill it in when you arrive.
+
+Manage / cancel / reschedule: ${manageUrl}
+
+Cancellation policy: please give us at least 1 hour's notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.
+
+${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb}
+${CLINIC.phone}`;
+  const html = `<p>Hi ${escHtml(args.name)},</p>
+<p>${escHtml(args.bookedByName)} has booked you in for a couple massage at ${CLINIC.name}.</p>
+<p>Your treatment: <strong>${escHtml(args.serviceName)}</strong> (${args.durationMin} min)<br/>
+When: <strong>${fmt(args.startsAt)}</strong><br/>
+Booking reference: <code>${args.reference}</code></p>
+<p style="margin:12px 0;padding:10px 12px;border:1px solid #99d5cf;border-radius:6px;background:#effaf8"><strong>Before your visit:</strong> please <a href="${args.healthFormUrl}">complete your health form</a> (about 3 minutes). You can also claim on your health fund there. No time? You can fill it in when you arrive.</p>
+<p><a href="${manageUrl}">Manage your booking</a></p>
+<p style="color:#64748b;font-size:12px;margin:12px 0;">Cancellation policy: please give us at least 1 hour&apos;s notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.</p>
+<p style="color:#64748b;font-size:12px">${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}</p>`;
+  await sendEmail({ to: args.email, subject, html, text });
+  if (args.phone) {
+    await sendSms({
+      to: args.phone,
+      body: `${CLINIC.name}: you're booked for ${args.serviceName} ${args.durationMin}min ${fmtShort(args.startsAt)}. Ref ${args.reference}. Health form link in your email.`,
+    });
+  }
+}
+
 export async function notifyBookingCancelled(args: {
   email: string;
   phone: string | null;
@@ -452,6 +506,29 @@ ${args.nextBooking ? `Their next booking: ${args.nextBooking}` : "No upcoming bo
 
 Reply to them by text or call from the clinic phone.`;
   const html = `<p><strong>${escHtml(who)}</strong> replied to a text from ${escHtml(CLINIC.name)}:</p><blockquote style="margin:8px 0;padding:8px 12px;border-left:3px solid #0f766e;background:#f8fafc">${escHtml(args.body)}</blockquote><p>${args.nextBooking ? `Their next booking: ${escHtml(args.nextBooking)}` : "No upcoming booking found for this number."}</p><p style="color:#64748b;font-size:12px">Reply to them by text or call from the clinic phone.</p>`;
+  await sendEmail({ to, subject, html, text });
+}
+
+/**
+ * A client cancelled their half of a couple booking online. Each person
+ * manages their own half, so staff decide what to do with the other one.
+ */
+export async function notifyClinicCoupleHalfCancelled(args: {
+  name: string;
+  reference: string;
+  startsAt: Date;
+  otherHalf: { name: string; reference: string; status: string } | null;
+}): Promise<void> {
+  const to = process.env.STAFF_NOTIFICATION_EMAIL || CLINIC.email;
+  if (!to) return;
+  const other = args.otherHalf
+    ? `The other half (${args.otherHalf.name}, ${args.otherHalf.reference}) is still ${args.otherHalf.status.toLowerCase()}.`
+    : "The other half could not be found.";
+  const subject = `Couple booking half cancelled — ${args.reference}`;
+  const text = `${args.name} cancelled their half of a couple booking online (${args.reference}, ${fmt(args.startsAt)}).
+
+${other} You may want to contact them.`;
+  const html = `<p><strong>${escHtml(args.name)}</strong> cancelled their half of a couple booking online (<code>${args.reference}</code>, ${fmt(args.startsAt)}).</p><p>${escHtml(other)} You may want to contact them.</p>`;
   await sendEmail({ to, subject, html, text });
 }
 
