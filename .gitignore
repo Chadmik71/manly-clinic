@@ -10,3 +10,4 @@ tsconfig.tsbuildinfo
 .DS_Store
 .vercel
 next-env.d.ts
+booking-e2e-fail-*.png

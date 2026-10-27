@@ -438,6 +438,8 @@ A run of `POST /api/signup happy path` creates a real signup row on the connecte
 
 - No CI. Manual smoke after each release-y push.
 
+- `npm run test:booking` (with `npm run dev` running) drives a real Chrome through 8 customer booking paths (guest relaxation, Remedial later / now + claim, pregnancy unanswered must block, Pregnancy Massage, Remedial and relaxation couples, signed-in client), checks the database, and deletes its `e2e.*@example.com` test clients afterwards. Dev only: it refuses non-localhost URLs and the prod database. **Run it before pushing any change to `app/(public)/book/`, `lib/booking-intake.ts`, `lib/user-merge.ts` or the booking emails.** `--headed` shows the browser; failures save `booking-e2e-fail-N.png`.
+
 - `npm run smoke` hits ~50 routes/endpoints against a running server (default `http://localhost:3000`; override with `SMOKE_URL=...`). Run after `npm run build`, before `git push`. Catches the kind of "page renders fine in dev but 500s on first request" bug that bit the staff intake viewer. See **Local dev setup** above for the `.env` / seed / `.env.smoke` prerequisites.
 
 
