@@ -72,7 +72,8 @@ export function NewBookingForm({
   // drawn signature (faster for walk-ins).
   const [consentChecked, setConsentChecked] = useState(false);
   // Full clinical intake state (health-fund claim or pregnancy bookings).
-  const [pregnantChecked, setPregnantChecked] = useState(false);
+  // null = not answered yet; staff must pick Yes or No.
+  const [pregnantChecked, setPregnantChecked] = useState<boolean | null>(null);
   const [history, setHistory] = useState<Set<string>>(new Set());
   const [painCodes, setPainCodes] = useState<string[]>([]);
   const [painScale, setPainScale] = useState<number | null>(null);
@@ -112,9 +113,9 @@ export function NewBookingForm({
   // collapse the claim block silently so stale state isn't shipped to the server.
   const claimActive = claiming && healthFundEligible;
   // Pregnancy: the Pregnancy Massage service is always treated as pregnant;
-  // for any other service, staff can tick "client is pregnant".
+  // for any other service, staff answer "Is the client pregnant?".
   const isPregnancyService = selectedService?.slug === "pregnancy-massage";
-  const isPregnant = isPregnancyService || pregnantChecked;
+  const isPregnant = isPregnancyService || pregnantChecked === true;
   // Health-fund claims and pregnancy bookings need the full clinical intake
   // plus a fresh drawn signature; everything else uses the consent tick-box.
   const requireFullIntake = claimActive || isPregnant;
@@ -161,6 +162,7 @@ export function NewBookingForm({
           setHistory(new Set());
           setPainCodes([]);
           setPainScale(null);
+          setPregnantChecked(null);
         }
         setPrefillVersion((v) => v + 1);
       }
@@ -169,7 +171,7 @@ export function NewBookingForm({
       cancelled = true;
     };
     // isPregnancyService is intentionally NOT a dep — we only sync the
-    // pregnant tick-box on a fresh client load, not when the service changes.
+    // pregnant answer on a fresh client load, not when the service changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
@@ -198,6 +200,7 @@ export function NewBookingForm({
     setError(null);
     setSuccess(null);
     const fd = new FormData(e.currentTarget);
+    fd.delete("pregnantAnswer"); // UI-only; the answer travels as "pregnancy"
     fd.set("mode", mode);
     fd.set("serviceId", serviceId);
     fd.set("variantId", variantId);
@@ -262,7 +265,7 @@ export function NewBookingForm({
         setClaiming(false);
         setSignatureDataUrl(null);
         setConsentChecked(false);
-        setPregnantChecked(false);
+        setPregnantChecked(null);
         setHistory(new Set());
         setPainCodes([]);
         setPainScale(null);
@@ -450,24 +453,41 @@ export function NewBookingForm({
         <Textarea id="notes" name="notes" placeholder="Internal notes…" />
       </div>
 
-      {/* Pregnancy flag — the Pregnancy Massage service implies it (no need to
-          ask); for any other service staff can tick it to trigger the full
-          intake + safety acknowledgement. */}
+      {/* Pregnancy question — the Pregnancy Massage service implies it (no
+          need to ask); for any other service staff must answer Yes or No.
+          Yes triggers the full intake + safety acknowledgement. */}
       {!isPregnancyService && (
-        <label className="flex items-start gap-2 text-sm rounded-md border bg-card p-4">
-          <input
-            type="checkbox"
-            checked={pregnantChecked}
-            onChange={(e) => setPregnantChecked(e.target.checked)}
-            className="mt-0.5"
-          />
-          <span>
-            Client is currently pregnant
-            <span className="block text-xs text-muted-foreground">
-              Requires a short safety intake + signature before booking.
-            </span>
-          </span>
-        </label>
+        <fieldset className="space-y-2 rounded-md border bg-card p-4 text-sm">
+          <legend className="sr-only">Is the client pregnant?</legend>
+          <p className="font-medium">
+            Is the client pregnant? <span className="text-destructive">*</span>
+          </p>
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="pregnantAnswer"
+                required
+                checked={pregnantChecked === true}
+                onChange={() => setPregnantChecked(true)}
+              />
+              <span>Yes</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="pregnantAnswer"
+                required
+                checked={pregnantChecked === false}
+                onChange={() => setPregnantChecked(false)}
+              />
+              <span>No</span>
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Yes requires a short safety intake + signature before booking.
+          </p>
+        </fieldset>
       )}
 
       {healthFundEligible && (
