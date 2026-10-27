@@ -253,7 +253,15 @@ Reads, single-row writes/deletes, and `prisma db push` of additive (non-destruct
 
 
 
-- **Couples**: two distinct therapists required; persisted as two `Booking` rows linked by `${reference}` (primary) and `${reference}-P` (partner). Partner name is required.
+- **Couples**: two distinct therapists required; persisted as two `Booking` rows linked by `${reference}` (primary) and `${reference}-P` (partner), sharing a `coupleGroupId`. Partner name is required. When the partner's treatment needs a health form (`serviceNeedsHealthForm` in `lib/booking-intake.ts`: Remedial/health-fund-eligible or Pregnancy), the booker must also give the partner's email (mobile optional): the partner half is filed under the partner's **own** `User` (matched/created via `findOrCreateUserForGuest`, never the booker's id) and the partner gets `notifyPartnerBooked` with a one-tap sign-in link to their own health form. Relaxation/Thai partner halves stay under the booker with the name in `notes`. Each person cancels only their own half online; the clinic is emailed (`notifyClinicCoupleHalfCancelled`).
+
+- **Health fund claims** need fund name, member number **and** the individual reference number (`healthFundIrn`, on `User` and `IntakeForm`, encrypted, printed on the invoice). One family card shares a member number; the IRN identifies the person.
+
+- **Pregnancy question** is a required Yes/No (radio, `null` = unanswered) on the customer booking form, staff new-booking form and the shared health form (`complete-intake-form.tsx`). On the customer form it is only `required` while visible (`!hideIntake`): a hidden required field silently blocks the "fill in later" and "nothing has changed" paths. Apply the same rule to any new required field there.
+
+- **Names**: sign-up and guest booking ask First name + Surname and join them into the single `User.name`.
+
+- **"Manage your booking"** links in emails go to `/login?from=…&link=1&email=…`, which opens the email-me-a-sign-in-link form pre-filled; signed-in visitors are redirected straight to `from`.
 
 
 
