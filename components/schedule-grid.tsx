@@ -432,11 +432,11 @@ export function ScheduleGrid({
         if (minutes >= sMin && minutes < eMin) return;
       }
     }
-    // Floor to the nearest 30-min slot so a click anywhere in 9:00–9:29
+    // Floor to the nearest 15-min slot so a click anywhere in 9:00–9:14
     // resolves to 9:00. Clamp to the visible 8 AM–9 PM range.
     const rounded = Math.max(
       dayStartMin,
-      Math.min(dayEndMin - 30, Math.floor(minutes / 30) * 30),
+      Math.min(dayEndMin - 15, Math.floor(minutes / 15) * 15),
     );
     const h = Math.floor(rounded / 60);
     const m = rounded % 60;
@@ -587,15 +587,17 @@ export function ScheduleGrid({
                 {hourLabel(h)}
               </div>
             ))}
-            {HOURS.slice(0, -1).map((h, i) => (
-              <div
-                key={`half-${h}`}
-                className="absolute left-0 right-0 text-[9px] text-muted-foreground/60 pr-2 text-right -translate-y-1/2"
-                style={{ top: `${(i + 0.5) * HOUR_PX}px` }}
-              >
-                :30
-              </div>
-            ))}
+            {HOURS.slice(0, -1).flatMap((h, i) =>
+              [15, 30, 45].map((q) => (
+                <div
+                  key={`q-${h}-${q}`}
+                  className={`absolute left-0 right-0 text-[9px] pr-2 text-right -translate-y-1/2 ${q === 30 ? "text-muted-foreground/60" : "text-muted-foreground/40"}`}
+                  style={{ top: `${(i + q / 60) * HOUR_PX}px` }}
+                >
+                  :{q}
+                </div>
+              )),
+            )}
           </div>
 
           {therapists.map((t) => {
@@ -611,7 +613,7 @@ export function ScheduleGrid({
                   height: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_PX}px`,
                   backgroundImage:
                     "repeating-linear-gradient(to bottom, hsl(var(--grid)) 0 1px, transparent 1px " +
-                    HOUR_PX / 2 +
+                    HOUR_PX / 4 +
                     "px)",
                 }}
               >
@@ -688,7 +690,7 @@ export function ScheduleGrid({
                   )}
 
                 {/* Open bookable gaps. Each gap is one visual block ("Open ·
-                    Xh Ym") with a stack of invisible 30-min Link cells inside
+                    Xh Ym") with a stack of invisible 15-min Link cells inside
                     — so hovering a cell highlights just that strip and the
                     tooltip + URL reflect the cell's exact start time. A long
                     open day (e.g. no bookings at all) would otherwise render
@@ -703,10 +705,10 @@ export function ScheduleGrid({
                       mins >= 60
                         ? `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}`
                         : `${mins} min`;
-                    // 30-min cells covering [s, e). Truncate any trailing
-                    // partial cell so we don't offer a 15-min stub.
+                    // One cell per 15-min start time, but only where a
+                    // 30-min booking (the shortest) still fits in the gap.
                     const cells: number[] = [];
-                    for (let c = s; c + 30 <= e; c += 30) cells.push(c);
+                    for (let c = s; c + 30 <= e; c += 15) cells.push(c);
                     return (
                       <div
                         key={`gap-${s}`}
@@ -728,7 +730,7 @@ export function ScheduleGrid({
                               className="absolute left-0 right-0 hover:bg-emerald-500/[0.14] transition-colors"
                               style={{
                                 top: `${(cellMin - s) * MIN_PX}px`,
-                                height: `${30 * MIN_PX}px`,
+                                height: `${15 * MIN_PX}px`,
                               }}
                               title={`Book at ${minToLabel(cellMin)} with ${t.name}`}
                               onClick={(ev) => {
