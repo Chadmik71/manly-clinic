@@ -611,10 +611,10 @@ export function ScheduleGrid({
                 onClick={(e) => handleColumnClick(e, t)}
                 style={{
                   height: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_PX}px`,
+                  // Thick, darker line on the hour; thin, light line every 15 min.
                   backgroundImage:
-                    "repeating-linear-gradient(to bottom, hsl(var(--grid)) 0 1px, transparent 1px " +
-                    HOUR_PX / 4 +
-                    "px)",
+                    `repeating-linear-gradient(to bottom, hsl(var(--foreground) / 0.22) 0 2px, transparent 2px ${HOUR_PX}px), ` +
+                    `repeating-linear-gradient(to bottom, hsl(var(--grid)) 0 1px, transparent 1px ${HOUR_PX / 4}px)`,
                 }}
               >
                 {/* Off-hours overlay */}
