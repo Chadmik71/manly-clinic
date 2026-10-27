@@ -64,8 +64,9 @@ export function CompleteIntakeForm({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [claiming, setClaiming] = useState(healthFundEligible);
-  const [pregnantChecked, setPregnantChecked] = useState(
-    prefill.intake?.pregnancy ?? false,
+  // null = not answered yet. Starts on the last form's answer if there is one.
+  const [pregnantChecked, setPregnantChecked] = useState<boolean | null>(
+    prefill.intake ? prefill.intake.pregnancy : null,
   );
   const [history, setHistory] = useState<Set<string>>(
     new Set(prefill.intake?.medicalHistory ?? []),
@@ -78,13 +79,13 @@ export function CompleteIntakeForm({
   );
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
-  const isPregnant = isPregnancyService || pregnantChecked;
+  const isPregnant = isPregnancyService || pregnantChecked === true;
   const forClient = audience === "client";
   const t = forClient
     ? {
         signFirst: "Please sign below.",
         claiming: "I'm claiming this session with my health fund.",
-        pregnant: "I'm currently pregnant",
+        pregnant: "Are you pregnant?",
         signatureLabel: "Your signature",
         confirms: "By signing, you confirm the information above is accurate",
         authorises: " and authorise us to submit a HICAPS claim on your behalf.",
@@ -93,7 +94,7 @@ export function CompleteIntakeForm({
     : {
         signFirst: "Please ask the client to sign below.",
         claiming: "Client is claiming this session with their health fund.",
-        pregnant: "Client is currently pregnant",
+        pregnant: "Is the client pregnant?",
         signatureLabel: "Client signature",
         confirms: "By signing, the client confirms the information above is accurate",
         authorises: " and authorises us to submit a HICAPS claim on their behalf.",
@@ -117,6 +118,7 @@ export function CompleteIntakeForm({
       return;
     }
     const fd = new FormData(e.currentTarget);
+    fd.delete("pregnantAnswer"); // UI-only; the answer travels as "pregnancy"
     if (claiming) fd.set("claimWithHealthFund", "on");
     else {
       fd.delete("claimWithHealthFund");
@@ -228,15 +230,34 @@ export function CompleteIntakeForm({
       )}
 
       {!isPregnancyService && (
-        <label className="flex items-start gap-2 text-sm rounded-md border bg-card p-3">
-          <input
-            type="checkbox"
-            checked={pregnantChecked}
-            onChange={(e) => setPregnantChecked(e.target.checked)}
-            className="mt-0.5"
-          />
-          <span>{t.pregnant}</span>
-        </label>
+        <fieldset className="space-y-2 rounded-md border bg-card p-3 text-sm">
+          <legend className="sr-only">{t.pregnant}</legend>
+          <p className="font-medium">
+            {t.pregnant} <span className="text-destructive">*</span>
+          </p>
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="pregnantAnswer"
+                required
+                checked={pregnantChecked === true}
+                onChange={() => setPregnantChecked(true)}
+              />
+              <span>Yes</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="pregnantAnswer"
+                required
+                checked={pregnantChecked === false}
+                onChange={() => setPregnantChecked(false)}
+              />
+              <span>No</span>
+            </label>
+          </div>
+        </fieldset>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
