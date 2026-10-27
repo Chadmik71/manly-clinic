@@ -591,10 +591,10 @@ export function ScheduleGrid({
               [15, 30, 45].map((q) => (
                 <div
                   key={`q-${h}-${q}`}
-                  className={`absolute left-0 right-0 text-[9px] pr-2 text-right -translate-y-1/2 ${q === 30 ? "text-muted-foreground/60" : "text-muted-foreground/40"}`}
+                  className="absolute left-0 right-0 text-[10px] text-muted-foreground/70 pr-2 text-right -translate-y-1/2"
                   style={{ top: `${(i + q / 60) * HOUR_PX}px` }}
                 >
-                  :{q}
+                  {(h % 12 === 0 ? 12 : h % 12) + ":" + q}
                 </div>
               )),
             )}
