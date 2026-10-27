@@ -37,7 +37,7 @@ export default async function NewStaffBookingPage({
   const [services, therapists, clients] = await Promise.all([
     db.service.findMany({
       where: { active: true },
-      include: { variants: { orderBy: { durationMin: "asc" } } },
+      include: { variants: { where: { active: true }, orderBy: { durationMin: "asc" } } },
       orderBy: { name: "asc" },
     }),
     db.therapist.findMany({

@@ -1,23 +1,24 @@
 import Link from "next/link";
 import { CLINIC } from "@/lib/clinic";
+import type { ClinicContact } from "@/lib/site-content";
 
-export function SiteFooter() {
+export function SiteFooter({ clinic }: { clinic: ClinicContact }) {
   return (
     <footer className="border-t bg-muted/30 mt-16">
       <div className="container py-10 grid gap-8 md:grid-cols-4 text-sm">
         <div>
           <div className="font-semibold mb-2">{CLINIC.name}</div>
           <p className="text-muted-foreground">
-            {CLINIC.address.line1}<br />
-            {CLINIC.address.suburb} {CLINIC.address.state} {CLINIC.address.postcode}
+            {clinic.address.line1}<br />
+            {clinic.address.suburb} {clinic.address.state} {clinic.address.postcode}
           </p>
         </div>
         <div>
           <div className="font-semibold mb-2">Contact</div>
           <ul className="space-y-1 text-muted-foreground">
-            <li><a href={`tel:${CLINIC.phoneE164}`} className="hover:text-foreground">{CLINIC.phone}</a></li>
-            <li><a href={`mailto:${CLINIC.email}`} className="hover:text-foreground">{CLINIC.email}</a></li>
-            <li>{CLINIC.hours}</li>
+            <li><a href={`tel:${clinic.phoneE164}`} className="hover:text-foreground">{clinic.phone}</a></li>
+            <li><a href={`mailto:${clinic.email}`} className="hover:text-foreground">{clinic.email}</a></li>
+            <li>{clinic.hours}</li>
           </ul>
         </div>
         <div>

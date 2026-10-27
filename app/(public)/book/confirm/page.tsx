@@ -79,9 +79,9 @@ export default async function ConfirmPage({
 
   const service = await db.service.findUnique({
     where: { slug: sp.service },
-    include: { variants: { where: { id: sp.variant } } },
+    include: { variants: { where: { id: sp.variant, active: true } } },
   });
-  const variant = service?.variants[0];
+  const variant = service?.active ? service.variants[0] : undefined;
 
   // Couple-booking partner half. We resolve the partner variant from the
   // ?partner=<variantId> URL param. Each partner picks their own duration —
@@ -89,8 +89,8 @@ export default async function ConfirmPage({
   // accommodated at the chosen time. This page formats a human-readable
   // summary for the customer.
   const partnerVariant = sp.partner
-    ? await db.serviceVariant.findUnique({
-        where: { id: sp.partner },
+    ? await db.serviceVariant.findFirst({
+        where: { id: sp.partner, active: true, service: { active: true } },
         include: { service: { select: { name: true, slug: true, healthFundEligible: true } } },
       })
     : null;

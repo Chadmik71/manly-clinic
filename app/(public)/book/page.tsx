@@ -3,6 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
+import { getSiteImages } from "@/lib/site-images";
 import { auth } from "@/lib/auth";
 import {
   Card,
@@ -68,9 +69,10 @@ export default async function BookPage({
     const session = await auth();
     const services = await db.service.findMany({
       where: { active: true },
-      include: { variants: { orderBy: { durationMin: "asc" } } },
+      include: { variants: { where: { active: true }, orderBy: { durationMin: "asc" } } },
       orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
     });
+    const { book: photo } = await getSiteImages();
 
     // Guest fast-path: if a previous booking on this device dropped the
     // mrt_last_booking cookie, surface a "Book {Service} again" banner so
@@ -127,8 +129,8 @@ export default async function BookPage({
             slot UI untouched. Pexels — free commercial license. */}
         <div className="relative mb-8 hidden h-36 w-full overflow-hidden rounded-2xl border sm:block">
           <Image
-            src="/book-welcome.jpg"
-            alt="Remedial therapist treating a client at the clinic"
+            src={photo.src}
+            alt={photo.alt}
             fill
             sizes="100vw"
             className="object-cover object-center"
@@ -194,9 +196,9 @@ export default async function BookPage({
   ]);
   const service = await db.service.findUnique({
     where: { slug: sp.service },
-    include: { variants: { orderBy: { durationMin: "asc" } } },
+    include: { variants: { where: { active: true }, orderBy: { durationMin: "asc" } } },
   });
-  if (!service) redirect("/book");
+  if (!service || !service.active || service.variants.length === 0) redirect("/book");
 
   const variant =
     service.variants.find((v) => v.id === sp.variant) ?? service.variants[0];
@@ -209,7 +211,7 @@ export default async function BookPage({
   // therapist availability so only times that work for *both* halves show.
   const partnerVariantsRaw = variant
     ? await db.serviceVariant.findMany({
-        where: { service: { active: true } },
+        where: { active: true, service: { active: true } },
         include: { service: { select: { name: true, category: true } } },
         orderBy: [{ durationMin: "asc" }, { priceCents: "asc" }],
       })

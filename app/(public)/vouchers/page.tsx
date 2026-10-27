@@ -11,6 +11,7 @@ import { CLINIC } from "@/lib/clinic";
 import { VoucherForm } from "./form";
 import { purchaseVoucher } from "./actions";
 import { Blob } from "@/components/decor";
+import { getSiteImages } from "@/lib/site-images";
 
 export const metadata = {
   title: "Gift vouchers",
@@ -18,7 +19,8 @@ export const metadata = {
     "Buy a gift voucher for Manly Remedial Thai — redeemable on any massage treatment in Manly. Valid 12 months from activation.",
 };
 
-export default function VouchersPage() {
+export default async function VouchersPage() {
+  const { vouchers: photo } = await getSiteImages();
   return (
     <div className="relative overflow-hidden container py-12 max-w-3xl">
       <Blob className="pointer-events-none absolute -top-28 -right-32 h-80 w-80 text-accent/30 dark:text-accent/15" />
@@ -38,8 +40,8 @@ export default function VouchersPage() {
           attribution required) to warm up the gift-voucher page. */}
       <div className="relative mb-6 h-44 w-full overflow-hidden rounded-2xl border sm:h-52">
         <Image
-          src="/voucher-gift.jpg"
-          alt="Natural spa products — the feel of a wellness gift"
+          src={photo.src}
+          alt={photo.alt}
           fill
           sizes="(max-width: 768px) 100vw, 768px"
           className="object-cover"

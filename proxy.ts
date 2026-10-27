@@ -120,7 +120,7 @@ export default auth((req) => {
     kioskToken &&
     (pathname.startsWith("/staff") ||
       pathname.startsWith("/portal") ||
-      (pathname.startsWith("/api") && !pathname.startsWith("/api/auth")))
+      (pathname.startsWith("/api") && !pathname.startsWith("/api/auth") && !pathname.startsWith("/api/site-image/")))
   ) {
     if (pathname.startsWith("/api")) {
       return NextResponse.json({ error: "Device is in client mode." }, { status: 423 });

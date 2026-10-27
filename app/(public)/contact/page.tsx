@@ -2,6 +2,8 @@ import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Phone, Mail, MapPin, Clock } from "lucide-react";
 import { CLINIC } from "@/lib/clinic";
+import { getSiteContent } from "@/lib/site-content";
+import { getSiteImages } from "@/lib/site-images";
 import { Blob, LeafSprig } from "@/components/decor";
 
 export const metadata = {
@@ -10,7 +12,8 @@ export const metadata = {
     "Contact Manly Remedial Thai in Manly NSW — phone, email, clinic address and opening hours. Open 7 days, 9am–8pm on Sydney's Northern Beaches.",
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const [{ clinic }, images] = await Promise.all([getSiteContent(), getSiteImages()]);
   return (
     <div className="relative overflow-hidden container py-12 md:py-16">
       <Blob className="pointer-events-none absolute -top-32 -right-40 h-[26rem] w-[26rem] text-accent/30 dark:text-accent/15" />
@@ -22,8 +25,8 @@ export default function ContactPage() {
           no attribution required). */}
       <div className="relative mb-8 h-44 w-full overflow-hidden rounded-2xl border sm:h-56">
         <Image
-          src="/contact-welcome.jpg"
-          alt="Calm massage treatment room at the clinic"
+          src={images.contact.src}
+          alt={images.contact.alt}
           fill
           sizes="100vw"
           className="object-cover"
@@ -37,8 +40,8 @@ export default function ContactPage() {
               <Phone className="h-5 w-5 text-primary mt-0.5" />
               <div>
                 <div className="font-medium">Phone</div>
-                <a className="text-muted-foreground hover:text-foreground" href={`tel:${CLINIC.phoneE164}`}>
-                  {CLINIC.phone}
+                <a className="text-muted-foreground hover:text-foreground" href={`tel:${clinic.phoneE164}`}>
+                  {clinic.phone}
                 </a>
               </div>
             </div>
@@ -46,8 +49,8 @@ export default function ContactPage() {
               <Mail className="h-5 w-5 text-primary mt-0.5" />
               <div>
                 <div className="font-medium">Email</div>
-                <a className="text-muted-foreground hover:text-foreground" href={`mailto:${CLINIC.email}`}>
-                  {CLINIC.email}
+                <a className="text-muted-foreground hover:text-foreground" href={`mailto:${clinic.email}`}>
+                  {clinic.email}
                 </a>
               </div>
             </div>
@@ -56,8 +59,8 @@ export default function ContactPage() {
               <div>
                 <div className="font-medium">Clinic</div>
                 <p className="text-muted-foreground">
-                  {CLINIC.address.line1}<br />
-                  {CLINIC.address.suburb} {CLINIC.address.state} {CLINIC.address.postcode}
+                  {clinic.address.line1}<br />
+                  {clinic.address.suburb} {clinic.address.state} {clinic.address.postcode}
                 </p>
               </div>
             </div>
@@ -65,7 +68,7 @@ export default function ContactPage() {
               <Clock className="h-5 w-5 text-primary mt-0.5" />
               <div>
                 <div className="font-medium">Hours</div>
-                <p className="text-muted-foreground">{CLINIC.hours}</p>
+                <p className="text-muted-foreground">{clinic.hours}</p>
               </div>
             </div>
           </CardContent>

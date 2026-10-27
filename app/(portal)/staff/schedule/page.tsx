@@ -188,7 +188,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       name: true,
       slug: true,
       healthFundEligible: true,
-      variants: { select: { id: true, durationMin: true, priceCents: true }, orderBy: { durationMin: "asc" } },
+      variants: { where: { active: true }, select: { id: true, durationMin: true, priceCents: true }, orderBy: { durationMin: "asc" } },
     },
   });
 

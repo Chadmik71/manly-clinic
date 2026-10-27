@@ -181,10 +181,10 @@ export default async function StaffBookingDetail({
 
   // All bookable variants across active services, so staff can change the
   // massage TYPE (e.g. Remedial → Thai), not just the duration. The current
-  // variant is always included even if its service was since deactivated, so
+  // variant is always included even if it or its service was since hidden, so
   // the dropdown still reflects the booking's actual selection.
   const variantsList = await db.serviceVariant.findMany({
-    where: { OR: [{ service: { active: true } }, { id: b.variantId }] },
+    where: { OR: [{ active: true, service: { active: true } }, { id: b.variantId }] },
     include: { service: { select: { name: true } } },
     orderBy: [{ service: { name: "asc" } }, { durationMin: "asc" }],
   });

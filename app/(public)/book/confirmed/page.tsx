@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CalendarPlus } from "lucide-react";
 import { formatPrice, formatDuration } from "@/lib/utils";
-import { CLINIC } from "@/lib/clinic";
+import { getSiteContent } from "@/lib/site-content";
 
 export const metadata = { title: "Booking confirmed" };
 
@@ -40,6 +40,7 @@ export default async function BookingConfirmedPage({
 }) {
   const sp = await searchParams;
   if (!sp.ref) redirect("/book");
+  const { clinic } = await getSiteContent();
 
   const booking = await db.booking.findUnique({
     where: { reference: sp.ref },
@@ -172,10 +173,10 @@ export default async function BookingConfirmedPage({
               comfortable clothing. If you need to cancel or reschedule, give
               us a call on{" "}
               <a
-                href={`tel:${CLINIC.phoneE164}`}
+                href={`tel:${clinic.phoneE164}`}
                 className="text-primary hover:underline"
               >
-                {CLINIC.phone}
+                {clinic.phone}
               </a>{" "}
               at least 1 hour ahead.
             </p>

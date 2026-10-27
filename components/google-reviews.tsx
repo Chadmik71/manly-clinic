@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getGoogleReviews } from "@/lib/google-reviews";
+import { getSiteImages } from "@/lib/site-images";
 
 /**
  * Server component that renders up to 5 Google reviews from the clinic's
@@ -11,6 +12,7 @@ import { getGoogleReviews } from "@/lib/google-reviews";
 export async function GoogleReviews() {
   const data = await getGoogleReviews();
   if (!data || data.reviews.length === 0) return null;
+  const { homeReviews: photo } = await getSiteImages();
 
   return (
     <section className="container py-16">
@@ -45,8 +47,8 @@ export async function GoogleReviews() {
           photo, so this is not presented as a client portrait. */}
       <div className="relative mb-8 h-44 w-full overflow-hidden rounded-2xl border sm:h-56">
         <Image
-          src="/reviews-care.jpg"
-          alt="Therapist treating a client in a calm clinic room"
+          src={photo.src}
+          alt={photo.alt}
           fill
           sizes="100vw"
           className="object-cover object-center"

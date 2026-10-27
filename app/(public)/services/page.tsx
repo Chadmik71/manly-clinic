@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 import { Blob, LeafSprig } from "@/components/decor";
+import { getSiteImages, type SiteImage } from "@/lib/site-images";
 
 export const metadata = {
   title: "Services & pricing",
@@ -22,7 +23,7 @@ export const metadata = {
 export default async function ServicesPage() {
   const services = await db.service.findMany({
     where: { active: true },
-    include: { variants: { orderBy: { durationMin: "asc" } } },
+    include: { variants: { where: { active: true }, orderBy: { durationMin: "asc" } } },
     orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
   });
 
@@ -37,11 +38,12 @@ export default async function ServicesPage() {
   // attribution required). Tasteful, clothed/clinical imagery. Shown as a
   // cropped strip above each section's cards; object-cover handles the
   // mixed source aspect ratios.
-  const categoryImage: Record<string, string> = {
-    THERAPEUTIC: "/svc-therapeutic.jpg",
-    RELAXATION: "/svc-relaxation.jpg",
-    SPECIALTY: "/svc-specialty.jpg",
-    ADD_ON: "/svc-addon.jpg",
+  const images = await getSiteImages();
+  const categoryImage: Record<string, SiteImage> = {
+    THERAPEUTIC: images.svcTherapeutic,
+    RELAXATION: images.svcRelaxation,
+    SPECIALTY: images.svcSpecialty,
+    ADD_ON: images.svcAddOn,
   };
 
   return (
@@ -85,8 +87,8 @@ export default async function ServicesPage() {
             {categoryImage[cat] && (
               <div className="relative mb-5 h-40 w-full overflow-hidden rounded-2xl border sm:h-48">
                 <Image
-                  src={categoryImage[cat]}
-                  alt={`${categoryLabel(cat)} massage treatment`}
+                  src={categoryImage[cat].src}
+                  alt={categoryImage[cat].alt}
                   fill
                   sizes="100vw"
                   className="object-cover"

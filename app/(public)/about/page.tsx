@@ -2,6 +2,8 @@ import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShieldCheck, GraduationCap, HeartPulse, Lock } from "lucide-react";
 import { CLINIC } from "@/lib/clinic";
+import { getSiteContent } from "@/lib/site-content";
+import { getSiteImages } from "@/lib/site-images";
 import { Blob, LeafSprig } from "@/components/decor";
 
 export const metadata = {
@@ -10,7 +12,8 @@ export const metadata = {
     "Manly Remedial Thai is a clinical remedial massage practice in Manly on Sydney's Northern Beaches — qualified therapists, assessment-led treatment, and health records protected under the Australian Privacy Act.",
 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const [content, images] = await Promise.all([getSiteContent(), getSiteImages()]);
   return (
     <div className="relative overflow-hidden container py-12 md:py-16">
       <Blob className="pointer-events-none absolute -top-32 -right-40 h-[26rem] w-[26rem] text-accent/30 dark:text-accent/15" />
@@ -22,18 +25,11 @@ export default function AboutPage() {
               About {CLINIC.name}
             </h1>
           </div>
-          <p className="text-lg text-muted-foreground mb-6">
-            A clinical remedial therapy practice in {CLINIC.address.suburb}.
-            Our therapists combine assessment-led treatment plans with the relief
-            of soft-tissue work — for chronic pain, sports injury, posture
-            rehabilitation, and pregnancy wellbeing.
+          <p className="text-lg text-muted-foreground mb-6 whitespace-pre-line">
+            {content.aboutIntro}
           </p>
-          <p className="text-muted-foreground">
-            We treat your information the same way a medical practice would.
-            Health intake forms are stored encrypted, accessed only by your
-            treating therapist, and disclosed only with your written consent —
-            consistent with the Australian Privacy Principles under the Privacy
-            Act 1988 (Cth).
+          <p className="text-muted-foreground whitespace-pre-line">
+            {content.aboutPrivacy}
           </p>
         </div>
         {/* Calming treatment-room photo (Pexels — free commercial license, no
@@ -41,8 +37,8 @@ export default function AboutPage() {
             desktop and stacks below it on mobile. */}
         <div className="relative mx-auto aspect-[4/5] w-full max-w-sm overflow-hidden rounded-2xl border shadow-sm">
           <Image
-            src="/about-clinic.jpg"
-            alt="Remedial massage therapist treating a client in a calm clinic room"
+            src={images.about.src}
+            alt={images.about.alt}
             fill
             sizes="(max-width: 768px) 100vw, 384px"
             className="object-cover"

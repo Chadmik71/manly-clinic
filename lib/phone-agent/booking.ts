@@ -38,7 +38,7 @@ export async function phoneServiceCatalogue(): Promise<PhoneService[]> {
       name: true,
       healthFundEligible: true,
       description: true,
-      variants: { orderBy: { durationMin: "asc" }, select: { durationMin: true, priceCents: true } },
+      variants: { where: { active: true }, orderBy: { durationMin: "asc" }, select: { durationMin: true, priceCents: true } },
     },
   });
   return services.filter((s) => s.variants.length > 0);
@@ -46,7 +46,7 @@ export async function phoneServiceCatalogue(): Promise<PhoneService[]> {
 
 async function findVariant(serviceSlug: string, durationMin: number) {
   return db.serviceVariant.findFirst({
-    where: { durationMin, service: { slug: serviceSlug, active: true } },
+    where: { durationMin, active: true, service: { slug: serviceSlug, active: true } },
     include: { service: true },
   });
 }

@@ -86,6 +86,16 @@ const config: NextConfig = {
   // pdfkit needs runtime access to its bundled .afm font files; Next bundling
   // rewrites the paths, so load it from node_modules at runtime.
   serverExternalPackages: ["pdfkit"],
+  images: {
+    // Admin-uploaded photos are served with a ?v=<timestamp> cache-buster;
+    // every other local image stays query-free.
+    localPatterns: [{ pathname: "/api/site-image/*" }, { pathname: "**", search: "" }],
+  },
+  experimental: {
+    // Website photos are shrunk in the browser to under 900 KB; this leaves
+    // room for the server's own 1.5 MB check to give a clear message.
+    serverActions: { bodySizeLimit: "2mb" },
+  },
   async headers() {
     return [
       {

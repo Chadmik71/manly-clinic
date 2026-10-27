@@ -332,6 +332,8 @@ export async function createStaffBooking(
     include: { service: true },
   });
   if (!variant) return { error: "Service variant not found." };
+  if (!variant.active || !variant.service.active)
+    return { error: "That treatment length is no longer offered." };
 
   // Per-visit consent + intake. Two high-risk cases need the full clinical
   // intake plus a fresh drawn signature:

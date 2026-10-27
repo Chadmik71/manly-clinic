@@ -309,7 +309,7 @@ export async function createBooking(
     where: { id: data.variantId },
     include: { service: true },
   });
-  if (!variant || variant.serviceId !== data.serviceId)
+  if (!variant || variant.serviceId !== data.serviceId || !variant.active || !variant.service.active)
     return { error: "Selected treatment not found." };
 
   // Health-fund claim validation: only allowed for eligible services, and
@@ -394,8 +394,8 @@ export async function createBooking(
   let partnerEndsAt = endsAt;
   let partnerEndMinutes = endMinutes;
   if (isCouple && data.partnerVariantId) {
-    const pv = await db.serviceVariant.findUnique({
-      where: { id: data.partnerVariantId },
+    const pv = await db.serviceVariant.findFirst({
+      where: { id: data.partnerVariantId, active: true, service: { active: true } },
       include: { service: { select: { name: true, slug: true, healthFundEligible: true } } },
     });
     if (!pv) return { error: "Partner service not found." };

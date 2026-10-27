@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { notifyClinicPhoneMessage } from "@/lib/notify";
 import { bookAppointment, findTimes, phoneServiceCatalogue } from "./booking";
 import { phoneAgentInstructions } from "./prompt";
+import { getSiteContent } from "@/lib/site-content";
 
 // Claude Haiku answers fast enough for a phone turn. Inference is pinned to
 // an Australian data centre with zero data retention (the gateway fails the
@@ -87,6 +88,7 @@ export async function runPhoneTurn(args: {
       services: await phoneServiceCatalogue(),
       now: new Date(),
       callerPhone: args.callerPhone,
+      clinic: (await getSiteContent()).clinic,
     }),
     messages,
     tools,

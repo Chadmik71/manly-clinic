@@ -343,9 +343,12 @@ export async function updateBookingDetails(
 
   const variant = await db.serviceVariant.findUnique({
     where: { id: data.variantId },
-    include: { service: { select: { name: true, healthFundEligible: true } } },
+    include: { service: { select: { name: true, healthFundEligible: true, active: true } } },
   });
   if (!variant) return { error: "Service variant not found." };
+  const variantChanged = variant.id !== booking.variantId;
+  if (variantChanged && (!variant.active || !variant.service.active))
+    return { error: "That treatment length is no longer offered." };
 
   // A health-fund claim only makes sense on a rebatable service. Switching a
   // claim booking to e.g. Thai massage turns the claim off, so the invoice
@@ -400,7 +403,9 @@ export async function updateBookingDetails(
       therapistId: newTherapistId,
       variantId: variant.id,
       serviceId: variant.serviceId,
-      priceCentsAtBooking: variant.priceCents,
+      // Moving a booking keeps the price it was booked at; only a change of
+      // treatment or length takes the current price.
+      priceCentsAtBooking: variantChanged ? variant.priceCents : booking.priceCentsAtBooking,
       ...(claimTurnedOff ? { claimWithHealthFund: false } : {}),
     },
   });

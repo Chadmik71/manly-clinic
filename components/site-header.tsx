@@ -14,7 +14,13 @@ const nav = [
   { href: "/contact", label: "Contact" },
 ];
 
-export function SiteHeader({ user }: { user?: { name: string; role: string } | null }) {
+export function SiteHeader({
+  user,
+  phone,
+}: {
+  user?: { name: string; role: string } | null;
+  phone: { display: string; e164: string };
+}) {
   const [open, setOpen] = useState(false);
   const portalHref =
     user?.role === "STAFF" || user?.role === "ADMIN" ? "/staff" : "/portal";
@@ -49,7 +55,7 @@ export function SiteHeader({ user }: { user?: { name: string; role: string } | n
               most "massage near me" visitors are on a phone and want to call,
               not fill a form. Sits left of the booking actions. */}
           <Button asChild variant="ghost" size="icon" aria-label={`Call ${CLINIC.name}`}>
-            <a href={`tel:${CLINIC.phoneE164}`}>
+            <a href={`tel:${phone.e164}`}>
               <Phone className="h-5 w-5" />
             </a>
           </Button>
@@ -95,12 +101,12 @@ export function SiteHeader({ user }: { user?: { name: string; role: string } | n
               </Link>
             ))}
             <a
-              href={`tel:${CLINIC.phoneE164}`}
+              href={`tel:${phone.e164}`}
               onClick={() => setOpen(false)}
               className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-accent"
             >
               <Phone className="h-4 w-4" />
-              Call {CLINIC.phone}
+              Call {phone.display}
             </a>
             <div className="flex gap-2 pt-2">
               {user ? (

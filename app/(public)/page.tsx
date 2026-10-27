@@ -18,7 +18,10 @@ import {
   MapPin,
   Phone,
 } from "lucide-react";
+import type { Metadata } from "next";
 import { CLINIC } from "@/lib/clinic";
+import { getSiteContent, type ClinicContact, type FaqItem } from "@/lib/site-content";
+import { getSiteImages } from "@/lib/site-images";
 import { db } from "@/lib/db";
 import { formatPrice, formatDuration, categoryLabel } from "@/lib/utils";
 import { GoogleReviews } from "@/components/google-reviews";
@@ -58,38 +61,12 @@ const FIRST_VISIT_STEPS = [
   },
 ] as const;
 
-const FAQS = [
-  {
-    q: "Do I need a referral to book?",
-    a: "No — you can book any of our treatments directly online or by phone. A referral is only needed if you’re claiming through Medicare on a chronic disease management plan, or for some workers compensation and DVA bookings. Standard private health-fund rebates for remedial massage do not require a referral.",
-  },
-  {
-    q: "Which health funds do you accept?",
-    a: "We’re HiCAPS-enabled and process on-the-spot rebates for all major Australian health funds — including Bupa, Medibank, HCF, NIB and most others. Rebate amounts depend on your specific policy, level of cover and remaining annual limit. Please bring your physical or digital health-fund card to your appointment.",
-  },
-  {
-    q: "How long is a typical session?",
-    a: "Treatments range from 10 minutes (Head, Neck and Shoulders add-on) up to 90 minutes (extended remedial or hot stone). Most first-time clients book a 60-minute remedial massage, which gives time for assessment, treatment and post-care advice. Booking durations include treatment time only; we allow a buffer between clients for room turnover.",
-  },
-  {
-    q: "What should I wear?",
-    a: "Please keep underwear on at all times during your treatment — this is a strict clinic policy. For oil-based and remedial massages, you’ll be draped with towels throughout, with only the area being worked on exposed. For Thai massage, you’ll stay fully clothed in loose-fitting attire. We recommend leaving valuables and jewellery at home.",
-  },
-  {
-    q: "Can I claim on the spot with HiCAPS?",
-    a: "Yes — we process health-fund rebates on the spot via HiCAPS for eligible treatments such as remedial massage. You only pay the gap between our fee and your fund’s rebate. Please bring your fund card to the appointment. Note that relaxation-only services are generally not health-fund eligible.",
-  },
-  {
-    q: "How do I cancel or reschedule?",
-    a: "You can reschedule or cancel through your client portal at manlyremedialthai.com.au, or by replying to your confirmation email. Cancellations with at least 1 hour’s notice are free of charge. Cancellations within 1 hour of the start time, no-shows, or arriving more than 10 minutes late without calling attract a 50% fee, per our published cancellation policy.",
-  },
-] as const;
 
-function FaqJsonLd() {
+function FaqJsonLd({ faqs }: { faqs: FaqItem[] }) {
   const data = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: FAQS.map((item) => ({
+    mainEntity: faqs.map((item) => ({
       "@type": "Question",
       name: item.q,
       acceptedAnswer: { "@type": "Answer", text: item.a },
@@ -98,26 +75,32 @@ function FaqJsonLd() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }}
     />
   );
 }
 
-function LocalBusinessJsonLd({ reviews }: { reviews: GoogleReviewsData | null }) {
+function LocalBusinessJsonLd({
+  reviews,
+  clinic,
+}: {
+  reviews: GoogleReviewsData | null;
+  clinic: ClinicContact;
+}) {
   const data: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "MedicalBusiness",
     name: CLINIC.name,
     image: `${CLINIC.domain}/og.png`,
     url: CLINIC.domain,
-    telephone: CLINIC.phoneE164,
-    email: CLINIC.email,
+    telephone: clinic.phoneE164,
+    email: clinic.email,
     address: {
       "@type": "PostalAddress",
-      streetAddress: CLINIC.address.line1,
-      addressLocality: CLINIC.address.suburb,
-      addressRegion: CLINIC.address.state,
-      postalCode: CLINIC.address.postcode,
+      streetAddress: clinic.address.line1,
+      addressLocality: clinic.address.suburb,
+      addressRegion: clinic.address.state,
+      postalCode: clinic.address.postcode,
       addressCountry: "AU",
     },
     geo: { "@type": "GeoCoordinates", latitude: -33.7962, longitude: 151.2853 },
@@ -143,19 +126,26 @@ function LocalBusinessJsonLd({ reviews }: { reviews: GoogleReviewsData | null })
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }}
     />
   );
 }
 
+export async function generateMetadata(): Promise<Metadata> {
+  const content = await getSiteContent();
+  return { description: content.heroHeadline };
+}
+
 export default async function HomePage() {
+  const [content, images] = await Promise.all([getSiteContent(), getSiteImages()]);
+  const { clinic } = content;
   // Show all active services in the Treatments grid; previously capped at 6
   // which hid 8 of the 14 catalog entries (incl. Remedial, Hot Stone, etc.).
   // Quick-booking strip below still shows the first 4 via .slice(0, 4).
   const services = await db.service.findMany({
     where: { active: true },
     include: {
-      variants: { orderBy: { durationMin: "asc" } },
+      variants: { where: { active: true }, orderBy: { durationMin: "asc" } },
     },
     orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
   });
@@ -185,8 +175,8 @@ export default async function HomePage() {
 
   return (
     <>
-      <LocalBusinessJsonLd reviews={reviews} />
-      <FaqJsonLd />
+      <LocalBusinessJsonLd reviews={reviews} clinic={clinic} />
+      <FaqJsonLd faqs={content.faqs} />
       {/* Hero */}
       <section className="relative overflow-hidden border-b">
         {/* Themed gradient stays underneath as a graceful fallback if the
@@ -196,8 +186,8 @@ export default async function HomePage() {
             attribution required). Decorative, so empty alt would be valid, but
             a short descriptive alt helps SEO/screen readers. */}
         <Image
-          src="/hero-massage.jpg"
-          alt="Relaxing hot stone massage treatment"
+          src={images.homeHero.src}
+          alt={images.homeHero.alt}
           fill
           priority
           sizes="100vw"
@@ -215,12 +205,10 @@ export default async function HomePage() {
               Privacy Act 1988 compliant clinic
             </Badge>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-balance">
-              Evidence-based remedial therapy on Sydney&apos;s Northern Beaches
+              {content.heroHeadline}
             </h1>
-            <p className="text-lg text-muted-foreground max-w-prose">
-              Qualified therapists. Clinical assessment. Health-fund eligible
-              treatments. Book online in under a minute — your records, your
-              control.
+            <p className="text-lg text-muted-foreground max-w-prose whitespace-pre-line">
+              {content.heroIntro}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <Button asChild size="lg">
@@ -242,15 +230,15 @@ export default async function HomePage() {
             <div className="flex flex-wrap gap-x-6 gap-y-2 pt-2 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Clock className="h-4 w-4" />
-                {CLINIC.hours}
+                {clinic.hours}
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-4 w-4" />
-                {CLINIC.address.suburb} {CLINIC.address.state}
+                {clinic.address.suburb} {clinic.address.state}
               </span>
               <span className="flex items-center gap-1.5">
                 <Phone className="h-4 w-4" />
-                {CLINIC.phone}
+                {clinic.phone}
               </span>
             </div>
           </div>
@@ -352,8 +340,7 @@ export default async function HomePage() {
               <h2 className="text-3xl font-bold tracking-tight">Treatments</h2>
             </div>
             <p className="text-muted-foreground mt-1">
-              Clinical and relaxation modalities, all delivered by qualified
-              therapists.
+              {content.treatmentsIntro}
             </p>
           </div>
           <Button asChild variant="outline" className="hidden sm:inline-flex">
@@ -401,8 +388,8 @@ export default async function HomePage() {
                 not just a spa" message beside the steps. */}
             <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border shadow-sm">
               <Image
-                src="/home-firstvisit.jpg"
-                alt="Therapist assessing a client's posture before remedial treatment"
+                src={images.homeFirstVisit.src}
+                alt={images.homeFirstVisit.alt}
                 fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover"
@@ -413,7 +400,7 @@ export default async function HomePage() {
                 Your first visit, step by step
               </h2>
               <p className="mt-2 text-muted-foreground">
-                New to the clinic? Here’s exactly what to expect — no surprises.
+                {content.firstVisitIntro}
               </p>
               <div className="mt-8 grid gap-6 sm:grid-cols-2">
                 {FIRST_VISIT_STEPS.map((step, i) => {
@@ -452,13 +439,13 @@ export default async function HomePage() {
           </p>
         </div>
         <div className="space-y-3">
-          {FAQS.map((item, i) => (
+          {content.faqs.map((item, i) => (
             <details
               key={i}
               className="group rounded-lg border bg-card p-4 [&_summary::-webkit-details-marker]:hidden"
             >
               <summary className="flex cursor-pointer items-center justify-between gap-3 font-medium">
-                <span>{item.q}</span>
+                <span className="whitespace-pre-line">{item.q}</span>
                 <span
                   aria-hidden
                   className="text-muted-foreground transition-transform group-open:rotate-180"
@@ -481,11 +468,10 @@ export default async function HomePage() {
           <Blob className="pointer-events-none absolute -bottom-24 -left-20 h-64 w-64 text-primary-foreground/10" />
           <div className="relative">
             <h2 className="text-2xl md:text-3xl font-bold mb-2">
-              Ready to book?
+              {content.ctaHeading}
             </h2>
-            <p className="opacity-90">
-              Online booking is open 24/7. Your intake form and consent are
-              handled securely before your first visit.
+            <p className="opacity-90 whitespace-pre-line">
+              {content.ctaBody}
             </p>
           </div>
           <div className="relative flex sm:justify-end">
