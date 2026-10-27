@@ -159,6 +159,9 @@ export function ConfirmForm({
   // Effective deposit-required flag: env kill switch AND admin's runtime
   // toggle must both be on for the booking to require a deposit.
   const depositsActive = DEPOSITS_ENV_ENABLED && depositsEnabled;
+  // Pre-fill splits a saved name at the first space: "Mary Jane Smith" → "Mary" + "Jane Smith".
+  const [guestFirst, ...guestRest] = guestDefaults.name.trim().split(/\s+/);
+  const guestLast = guestRest.join(" ");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -175,8 +178,10 @@ export function ConfirmForm({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [confirmOpen, pending]);
-  const [pregnant, setPregnant] = useState<boolean>(
-    intakeDefaults?.pregnancy ?? false,
+  // null = not answered yet. Returning clients start on their last answer so
+  // the "Nothing has changed" shortcut never hides an unanswered required field.
+  const [pregnant, setPregnant] = useState<boolean | null>(
+    intakeDefaults ? intakeDefaults.pregnancy : null,
   );
   // Pre-tick the claim checkbox for health-fund-eligible services
   // (currently Remedial Massage). Customers almost always pick those
@@ -323,6 +328,15 @@ export function ConfirmForm({
     fd.set("medicalHistory", JSON.stringify([...history]));
     fd.set("painLocationCodes", JSON.stringify(painCodes));
     if (pain != null) fd.set("painScale", String(pain));
+    if (isGuest) {
+      fd.set(
+        "guestName",
+        [fd.get("guestFirstName"), fd.get("guestLastName")]
+          .map((v) => String(v ?? "").trim())
+          .filter(Boolean)
+          .join(" "),
+      );
+    }
     // Signature gate: remedial+HF claim (HICAPS audit) or pregnancy (safety ack).
     if (signatureRequired) {
       if (!signatureDataUrl) {
@@ -430,15 +444,26 @@ export function ConfirmForm({
           />
           <CardContent className="pb-5">
             <FieldGrid>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="guestName">Full name</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="guestFirstName">First name</Label>
                 <Input
-                  id="guestName"
-                  name="guestName"
+                  id="guestFirstName"
+                  name="guestFirstName"
                   required
-                  autoComplete="name"
-                  placeholder="Jane Doe"
-                  defaultValue={guestDefaults.name}
+                  autoComplete="given-name"
+                  placeholder="Jane"
+                  defaultValue={guestFirst}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="guestLastName">Surname</Label>
+                <Input
+                  id="guestLastName"
+                  name="guestLastName"
+                  required
+                  autoComplete="family-name"
+                  placeholder="Doe"
+                  defaultValue={guestLast}
                 />
               </div>
               <div className="space-y-1.5">
@@ -896,7 +921,7 @@ export function ConfirmForm({
       )}
 
       {/* 6. Pregnancy (full intake AND pregnancy massage; hidden for relaxation services).
-          For pregnancy massage the "are you pregnant?" checkbox is redundant —
+          For pregnancy massage the "are you pregnant?" question is redundant —
           we skip it and ask only for weeks. */}
       {intakeMode !== 'safety' && (
       <Card>
@@ -905,17 +930,37 @@ export function ConfirmForm({
           {isPregnancyMassage ? (
             <input type="hidden" name="pregnancy" value="on" />
           ) : (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="pregnancy"
-                checked={pregnant}
-                onChange={(e) => setPregnant(e.target.checked)}
-              />
-              <span>I am currently pregnant</span>
-            </label>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">
+                Are you pregnant?<span className="text-destructive ml-1">*</span>
+              </legend>
+              <div className="flex gap-6 text-sm">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="pregnancy"
+                    value="on"
+                    required
+                    checked={pregnant === true}
+                    onChange={() => setPregnant(true)}
+                  />
+                  <span>Yes</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="pregnancy"
+                    value="off"
+                    required
+                    checked={pregnant === false}
+                    onChange={() => setPregnant(false)}
+                  />
+                  <span>No</span>
+                </label>
+              </div>
+            </fieldset>
           )}
-          {(pregnant || isPregnancyMassage) && (
+          {(pregnant === true || isPregnancyMassage) && (
             <div className={isPregnancyMassage ? "max-w-xs space-y-1" : "ml-6 max-w-xs space-y-1"}>
               <Label htmlFor="pregnancyWeeks" className="text-sm">
                 How many weeks?
