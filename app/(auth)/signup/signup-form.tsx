@@ -32,7 +32,10 @@ export function SignupForm() {
     }
 
     const payload = {
-      name: String(fd.get("name") ?? "").trim(),
+      name: [fd.get("firstName"), fd.get("lastName")]
+        .map((v) => String(v ?? "").trim())
+        .filter(Boolean)
+        .join(" "),
       email: String(fd.get("email") ?? "").trim().toLowerCase(),
       phone: String(fd.get("phone") ?? "").trim(),
       password,
@@ -75,9 +78,15 @@ export function SignupForm() {
 
   return (
     <form onSubmit={onSubmit} method="post" className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Full name</Label>
-        <Input id="name" name="name" required />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="firstName">First name</Label>
+          <Input id="firstName" name="firstName" required autoComplete="given-name" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="lastName">Surname</Label>
+          <Input id="lastName" name="lastName" required autoComplete="family-name" />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
