@@ -13,6 +13,7 @@ export const intakeCompletionSchema = z.object({
   claimWithHealthFund: z.string().optional(),
   healthFundName: z.string().max(80).optional(),
   healthFundMemberNumber: z.string().max(40).optional(),
+  healthFundIrn: z.string().max(4).optional(),
   reasonForTreatment: z.string().max(2000).optional(),
   // PNG data URL from the signature pad, same 150 KB ceiling as the
   // new-booking form and the public confirm action.
@@ -46,12 +47,14 @@ const MESSAGES = {
     weeks: "Please enter how many weeks pregnant the client is.",
     fund: "Please choose the client's health fund.",
     member: "Please enter the client's health fund member number.",
+    irn: "Please enter the client's individual number from their health fund card.",
   },
   client: {
     sign: "Please sign the form.",
     weeks: "Please enter how many weeks pregnant you are.",
     fund: "Please choose your health fund.",
     member: "Please enter your health fund member number.",
+    irn: "Please enter your individual number from your health fund card.",
   },
 } as const;
 
@@ -121,6 +124,8 @@ export async function saveBookingIntake(args: {
       return { error: msg.fund };
     if (!data.healthFundMemberNumber || !data.healthFundMemberNumber.trim())
       return { error: msg.member };
+    if (!data.healthFundIrn || !data.healthFundIrn.trim())
+      return { error: msg.irn };
     if (!data.reasonForTreatment || !data.reasonForTreatment.trim())
       return { error: "Please describe the reason for treatment." };
   }
@@ -140,6 +145,8 @@ export async function saveBookingIntake(args: {
   if (claimWithHealthFund && data.healthFundName?.trim()) userPatch.healthFundName = data.healthFundName.trim();
   if (claimWithHealthFund && data.healthFundMemberNumber?.trim())
     userPatch.healthFundMemberNumber = data.healthFundMemberNumber.trim();
+  if (claimWithHealthFund && data.healthFundIrn?.trim())
+    userPatch.healthFundIrn = data.healthFundIrn.trim();
   if (Object.keys(userPatch).length > 0) {
     await db.user.update({ where: { id: booking.clientId }, data: userPatch });
   }
@@ -179,6 +186,7 @@ export async function saveBookingIntake(args: {
       healthFundMemberNumber: claimWithHealthFund
         ? (data.healthFundMemberNumber ?? null)
         : null,
+      healthFundIrn: claimWithHealthFund ? (data.healthFundIrn?.trim() || null) : null,
       reasonForTreatment: claimWithHealthFund
         ? (data.reasonForTreatment ?? null)
         : null,
@@ -223,6 +231,7 @@ export type IntakePrefill = {
     gpPhone: string;
     healthFundName: string;
     healthFundMemberNumber: string;
+    healthFundIrn: string;
   };
   intake: {
     medicalConditions: string;
@@ -257,6 +266,7 @@ export async function getIntakePrefill(clientId: string): Promise<IntakePrefill>
         gpPhone: true,
         healthFundName: true,
         healthFundMemberNumber: true,
+        healthFundIrn: true,
       },
     }),
     db.intakeForm.findFirst({
@@ -273,6 +283,7 @@ export async function getIntakePrefill(clientId: string): Promise<IntakePrefill>
       gpPhone: clientDemo?.gpPhone ?? "",
       healthFundName: clientDemo?.healthFundName ?? "",
       healthFundMemberNumber: clientDemo?.healthFundMemberNumber ?? "",
+      healthFundIrn: clientDemo?.healthFundIrn ?? "",
     },
     intake: priorFullIntake
       ? {

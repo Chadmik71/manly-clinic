@@ -129,6 +129,7 @@ const schema = z.object({
   intakeLater: z.string().optional(),
   healthFundName: z.string().max(80).optional(),
   healthFundMemberNumber: z.string().max(40).optional(),
+  healthFundIrn: z.string().max(4).optional(),
   reasonForTreatment: z.string().max(2000).optional(),
   voucherCode: z.string().max(40).optional(),
   // PNG data URL of the client's drawn signature. Required at runtime when
@@ -338,6 +339,8 @@ export async function createBooking(
       return { error: "Please choose your health fund." };
     if (!nonEmpty(data.healthFundMemberNumber))
       return { error: "Please enter your health fund member number." };
+    if (!nonEmpty(data.healthFundIrn))
+      return { error: "Please enter your individual number from your health fund card." };
     if (!nonEmpty(data.reasonForTreatment))
       return { error: "Please describe the reason for treatment." };
     const requiredIntake: Array<[string, string]> = [
@@ -593,6 +596,8 @@ export async function createBooking(
     userPatch.healthFundName = data.healthFundName;
   if (claimWithHealthFund && data.healthFundMemberNumber)
     userPatch.healthFundMemberNumber = data.healthFundMemberNumber;
+  if (claimWithHealthFund && data.healthFundIrn)
+    userPatch.healthFundIrn = data.healthFundIrn.trim();
   // Marketing/news opt-in (gates the post-visit review SMS). Only ever set to
   // true here — a later non-ticked booking must not silently revoke a prior
   // consent (opt-out happens via the SMS STOP reply).
@@ -648,6 +653,7 @@ export async function createBooking(
       healthFundMemberNumber: claimWithHealthFund
         ? data.healthFundMemberNumber
         : null,
+      healthFundIrn: claimWithHealthFund ? (data.healthFundIrn?.trim() ?? null) : null,
       reasonForTreatment: claimWithHealthFund ? data.reasonForTreatment : null,
       consentToTreat: true,
       consentToStore: true,

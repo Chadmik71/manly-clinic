@@ -38,8 +38,9 @@ const MODELS = {
     "painLocation", "painOnset", "painHistory", "treatmentGoals",
     "emergencyContactName", "emergencyContactRelationship", "emergencyContactPhone",
     "reasonForTreatment", "signatureDataUrl", "painLocationCodes", "healthFundMemberNumber",
+    "healthFundIrn",
   ],
-  user: ["healthFundMemberNumber", "gpName", "gpClinic", "gpPhone"],
+  user: ["healthFundMemberNumber", "healthFundIrn", "gpName", "gpClinic", "gpPhone"],
   booking: [
     "noteSubjective", "noteObjective", "noteAssessment", "notePlan",
     "noteAreasTreated", "noteTechniques", "noteOutcome", "noteAnnotationsPng",

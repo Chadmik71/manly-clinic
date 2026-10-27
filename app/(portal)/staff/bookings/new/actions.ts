@@ -50,6 +50,7 @@ const schema = z.object({
   claimWithHealthFund: z.string().optional(),
   healthFundName: z.string().max(80).optional(),
   healthFundMemberNumber: z.string().max(40).optional(),
+  healthFundIrn: z.string().max(4).optional(),
   reasonForTreatment: z.string().max(2000).optional(),
   // PNG data URL from the in-clinic signature pad. 150 KB ceiling matches the
   // public confirm action — typical signatures are 5–20 KB. Required for
@@ -181,6 +182,7 @@ export async function getClientPrefill(clientId: string): Promise<{
       gpPhone: string;
       healthFundName: string;
       healthFundMemberNumber: string;
+      healthFundIrn: string;
     };
     intake: {
       medicalConditions: string;
@@ -226,6 +228,7 @@ export async function getClientPrefill(clientId: string): Promise<{
         gpPhone: true,
         healthFundName: true,
         healthFundMemberNumber: true,
+        healthFundIrn: true,
       },
     }),
     // Find the most recent intake row that carried full clinical data, NOT
@@ -279,6 +282,7 @@ export async function getClientPrefill(clientId: string): Promise<{
         gpPhone: user.gpPhone ?? "",
         healthFundName: user.healthFundName ?? "",
         healthFundMemberNumber: user.healthFundMemberNumber ?? "",
+        healthFundIrn: user.healthFundIrn ?? "",
       },
       intake: intake
         ? {
@@ -384,6 +388,8 @@ export async function createStaffBooking(
         return { error: "Please choose the client's health fund." };
       if (!data.healthFundMemberNumber || !data.healthFundMemberNumber.trim())
         return { error: "Please enter the client's health fund member number." };
+      if (!data.healthFundIrn || !data.healthFundIrn.trim())
+        return { error: "Please enter the client's individual number from their health fund card." };
       if (!data.reasonForTreatment || !data.reasonForTreatment.trim())
         return { error: "Please describe the reason for treatment." };
     }
@@ -470,6 +476,8 @@ export async function createStaffBooking(
     if (claimWithHealthFund && data.healthFundName?.trim()) userPatch.healthFundName = data.healthFundName.trim();
     if (claimWithHealthFund && data.healthFundMemberNumber?.trim())
       userPatch.healthFundMemberNumber = data.healthFundMemberNumber.trim();
+    if (claimWithHealthFund && data.healthFundIrn?.trim())
+      userPatch.healthFundIrn = data.healthFundIrn.trim();
     if (Object.keys(userPatch).length > 0) {
       await db.user.update({ where: { id: clientId }, data: userPatch });
     }
@@ -573,6 +581,7 @@ export async function createStaffBooking(
       healthFundMemberNumber: claimWithHealthFund
         ? (data.healthFundMemberNumber ?? null)
         : null,
+      healthFundIrn: claimWithHealthFund ? (data.healthFundIrn?.trim() || null) : null,
       reasonForTreatment: claimWithHealthFund
         ? (data.reasonForTreatment ?? null)
         : null,

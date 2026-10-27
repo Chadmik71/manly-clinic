@@ -21,6 +21,7 @@ export type InvoiceData = {
   healthFund: {
     name: string;
     memberNumber: string;
+    irn: string | null;
     reasonForTreatment: string;
   } | null;
   /** PNG data URL of the patient signature, if captured at booking. */
@@ -146,7 +147,8 @@ export async function renderInvoicePdf(data: InvoiceData): Promise<Buffer> {
 
     if (data.healthFund) {
       section("Health fund", [
-        `${data.healthFund.name} · Member ${data.healthFund.memberNumber}`,
+        `${data.healthFund.name} · Member ${data.healthFund.memberNumber}` +
+          (data.healthFund.irn ? ` · IRN ${data.healthFund.irn}` : ""),
         `Reason: ${data.healthFund.reasonForTreatment}`,
       ]);
     }

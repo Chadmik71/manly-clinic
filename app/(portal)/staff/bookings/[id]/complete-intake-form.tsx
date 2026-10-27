@@ -19,6 +19,7 @@ export type Prefill = {
     gpPhone: string;
     healthFundName: string;
     healthFundMemberNumber: string;
+    healthFundIrn: string;
   };
   intake: {
     medicalConditions: string;
@@ -121,6 +122,7 @@ export function CompleteIntakeForm({
       fd.delete("claimWithHealthFund");
       fd.delete("healthFundName");
       fd.delete("healthFundMemberNumber");
+      fd.delete("healthFundIrn");
       fd.delete("reasonForTreatment");
     }
     if (isPregnant) fd.set("pregnancy", "on");
@@ -192,6 +194,23 @@ export function CompleteIntakeForm({
               defaultValue={prefill.user.healthFundMemberNumber}
               placeholder="e.g. 1234567A"
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="healthFundIrn">
+              Individual number (IRN) <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="healthFundIrn"
+              name="healthFundIrn"
+              required
+              inputMode="numeric"
+              maxLength={4}
+              defaultValue={prefill.user.healthFundIrn}
+              placeholder="e.g. 01"
+            />
+            <p className="text-xs text-muted-foreground">
+              The number next to the person&apos;s name on the card.
+            </p>
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="reasonForTreatment">

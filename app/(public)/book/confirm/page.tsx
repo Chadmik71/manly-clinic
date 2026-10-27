@@ -60,6 +60,7 @@ const EMPTY_USER_DEFAULTS = {
   gpPhone: "",
   healthFundName: "",
   healthFundMemberNumber: "",
+  healthFundIrn: "",
 };
 
 export default async function ConfirmPage({
@@ -189,6 +190,7 @@ export default async function ConfirmPage({
       gpPhone: userRow?.gpPhone ?? "",
       healthFundName: userRow?.healthFundName ?? "",
       healthFundMemberNumber: userRow?.healthFundMemberNumber ?? "",
+      healthFundIrn: userRow?.healthFundIrn ?? "",
     };
     bookedUnderName = session.user.name ?? null;
     signedInEmail = session.user.email ?? null;
@@ -330,6 +332,7 @@ export default async function ConfirmPage({
                 emergencyContactPhone: intake.emergencyContactPhone ?? "",
                 healthFundName: intake.healthFundName ?? "",
                 healthFundMemberNumber: intake.healthFundMemberNumber ?? "",
+                healthFundIrn: intake.healthFundIrn ?? "",
                 reasonForTreatment: intake.reasonForTreatment ?? "",
               painLocationCodes: parseHistoryJson(intake.painLocationCodes),
               }

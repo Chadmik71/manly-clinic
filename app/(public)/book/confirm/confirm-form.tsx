@@ -49,6 +49,7 @@ type IntakeDefaults = {
   emergencyContactPhone: string;
   healthFundName: string;
   healthFundMemberNumber: string;
+  healthFundIrn: string;
   reasonForTreatment: string;
   painLocationCodes: string[];
 } | null;
@@ -65,6 +66,7 @@ type UserDefaults = {
   gpPhone: string;
   healthFundName: string;
   healthFundMemberNumber: string;
+  healthFundIrn: string;
 };
 
 function SectionHeader({
@@ -403,6 +405,8 @@ export function ConfirmForm({
     !!intakeDefaults &&
     filled(intakeDefaults.healthFundName) &&
     filled(intakeDefaults.healthFundMemberNumber) &&
+    // Clients from before the IRN was asked must go through the form once.
+    filled(intakeDefaults.healthFundIrn) &&
     filled(intakeDefaults.reasonForTreatment);
   // First-time (or incomplete-form) remedial clients can book now and fill
   // in the health form later: online from the confirmation email, or at the
@@ -1098,6 +1102,27 @@ export function ConfirmForm({
                       }
                       placeholder="e.g. 1234567A"
                     />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="healthFundIrn">
+                      Your individual number <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="healthFundIrn"
+                      name="healthFundIrn"
+                      required
+                      inputMode="numeric"
+                      maxLength={4}
+                      defaultValue={
+                        userDefaults.healthFundIrn ||
+                        intakeDefaults?.healthFundIrn ||
+                        ""
+                      }
+                      placeholder="e.g. 01"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      The small number next to your name on the card.
+                    </p>
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="reasonForTreatment">

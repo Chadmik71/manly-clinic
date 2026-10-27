@@ -114,6 +114,7 @@ export default async function StaffBookingDetail({
           gpPhone: true,
           healthFundName: true,
           healthFundMemberNumber: true,
+          healthFundIrn: true,
         },
       }),
       db.intakeForm.findFirst({
@@ -130,6 +131,7 @@ export default async function StaffBookingDetail({
         gpPhone: clientDemo?.gpPhone ?? "",
         healthFundName: clientDemo?.healthFundName ?? "",
         healthFundMemberNumber: clientDemo?.healthFundMemberNumber ?? "",
+        healthFundIrn: clientDemo?.healthFundIrn ?? "",
       },
       intake: priorFullIntake
         ? {
@@ -305,6 +307,10 @@ export default async function StaffBookingDetail({
               <Field
                 label="Member number"
                 value={intake.healthFundMemberNumber ?? "—"}
+              />
+              <Field
+                label="Individual number (IRN)"
+                value={intake.healthFundIrn ?? "—"}
               />
               <Field
                 label="Reason for treatment"

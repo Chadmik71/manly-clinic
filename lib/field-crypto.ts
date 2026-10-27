@@ -46,6 +46,7 @@ export const ENCRYPTED_FIELDS: ReadonlySet<string> = new Set([
   "painLocationCodes",
   // IntakeForm + User
   "healthFundMemberNumber",
+  "healthFundIrn",
   // User
   "gpName",
   "gpClinic",

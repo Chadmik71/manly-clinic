@@ -66,6 +66,7 @@ export async function GET(
         ? {
             name: intake.healthFundName,
             memberNumber: intake.healthFundMemberNumber,
+            irn: intake.healthFundIrn,
             reasonForTreatment: intake.reasonForTreatment ?? "—",
           }
         : null,

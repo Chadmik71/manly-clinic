@@ -147,7 +147,7 @@ export default async function ClientIntakeHistory({
                         {intake.healthFundName && (
                           <Field
                             label="Health fund"
-                            value={`${intake.healthFundName} · Member ${intake.healthFundMemberNumber ?? "—"}`}
+                            value={`${intake.healthFundName} · Member ${intake.healthFundMemberNumber ?? "—"}${intake.healthFundIrn ? ` · IRN ${intake.healthFundIrn}` : ""}`}
                             full
                           />
                         )}

@@ -211,6 +211,7 @@ export function NewBookingForm({
       fd.delete("claimWithHealthFund");
       fd.delete("healthFundName");
       fd.delete("healthFundMemberNumber");
+      fd.delete("healthFundIrn");
       fd.delete("reasonForTreatment");
     }
     // Health-fund claims and pregnancy bookings need the full clinical intake
@@ -528,6 +529,23 @@ export function NewBookingForm({
                   defaultValue={prefill?.user.healthFundMemberNumber ?? ""}
                   placeholder="e.g. 1234567A"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="healthFundIrn">
+                  Individual number (IRN) <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="healthFundIrn"
+                  name="healthFundIrn"
+                  required
+                  inputMode="numeric"
+                  maxLength={4}
+                  defaultValue={prefill?.user.healthFundIrn ?? ""}
+                  placeholder="e.g. 01"
+                />
+                <p className="text-xs text-muted-foreground">
+                  The number next to the client&apos;s name on the card.
+                </p>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="reasonForTreatment">
