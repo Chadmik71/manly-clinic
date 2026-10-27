@@ -292,10 +292,26 @@ export async function notifyPartnerBooked(args: {
   serviceName: string;
   durationMin: number;
   startsAt: Date;
-  healthFormUrl: string;
+  /** Null when this email can't receive a sign-in link (the partner's
+   *  account has a different email): they fill the form in at the clinic. */
+  healthFormUrl: string | null;
 }): Promise<void> {
   const subject = `You're booked in — ${args.reference}`;
   const manageUrl = `${CLINIC.domain}/login?from=${encodeURIComponent("/portal/bookings")}&link=1&email=${encodeURIComponent(args.email)}`;
+  const formText = args.healthFormUrl
+    ? `Before your visit: please complete your health form (about 3 minutes). You can also claim on your health fund there:
+${args.healthFormUrl}
+No time? That's fine, you can fill it in when you arrive.
+
+Manage / cancel / reschedule: ${manageUrl}`
+    : `Please arrive 10 minutes early to fill in your health form at the clinic. Bring your health fund card if you'd like to claim.
+
+To change or cancel your booking, call us on ${CLINIC.phone}.`;
+  const formHtml = args.healthFormUrl
+    ? `<p style="margin:12px 0;padding:10px 12px;border:1px solid #99d5cf;border-radius:6px;background:#effaf8"><strong>Before your visit:</strong> please <a href="${args.healthFormUrl}">complete your health form</a> (about 3 minutes). You can also claim on your health fund there. No time? You can fill it in when you arrive.</p>
+<p><a href="${manageUrl}">Manage your booking</a></p>`
+    : `<p style="margin:12px 0;padding:10px 12px;border:1px solid #99d5cf;border-radius:6px;background:#effaf8">Please arrive <strong>10 minutes early</strong> to fill in your health form at the clinic. Bring your health fund card if you'd like to claim.</p>
+<p>To change or cancel your booking, call us on ${CLINIC.phone}.</p>`;
   const text = `Hi ${args.name},
 
 ${args.bookedByName} has booked you in for a couple massage at ${CLINIC.name}.
@@ -304,11 +320,7 @@ Your treatment: ${args.serviceName} (${args.durationMin} min)
 When: ${fmt(args.startsAt)}
 Booking reference: ${args.reference}
 
-Before your visit: please complete your health form (about 3 minutes). You can also claim on your health fund there:
-${args.healthFormUrl}
-No time? That's fine, you can fill it in when you arrive.
-
-Manage / cancel / reschedule: ${manageUrl}
+${formText}
 
 Cancellation policy: please give us at least 1 hour's notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.
 
@@ -319,15 +331,15 @@ ${CLINIC.phone}`;
 <p>Your treatment: <strong>${escHtml(args.serviceName)}</strong> (${args.durationMin} min)<br/>
 When: <strong>${fmt(args.startsAt)}</strong><br/>
 Booking reference: <code>${args.reference}</code></p>
-<p style="margin:12px 0;padding:10px 12px;border:1px solid #99d5cf;border-radius:6px;background:#effaf8"><strong>Before your visit:</strong> please <a href="${args.healthFormUrl}">complete your health form</a> (about 3 minutes). You can also claim on your health fund there. No time? You can fill it in when you arrive.</p>
-<p><a href="${manageUrl}">Manage your booking</a></p>
+${formHtml}
 <p style="color:#64748b;font-size:12px;margin:12px 0;">Cancellation policy: please give us at least 1 hour&apos;s notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.</p>
 <p style="color:#64748b;font-size:12px">${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}</p>`;
   await sendEmail({ to: args.email, subject, html, text });
   if (args.phone) {
     await sendSms({
       to: args.phone,
-      body: `${CLINIC.name}: you're booked for ${args.serviceName} ${args.durationMin}min ${fmtShort(args.startsAt)}. Ref ${args.reference}. Health form link in your email.`,
+      body: `${CLINIC.name}: you're booked for ${args.serviceName} ${args.durationMin}min ${fmtShort(args.startsAt)}. Ref ${args.reference}.` +
+        (args.healthFormUrl ? " Health form link in your email." : " Please arrive 10 min early for your health form."),
     });
   }
 }

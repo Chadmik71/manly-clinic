@@ -755,6 +755,9 @@ export async function createBooking(
   // unique mobile, else a new record. Their saved details are never shown to
   // the booker; the partner sees them only when they open their own form.
   let partnerUserId: string | null = null;
+  // Sign-in links only go to the email saved on the account. A partner found
+  // by mobile under a different (or placeholder) email can't use one.
+  let partnerCanSignIn = false;
   if (partnerNeedsOwnRecord && isCouple && partnerVariant && partnerCandidate) {
     const pm = await findOrCreateUserForGuest({
       name: data.partnerName!.trim(),
@@ -768,6 +771,8 @@ export async function createBooking(
       };
     }
     partnerUserId = pm.userId;
+    const partnerAccount = await db.user.findUnique({ where: { id: pm.userId }, select: { email: true } });
+    partnerCanSignIn = partnerAccount?.email.toLowerCase() === partnerEmail;
     await audit({
       userId: pm.userId,
       action: pm.isNew ? "PARTNER_CREATE_USER" : "PARTNER_MATCH_EXISTING_USER",
@@ -950,7 +955,9 @@ export async function createBooking(
       serviceName: partnerVariant.service.name,
       durationMin: partnerVariant.durationMin,
       startsAt,
-      healthFormUrl: `${CLINIC.domain}/login?from=${encodeURIComponent(`/portal/bookings/${partnerBookingId}/health-form`)}&link=1&email=${encodeURIComponent(partnerEmail)}`,
+      healthFormUrl: partnerCanSignIn
+        ? `${CLINIC.domain}/login?from=${encodeURIComponent(`/portal/bookings/${partnerBookingId}/health-form`)}&link=1&email=${encodeURIComponent(partnerEmail)}`
+        : null,
     });
   }
 
