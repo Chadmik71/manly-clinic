@@ -15,11 +15,14 @@ export function LoginForm() {
   // Only same-site paths: never redirect to another website after sign-in.
   const rawFrom = params.get("from") ?? "/portal";
   const from = rawFrom.startsWith("/") && !rawFrom.startsWith("//") ? rawFrom : "/portal";
+  // The booking confirmation email's "Manage your booking" link arrives with
+  // link=1 and the client's email, opening the sign-in-link form ready to send.
+  const prefillEmail = params.get("email") ?? "";
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   // "Email me a sign-in link" mode, for clients without (or who forgot) a password.
-  const [linkMode, setLinkMode] = useState(false);
+  const [linkMode, setLinkMode] = useState(params.get("link") === "1");
   const [linkSentTo, setLinkSentTo] = useState<string | null>(null);
 
   async function onRequestLink(e: React.FormEvent<HTMLFormElement>) {
@@ -52,7 +55,7 @@ export function LoginForm() {
         </p>
         <div className="space-y-2">
           <Label htmlFor="link-email">Email</Label>
-          <Input id="link-email" name="email" type="email" required autoComplete="email" />
+          <Input id="link-email" name="email" type="email" required autoComplete="email" defaultValue={prefillEmail} />
         </div>
         {error && (
           <p className="text-sm text-destructive" role="alert">
@@ -106,6 +109,7 @@ export function LoginForm() {
           type="email"
           required
           autoComplete="email"
+          defaultValue={prefillEmail}
         />
       </div>
       <div className="space-y-2">

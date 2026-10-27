@@ -151,6 +151,10 @@ export async function notifyBookingConfirmed(args: {
    *  themselves (they already know). Default true. */
   notifyStaff?: boolean;
 }): Promise<void> {
+  // Opens the "email me a sign-in link" form with their email filled in, so a
+  // first-time client with no password is one tap from their bookings.
+  // Already signed in? The login page skips straight to the bookings.
+  const manageUrl = `${CLINIC.domain}/login?from=${encodeURIComponent("/portal/bookings")}&link=1&email=${encodeURIComponent(args.email)}`;
   const extraText =
     (args.healthFormUrl
       ? `
@@ -194,7 +198,7 @@ Booking references:
   Yours:   ${args.reference}
   Partner: ${p.reference}
 
-Manage / cancel / reschedule: ${CLINIC.domain}/portal/bookings${extraText}
+Manage / cancel / reschedule: ${manageUrl}${extraText}
 
 ${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb}
 ${CLINIC.phone}
@@ -209,7 +213,7 @@ ${CLINIC.name} · ${CLINIC.address.line1} ${CLINIC.address.suburb} ${CLINIC.addr
   <li><strong>${p.serviceName}</strong> — ${p.durationMin} min${partnerPriceStr} <span style="color:#64748b">(${partnerLabel})</span></li>
 </ul>
 <p>Booking references: <code>${args.reference}</code> (yours) &amp; <code>${p.reference}</code> (partner)<br/>
-<a href="${CLINIC.domain}/portal/bookings">Manage your booking</a></p>${extraHtml}
+<a href="${manageUrl}">Manage your booking</a></p>${extraHtml}
 <p style="color:#64748b;font-size:12px">${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}</p>
 <p style="color:#64748b;font-size:12px;margin:12px 0;">Cancellation policy: please give us at least 1 hour&apos;s notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.</p>
 <p style="color:#64748b;font-size:12px;margin:12px 0 0 0;">${CLINIC.name} · ${CLINIC.address.line1} ${CLINIC.address.suburb} ${CLINIC.address.state} ${CLINIC.address.postcode} · ${CLINIC.phone}</p>`;
@@ -230,7 +234,7 @@ ${CLINIC.name} · ${CLINIC.address.line1} ${CLINIC.address.suburb} ${CLINIC.addr
 Your ${args.serviceName} (${args.durationMin} min) is confirmed for ${fmt(args.startsAt)}.
 
 Booking reference: ${args.reference}
-Manage / cancel / reschedule: ${CLINIC.domain}/portal/bookings${extraText}
+Manage / cancel / reschedule: ${manageUrl}${extraText}
 
 Cancellation policy: please give us at least 1 hour's notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.
 
@@ -239,7 +243,7 @@ ${CLINIC.phone}`;
   const html = `<p>Hi ${args.name},</p>
 <p>Your <strong>${args.serviceName}</strong> (${args.durationMin} min) is confirmed for <strong>${fmt(args.startsAt)}</strong>.</p>
 <p>Booking reference: <code>${args.reference}</code><br/>
-<a href="${CLINIC.domain}/portal/bookings">Manage your booking</a></p>${extraHtml}
+<a href="${manageUrl}">Manage your booking</a></p>${extraHtml}
 <p style="color:#64748b;font-size:12px;margin:12px 0;">Cancellation policy: please give us at least 1 hour&apos;s notice if you need to cancel or reschedule. If you arrive more than 10 minutes late without calling, your booking will be treated as cancelled.</p>
       <p style="color:#64748b;font-size:12px">${CLINIC.name} · ${CLINIC.address.line1}, ${CLINIC.address.suburb} · ${CLINIC.phone}</p>`;
   await sendEmail({ to: args.email, subject, html, text });
