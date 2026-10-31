@@ -23,6 +23,8 @@ const PRESETS: Preset[] = [
   { label: "Lunch (12 – 1pm)", reason: "Lunch", fromTime: "12:00", toTime: "13:00" },
   { label: "Late start (until 11am)", reason: "Late start", fromTime: "09:00", toTime: "11:00" },
   { label: "Early finish (from 4pm)", reason: "Early finish", fromTime: "16:00", toTime: "20:30" },
+  // Covers the whole calendar (8am – 9pm) for this one date only.
+  { label: "Whole day off", reason: "Day off", fromTime: "08:00", toTime: "21:00" },
 ];
 
 export function BlockTimeDialog({

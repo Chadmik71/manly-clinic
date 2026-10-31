@@ -198,6 +198,14 @@ export function TherapistQuickActions({
           >
             Early finish (from 4pm)
           </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => applyPreset("Day off", 8, 0, 21, 0)}
+            className={itemClass}
+          >
+            Whole day off (this date only)
+          </button>
           {!showCustom ? (
             <button
               type="button"
