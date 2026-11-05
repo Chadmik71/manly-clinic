@@ -11,14 +11,17 @@ export const CLINIC = {
   },
   phone: "0412 822 226",
   phoneE164: "+61412822226",
-  email: "info@manlyremedialthai.com.au",
+  // Google Workspace (the @manlyremedialthai.com.au inboxes) was cancelled in
+  // Nov 2026, so the public contact address is the clinic Gmail. Outbound mail
+  // still sends FROM bookings@manlyremedialthai.com.au via Resend (mailDomain).
+  email: "manlyremedialthai@gmail.com",
   hours: "7 days, 9:00 am – 8:00 pm",
   publicHolidaySurchargePct: 10,
 
   // Australian Privacy Act / APP context
   abn: "82 669 994 183",
   legalName: "Manly Remedial Clinic Pty Ltd",
-  privacyOfficerEmail: "info@manlyremedialthai.com.au", // privacy@ mailbox not set up; requests go to the main inbox
+  privacyOfficerEmail: "manlyremedialthai@gmail.com", // no separate privacy mailbox; requests go to the main inbox
   domain: "https://www.manlyremedialthai.com.au",
   // Bare host (no www, no protocol) used for outbound email FROM addresses.
   // Resend verified the apex domain only, so FROM must be bookings@manlyremedialthai.com.au

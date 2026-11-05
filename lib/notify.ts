@@ -37,7 +37,8 @@ async function sendEmail({ to: rawTo, subject, html, text }: EmailArgs): Promise
         authorization: `Bearer ${apiKey}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({ from, to, subject, html, text }),
+      // bookings@ has no inbox, so replies go to the clinic address.
+      body: JSON.stringify({ from, to, reply_to: CLINIC.email, subject, html, text }),
     });
     if (!res.ok) {
       console.error("[notify:email] non-ok", res.status, await res.text());

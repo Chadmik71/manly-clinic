@@ -24,7 +24,7 @@ import {
 // Resilience: DB calls wrapped in withDbRetry so a cold-Neon hit doesn't 500.
 
 const REPORT_RECIPIENTS = [
-  "info@manlyremedialthai.com.au",
+  "manlyremedialthai@gmail.com",
   "chadmik711@gmail.com",
 ];
 
